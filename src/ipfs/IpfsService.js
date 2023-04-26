@@ -3,6 +3,7 @@ import * as types from '../common/common-types.js';
 import * as pathlib from 'path';
 import assert from 'assert';
 import { Multiaddr } from 'multiaddr';
+import { envVarName } from '../common/consts.js';
 import { ipfsInit, isValidIpfsDir, IPFS_LOCALHOST_IPV4, ipfsTestPublish, ipfsAddQ } from './ipfs-api.js';
 import { ServerService } from "../common/service.js";
 import { dirExists, readObjectFromJSONFile, resolveAbsolutePath, rmrfDir, throwIfDirDoesNotExist, throwIfFileDoesNotExist, throwIfNotAbsolutePath, throwIfParentDirDoesNotExist, toRelativePath } from "../common/fs.js";
@@ -144,8 +145,15 @@ export class IpfsService extends ServerService {
         return; /* undefined */
     }
 
-    /** @override */
-    async getStartBashScript() {
+    /**
+     * @override
+     * @param {{
+     *      logFile?: string
+     *      pidFile?: string
+     *      env?: {[envName:string] : string}
+     * }=} options
+     */
+    async getStartBashScript(options) {
         if (!this.canStart) {
             throw new CodeError(`Cannot start ipfs service.`);
         }
@@ -157,18 +165,31 @@ export class IpfsService extends ServerService {
             throwIfParentDirDoesNotExist(logFilePath);
         }
 
+        /**
+         * @todo use options.logFile instead
+         */
+        assert(logFilePath === options?.logFile);
         assert(this.#ipfsDir);
         assert(pathlib.isAbsolute(this.#ipfsDir));
 
-        return genSetMBashScript('ipfs', {
+        /** @type {any} */
+        const o = {
             args: ['daemon'],
             env: {
                 "LIBP2P_FORCE_PNET": "1",
-                "IPFS_PATH": "'" + this.#ipfsDir + "'"
+                "IPFS_PATH": `'${this.#ipfsDir}'`
             },
             logFile: logFilePath,
             version: 1
-        });
+        }
+        if (options?.env) {
+            const xnames = Object.keys(options.env);
+            for (let i = 0; i < xnames.length; ++i) {
+                o.env[envVarName(xnames[i])] = options.env[xnames[i]];
+            }
+        }
+
+        return genSetMBashScript('ipfs', o);
     }
 
     /**
@@ -197,7 +218,12 @@ export class IpfsService extends ServerService {
         return null;
     }
 
-    static async running() {
+    /**
+     * @override
+     * @param {any=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(IpfsService | null)}[] | null>} 
+     */
+    static async running(filters) {
         const grepPattern = "ipfs daemon";
         const pids = await psGrepPID(grepPattern);
         if (!pids) {
@@ -206,12 +232,12 @@ export class IpfsService extends ServerService {
 
         /** @param {number} pid */
         async function __fromPID(pid) {
+            const configFile = (await psGetEnv(pid, envVarName('MARKER'))) ?? '';
+            let service = null;
             try {
-                const s = await IpfsService.fromPID(pid);
-                return { pid, service: s }
-            } catch {
-                return { pid, service: null }
-            }
+                service = await IpfsService.fromPID(pid);
+            } catch { }
+            return { pid, configFile, service }
         }
         return Promise.all(pids.map(pid => __fromPID(pid)));
     }

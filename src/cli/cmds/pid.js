@@ -2,8 +2,6 @@ import * as srvTypes from '../../services/services-types.js';
 import assert from 'assert';
 import { Cmd } from "../Cmd.js";
 import { Inventory } from '../../services/Inventory.js';
-import { fileExistsInDir } from '../../common/fs.js';
-import { ConfigFile } from '../../services/ConfigFile.js';
 import { AbstractService, ServerService } from '../../common/service.js';
 import { IpfsService } from '../../ipfs/IpfsService.js';
 import { PoCoHubRef } from '../../common/contractref.js';
@@ -14,7 +12,9 @@ import { ResultProxyService } from '../../services/ResultProxy.js';
 import { CoreService } from '../../services/Core.js';
 import { BlockchainAdapterService } from '../../services/BlockchainAdapter.js';
 import { WorkerService } from '../../services/Worker.js';
+import { PROD_NAME } from '../../common/consts.js';
 
+const PAD=25;
 export default class PidCmd extends Cmd {
 
     static cmdname() { return 'pid'; }
@@ -31,10 +31,11 @@ export default class PidCmd extends Cmd {
         try {
             /** @type {Inventory=} */
             let inventory;
-            if (fileExistsInDir(cliDir, ConfigFile.basename())) {
+            try {
+                const configDir = this.resolveConfigDir(cliDir);
                 // Load inventory from config json file
-                inventory = await Inventory.fromConfigFile(cliDir);
-            }
+                inventory = await Inventory.fromConfigFile(configDir);
+            } catch { }
 
             // some funcs are async
             const printFunc = {
@@ -116,22 +117,26 @@ export default class PidCmd extends Cmd {
 
 /**
  * @param {string} type 
- * @param {{pid:number, service:?AbstractService}} pidInfo 
+ * @param {{pid:number, configFile: string, service:?AbstractService}} pidInfo 
  * @param {Inventory=} inventory 
  */
-function printIpfsPid(type, pidInfo, inventory) {
+async function printIpfsPid(type, pidInfo, inventory) {
     const service = pidInfo.service;
     const pid = pidInfo.pid;
     if (!service) {
+        if (pidInfo.configFile) {
+            return `${pid}\t???.???\t${type} (config=${pidInfo.configFile})\n`;
+        }
         return `${pid}\t???:???\t${type}\n`;
     }
     assert(service instanceof IpfsService);
-    return `${pid}\t${service.hostname}:${service.apiPort}\t${service.typename()}\n`;
+    const b = `${service.typename()}`;
+    return `${pid}\t${service.hostname}:${service.apiPort}\t${b.concat(' '.repeat(PAD - b.length))} (config=${pidInfo.configFile})\n`;
 }
 
 /**
  * @param {string} type 
- * @param {{pid:number, service:?AbstractService}} pidInfo 
+ * @param {{pid:number, configFile: string, service:?AbstractService}} pidInfo 
  * @param {Inventory=} inventory 
  */
 function printDockerPid(type, pidInfo, inventory) {
@@ -141,7 +146,7 @@ function printDockerPid(type, pidInfo, inventory) {
 
 /**
  * @param {string} type 
- * @param {{pid:number, service:?AbstractService}} pidInfo 
+ * @param {{pid:number, configFile: string, service:?AbstractService}} pidInfo 
  * @param {Inventory=} inventory 
  */
 function printServerServicePid(type, pidInfo, inventory) {
@@ -153,10 +158,11 @@ function printServerServicePid(type, pidInfo, inventory) {
     assert(service instanceof ServerService);
     const name = (inventory) ?
         inventory._inv.configNameFromHost(service.url) :
-        `${service.typename()}.AAABBB`;
+        `${service.typename()}`;
     const isShared = (name && inventory) ? inventory._inv.isShared(name) : false;
     if (isShared) {
-        return `${pid}\t${service.hostname}:${service.port}\t${service.typename()}\n`;
+        const b = `${service.typename()}`;
+        return `${pid}\t${service.hostname}:${service.port}\t${b.concat(' '.repeat(PAD - b.length))} (config=${pidInfo.configFile})\n`;
     }
     return '';
 }
@@ -166,6 +172,7 @@ function printServerServicePid(type, pidInfo, inventory) {
  * @param {{
  *      pid: number, 
  *      service: ?AbstractService, 
+ *      configFile: string
  *      api?: { pid:number | null }, 
  *      watchers?: {
  *          pid: number,
@@ -194,15 +201,20 @@ async function printMarketPid(type, pidInfo, inventory) {
     const redis = market.redis;
     const dbPIDs = await Promise.all([mongo.getPID(), redis.getPID()]);
 
+    const a = `mongo.${market.typename()}`;
+    const c = `redis.${market.typename()}`;
+    const d = `api.${market.typename()}`;
+    const e = `watcher.${market.typename()}`;
+
     let s = '';
 
-    s += `${dbPIDs[0]}\t${mongo.hostname}:${mongo.port}\tmongo.${name}\n`;
-    s += `${dbPIDs[1]}\t${redis.hostname}:${redis.port}\tredis.${name}\n`;
+    s += `${dbPIDs[0]}\t${mongo.hostname}:${mongo.port}\t${a.concat(' '.repeat(PAD - a.length))} (config=${pidInfo.configFile})\n`;
+    s += `${dbPIDs[1]}\t${redis.hostname}:${redis.port}\t${c.concat(' '.repeat(PAD - c.length))} (config=${pidInfo.configFile})\n`;
 
-    s += `${pidInfo.api.pid}\t${api?.hostname}:${api?.port}\tapi.${name}\n`;
+    s += `${pidInfo.api.pid}\t${api?.hostname}:${api?.port}\t${d.concat(' '.repeat(PAD - d.length))} (config=${pidInfo.configFile})\n`;
     for (let j = 0; j < pidInfo.watchers.length; ++j) {
         const watcher = market.getWatcherFromHub(pidInfo.watchers[j].hub);
-        s += `${pidInfo.watchers[j].pid}\t${watcher?.hostname}\twatcher.${name} (hub=${watcher?.hub.hubAlias()})\n`;
+        s += `${pidInfo.watchers[j].pid}\t${watcher?.hostname}\t${e.concat(' '.repeat(PAD - e.length))} (hub=${watcher?.hub.hubAlias()}, config=${pidInfo.configFile})\n`;
     }
 
     return s;
@@ -210,7 +222,7 @@ async function printMarketPid(type, pidInfo, inventory) {
 
 /**
  * @param {string} type 
- * @param {{pid:number, service:?AbstractService}} pidInfo 
+ * @param {{pid:number, configFile: string, service:?AbstractService}} pidInfo 
  * @param {Inventory=} inventory 
  */
 function printSmsPid(type, pidInfo, inventory) {
@@ -221,30 +233,29 @@ function printSmsPid(type, pidInfo, inventory) {
     }
     assert(service instanceof SmsService);
     const hubStr = service.hub?.toHRString(false) ?? '???';
-    const name = (inventory) ?
-        inventory._inv.configNameFromHost(service.url) :
-        `${service.typename()}.${hubStr}`;
-    return `${pid}\t${service.hostname}:${service.port}\t${name}\n`;
+    const b = `${service.typename()}`;
+    return `${pid}\t${service.hostname}:${service.port}\t${b.concat(' '.repeat(PAD - b.length))} (hub=${hubStr}, config=${pidInfo.configFile})\n`;
 }
 
 /**
  * @param {string} type 
- * @param {{pid:number, service:?AbstractService}} pidInfo 
+ * @param {{pid:number, configFile: string, service:?AbstractService}} pidInfo 
  * @param {Inventory=} inventory 
  */
 function printGanachePid(type, pidInfo, inventory) {
     const ganache = pidInfo.service;
     const pid = pidInfo.pid;
     if (!ganache) {
-        return `${pid}\t???:???\t${type}\n`;
+        return `${pid}\t???:???\t${type} (config=${pidInfo.configFile})\n`;
     }
     assert(ganache instanceof GanachePoCoService);
-    return `${pid}\t${ganache.hostname}:${ganache.port}\tganache (chainid=${ganache.chainid})\n`;
+    const b = `${ganache.typename()}`;
+    return `${pid}\t${ganache.hostname}:${ganache.port}\t${b.concat(' '.repeat(PAD - b.length))} (chainid=${ganache.chainid}, config=${pidInfo.configFile})\n`;
 }
 
 /**
   * @param {string} type 
-  * @param {{pid:number, service:?AbstractService}} pidInfo 
+  * @param {{pid:number, configFile: string, service:?AbstractService}} pidInfo 
   * @param {Inventory=} inventory 
   */
 async function printSpringHubServicePid(type, pidInfo, inventory) {
@@ -257,33 +268,34 @@ async function printSpringHubServicePid(type, pidInfo, inventory) {
         service instanceof CoreService ||
         service instanceof BlockchainAdapterService);
     const hubStr = service.hub?.toHRString(false) ?? '???';
-    const name = (inventory) ?
-        inventory._inv.configNameFromHost(service.url) :
-        `${service.typename()}.${hubStr}`;
-    const mongo = service.mongo;
+    const a = `mongo.${service.typename()}`;
+    const b = `${service.typename()}`;
     let s = '';
+    const mongo = service.mongo;
     if (!mongo) {
-        s += `???\t???:???\tmongo.${name}\n`;
+        s += `???\t???:???\t${a.concat(' '.repeat(PAD - a.length))} (hub=${hubStr}, config=${pidInfo.configFile})\n`;
     } else {
         const mongoPID = await mongo.getPID();
         const mongoPIDStr = (mongoPID === undefined) ? '???' : mongoPID.toString();
-        s += `${mongoPIDStr}\t${mongo.hostname}:${mongo.port}\t${mongo.typename()}.${name}\n`;
+
+        s += `${mongoPIDStr}\t${mongo.hostname}:${mongo.port}\t${a.concat(' '.repeat(PAD - a.length))} (hub=${hubStr}, config=${pidInfo.configFile})\n`;
     }
-    s += `${pid}\t${service.hostname}:${service.port}\t${name}\n`;
+    s += `${pid}\t${service.hostname}:${service.port}\t${b.concat(' '.repeat(PAD - b.length))} (hub=${hubStr}, config=${pidInfo.configFile})\n`;
     return s;
 }
 
 /**
   * @param {string} type 
-  * @param {{pid:number, service:?AbstractService}} pidInfo 
+  * @param {{pid:number, configFile: string, service:?AbstractService}} pidInfo 
   * @param {Inventory=} inventory 
   */
 function printWorkerPid(type, pidInfo, inventory) {
     const worker = pidInfo.service;
     const pid = pidInfo.pid;
     if (!worker) {
-        return `${pid}\t???:???\t${type}\n`;
+        return `${pid}\t???:???\t${type} (hub=???, config=${pidInfo.configFile})\n`;
     }
     assert(worker instanceof WorkerService);
-    return `${pid}\t${worker.hostname}:${worker.port}\t${worker.name}\n`;
+    const b = `${worker.name}`;
+    return `${pid}\t${worker.hostname}:${worker.port}\t${b.concat(' '.repeat(PAD - b.length))} (hub=???, config=${pidInfo.configFile})\n`;
 }

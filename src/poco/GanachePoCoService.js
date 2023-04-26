@@ -18,7 +18,8 @@ import { SharedJsonRpcProviders } from '../common/shared-json-rpc-providers.js';
 import { CodeError } from '../common/error.js';
 import { isPackageOrDirectory } from '../pkgmgr/pkg.js';
 import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
-import { PROD_FILE_PREFIX } from '../common/consts.js';
+import { envVarName, PROD_FILE_PREFIX } from '../common/consts.js';
+import { psGetEnv } from '../common/ps.js';
 
 const CONFIG_FILE_BASENAME = `${PROD_FILE_PREFIX}-ganache-poco-config.json`;
 const DBPATH_BASENAME = 'db';
@@ -254,6 +255,9 @@ export class GanachePoCoService extends GanacheService {
             throw new CodeError('Ambiguous Ganache services. Multiple conflicting ganache services are running.', ERROR_CODES.POCO_ERROR);
         }
         const g = pidsAndServices[0].service;
+        if (!g) {
+            throw new CodeError('Ganache service is not running', ERROR_CODES.POCO_ERROR);
+        }
         assert(g.DBUUID);
 
         // Must resolve against the ganache service to retrieve the url
@@ -333,7 +337,7 @@ export class GanachePoCoService extends GanacheService {
     static async #resetDB(storageDir) {
         const pidAndServices = await GanachePoCoService.running({ directory: storageDir });
         if (pidAndServices) {
-            const out = await Promise.all(pidAndServices.map(ps => ps.service.stop({ strict: true })));
+            const out = await Promise.all(pidAndServices.map(ps => ps.service?.stop({ strict: true })));
         }
 
         // orig = <storageDir>/orig
@@ -695,6 +699,7 @@ export class GanachePoCoService extends GanacheService {
 
     /**
      * @param {object=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(GanachePoCoService | null)}[] | null>} 
      */
     static async running(filters) {
         const pidAndServices = await super.running(filters);
@@ -703,11 +708,12 @@ export class GanachePoCoService extends GanacheService {
         }
         const PoCoServices = [];
         for (let i = 0; i < pidAndServices.length; ++i) {
-            const p = await GanachePoCoService.#fromGanacheService(pidAndServices[i].service);
-            if (!p) {
-                continue;
-            }
-            PoCoServices.push({ pid: pidAndServices[i].pid, service: p });
+            const pid = pidAndServices[i].pid;
+            const configFile = pidAndServices[i].configFile;
+            const g = pidAndServices[i].service;
+
+            const service = await GanachePoCoService.#fromGanacheService(g);
+            PoCoServices.push({ pid, configFile, service });
         }
         return (PoCoServices.length === 0) ? null : PoCoServices;
     }

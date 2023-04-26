@@ -71,6 +71,7 @@ const vscodeCmd = program.command('vscode');
 const startCmd = program.command('start');
 const stopCmd = program.command('stop');
 const resetCmd = program.command('reset');
+const killCmd = program.command('kill');
 const pidCmd = program.command('pid');
 const showCmd = program.command('show');
 
@@ -303,13 +304,23 @@ stopCmd.description('Stops services.');
 cmd = stopCmd.command('all');
 cmd.description('Stops all running services.')
     .action((options) => {
-        execCmd('stopAll', options);
+        execCmd('stopAll', false, options);
     });
 
 cmd = stopCmd.command('worker');
 cmd.description('Stops all running workers.')
     .action((options) => {
         execCmd('stop', 'worker', options);
+    });
+
+/* ------------- stop -------------- */
+
+killCmd.description('Kills services.');
+
+cmd = killCmd.command('all');
+cmd.description('Kills all running services.')
+    .action((options) => {
+        execCmd('stopAll', true, options);
     });
 
 /* ------------- reset -------------- */

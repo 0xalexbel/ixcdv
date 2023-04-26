@@ -19,7 +19,8 @@ import { hostnamePortToString, isNullishOrEmptyString, placeholdersPropertyRepla
 import { GanacheService } from '../common/ganache.js';
 import { CodeError } from '../common/error.js';
 import { getLatestVersion } from '../git/git-api.js';
-import { getPIDCWD } from '../common/ps.js';
+import { getPIDCWD, psGetEnv } from '../common/ps.js';
+import { envVarName } from '../common/consts.js';
 
 export const MARKET_SIGNAME = 'market';
 export const MARKET_TYPENAME = 'market';
@@ -783,6 +784,7 @@ export class Market extends AbstractService {
      * @returns {Promise<{
      *      pid: number, 
      *      service: Market, 
+     *      configFile: string,
      *      api: { pid: number | null }, 
      *      watchers:{ pid: number, hub:PoCoHubRef }[] }[] | null>}
      */
@@ -795,18 +797,24 @@ export class Market extends AbstractService {
          * @type {Map<string, {
          *      pid: number, 
          *      service: Market, 
+         *      configFile: string,
          *      api: { pid: number | null }, 
          *      watchers:{ pid: number, hub:PoCoHubRef }[] 
          * }>} 
          */
         const markets = new Map();
         const array = [];
+        /** @type {string=} */
+        let configFile = undefined;
 
         const apiPIDs = await MarketApiService.allPIDsWithEnvs();
         if (apiPIDs && apiPIDs.length > 0) {
             for (let i = 0; i < apiPIDs.length; ++i) {
                 assert(!isNullishOrEmptyString(apiPIDs[i].redisHost));
                 assert(!isNullishOrEmptyString(apiPIDs[i].mongoHost));
+                if (!configFile) {
+                    configFile = (await psGetEnv(apiPIDs[i].pid, envVarName('MARKER'))) ?? '';
+                }
                 if (mongoHost) {
                     if (apiPIDs[i].mongoHost !== mongoHost) {
                         continue;
@@ -820,7 +828,13 @@ export class Market extends AbstractService {
                 if (!markets.has(keyStr)) {
                     const m = await Market.fromHosts(key);
                     if (m) {
-                        const o = { pid: 0, service: m, api: { pid: apiPIDs[i].pid }, watchers: [] };
+                        const o = {
+                            pid: 0,
+                            service: m,
+                            configFile,
+                            api: { pid: apiPIDs[i].pid },
+                            watchers: []
+                        };
                         markets.set(keyStr, o);
                         array.push(o);
                     }
@@ -833,6 +847,9 @@ export class Market extends AbstractService {
         const watchersPIDs = await MarketWatcherService.allPIDsWithEnvs();
         if (watchersPIDs && watchersPIDs.length > 0) {
             for (let i = 0; i < watchersPIDs.length; ++i) {
+                if (!configFile) {
+                    configFile = (await psGetEnv(watchersPIDs[i].pid, envVarName('MARKER'))) ?? '';
+                }
                 assert(!isNullishOrEmptyString(watchersPIDs[i].redisHost));
                 assert(!isNullishOrEmptyString(watchersPIDs[i].mongoHost));
                 if (mongoHost) {
@@ -852,6 +869,7 @@ export class Market extends AbstractService {
                             pid: 0,
                             service: m,
                             api: { pid: null },
+                            configFile: '',
                             watchers: [
                                 { pid: watchersPIDs[i].pid, hub: watchersPIDs[i].hub }
                             ]
@@ -964,9 +982,12 @@ export class Market extends AbstractService {
         }
         Market.#guardConstructing = false;
 
-        // Throws an excpetion if multiple ganache instances 
+        // Throws an exception if multiple ganache instances 
         // running with the same chainid are running
         const chainidToGanacheService = await GanachePoCoService.runningGroupedByUniqueChainid();
+        if (!chainidToGanacheService || chainidToGanacheService.size === 0) {
+            return null;
+        }
         // Ganache is not running ? 
         // External eth nodes not yet supported
         assert(chainidToGanacheService instanceof Map);
@@ -1012,12 +1033,13 @@ export class Market extends AbstractService {
 
         assert(this.#mongo);
         assert(this.#redis);
-        
+
         const out1 = await Promise.all([
             this.#mongo.start({
                 context: {
                     name: 'mongo.' + (options?.context?.name ?? 'market')
                 },
+                env: options?.env,
                 progressCb: options?.progressCb,
                 strict: false
             }),
@@ -1025,6 +1047,7 @@ export class Market extends AbstractService {
                 context: {
                     name: 'redis.' + (options?.context?.name ?? 'market')
                 },
+                env: options?.env,
                 progressCb: options?.progressCb,
                 strict: false
             }),
@@ -1053,6 +1076,7 @@ export class Market extends AbstractService {
                 context: {
                     name: 'api.' + (options?.context?.name ?? 'market')
                 },
+                env: options?.env,
                 progressCb: options?.progressCb,
                 strict: false
             }));
@@ -1063,6 +1087,7 @@ export class Market extends AbstractService {
                     context: {
                         name: `watcher.market.` + this.#watchers[i].hub.hubAlias()
                     },
+                    env: options?.env,
                     progressCb: options?.progressCb,
                     strict: false
                 }));
@@ -1141,7 +1166,7 @@ export class Market extends AbstractService {
 
         assert(this.#mongo);
         assert(this.#redis);
-        
+
         const out2 = await Promise.all([
             this.#mongo.stop(args),
             this.#redis.stop(args)
@@ -1188,6 +1213,24 @@ export class Market extends AbstractService {
      * @param {types.StopOptionsWithContext} options 
      */
     static async stopAll(filters, options) {
+        this.#stopAll(false, filters, options);
+    }
+
+    /** 
+     * @param {any} filters 
+     * @param {types.StopOptionsWithContext} options 
+     */
+    static async killAll(filters, options) {
+        this.#stopAll(true, filters, options);
+    }
+
+    /** 
+     * @param {boolean} kill
+     * @param {any} filters 
+     * @param {types.StopOptionsWithContext} options 
+     */
+    static async #stopAll(kill, filters, options) {
+
         // filters are not yet used
         // keep the same method signature as service.js 
         const [mongos, redis, apis, watchers] = await Promise.all([
@@ -1199,33 +1242,91 @@ export class Market extends AbstractService {
 
         /** @type {Service[]} */
         let apiAndWatchersGp = [];
+        /** @type {number[]} */
+        let apiPids = [];
+        /** @type {number[]} */
+        let watcherPids = [];
         if (apis) {
-            apiAndWatchersGp = apiAndWatchersGp.concat(apis.map(v => v.service));
+            for (let i = 0; i < apis.length; ++i) {
+                const api = apis[i].service;
+                if (api) {
+                    apiAndWatchersGp.push(api);
+                }
+                apiPids.push(apis[i].pid);
+            }
         }
         if (watchers) {
-            apiAndWatchersGp = apiAndWatchersGp.concat(watchers.map(v => v.service));
+            for (let i = 0; i < watchers.length; ++i) {
+                const watcher = watchers[i].service;
+                if (watcher) {
+                    apiAndWatchersGp.push(watcher);
+                }
+                watcherPids.push(watchers[i].pid);
+            }
         }
 
         /** @type {Service[]} */
         let dbGp = [];
+        /** @type {number[]} */
+        let mongoPids = [];
+        /** @type {number[]} */
+        let redisPids = [];
         if (mongos) {
             dbGp = dbGp.concat(mongos);
+            const pids = await Promise.all(mongos.map(m => m.getPID()));
+            for (let i = 0; i < pids.length; ++i) {
+                const pid = pids[i];
+                if (pid === undefined) {
+                    continue;
+                }
+                mongoPids.push(pid);
+            }
         }
         if (redis) {
             dbGp = dbGp.concat(redis);
+            const pids = await Promise.all(redis.map(m => m.getPID()));
+            for (let i = 0; i < pids.length; ++i) {
+                const pid = pids[i];
+                if (pid === undefined) {
+                    continue;
+                }
+                redisPids.push(pid);
+            }
         }
 
         if (apiAndWatchersGp.length > 0) {
-            await Service.groupStop({ 
-                services: apiAndWatchersGp, 
-                options
-            });
+            if (kill) {
+                await MarketApiService.groupKill({
+                    pids: apiPids,
+                    options
+                });
+                await MarketWatcherService.groupKill({
+                    pids: watcherPids,
+                    options
+                });
+            } else {
+                await Service.groupStop({
+                    services: apiAndWatchersGp,
+                    options
+                });
+            }
         }
         if (dbGp.length > 0) {
-            await Service.groupStop({ 
-                services: dbGp, 
-                options
-            });
+            if (kill) {
+                await MongoService.groupKill({
+                    pids: mongoPids,
+                    options
+                });
+                await RedisService.groupKill({
+                    pids: redisPids,
+                    options
+                });
+            } else {
+                await Service.groupStop({
+                    services: dbGp,
+                    options
+                });
+            }
         }
     }
 
@@ -1250,10 +1351,11 @@ export class Market extends AbstractService {
 
     /**
      * @param {{
-    *      directory?: string, 
-    * }} args
-    */
-    async saveEnvFile({ directory }) {
+     *      directory?: string, 
+     *      env: {[envName:string] : string}
+     * }} options
+     */
+    async saveEnvFile({ directory, env }) {
         // <root>/shared/markets/market.standard/run/api/api.log
         // <root>/shared/markets/market.standard/run/api/env.txt
         throwIfNullishOrEmptyString(directory);
@@ -1264,12 +1366,18 @@ export class Market extends AbstractService {
         const apiRunDir = Market.#computeApiRunDir(directory);
         mkDirP(apiRunDir, { strict: true });
 
-        await this.#api.saveEnvFile(path.join(apiRunDir, ENV_FILE_BASENAME));
+        await this.#api.saveEnvFile({
+            filename: path.join(apiRunDir, ENV_FILE_BASENAME),
+            env
+        });
         for (let i = 0; i < this.#watchers.length; ++i) {
             const w = this.#watchers[i];
             const watcherRunDir = Market.#computeWatcherRunDir(directory, w);
             mkDirP(watcherRunDir, { strict: true });
-            await w.saveEnvFile(path.join(watcherRunDir, ENV_FILE_BASENAME));
+            await w.saveEnvFile({
+                filename: path.join(watcherRunDir, ENV_FILE_BASENAME),
+                env
+            });
         }
     }
 

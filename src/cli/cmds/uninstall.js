@@ -39,7 +39,7 @@ export default class UninstallCmd extends Cmd {
                 throw new Error();
             }
 
-            await StopAllCmd.exec(null);
+            await StopAllCmd.exec(false, null);
 
             const folders = [
                 'chains',

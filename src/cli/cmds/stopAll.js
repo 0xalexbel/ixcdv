@@ -15,36 +15,44 @@ export default class StopAllCmd extends Cmd {
 
     /**
      * @param {string} cliDir 
+     * @param {boolean} kill 
      * @param {*} options 
      */
-    async cliExec(cliDir, options) {
+    async cliExec(cliDir, kill, options) {
         try {
-            await this.#execOnce(options);
+            await this.#execOnce(kill, options);
         } catch (err) {
             this.exit(options, err);
         }
     }
 
     /**
+     * @param {boolean} kill
      * @param {*} options 
      */
-    static async exec(options) {
+    static async exec(kill, options) {
         const cmd = new StopAllCmd();
-        return cmd.#execOnce(options);
+        return cmd.#execOnce(kill, options);
     }
 
     /**
+     * @param {boolean} kill
      * @param {*} options 
      */
-    async #execOnce(options) {
+    async #execOnce(kill, options) {
         // The current implementation does not support multiple calls.
         if (StopAllCmd.#calledOnce) {
             throw new CodeError('Internal error (stop all can only be called once)');
         }
         StopAllCmd.#calledOnce = true;
 
-        // stop any other running services (zombie)
-        await Inventory.stopAny({ progressCb: stopProgress, reset: false });
+        if (kill) {
+            // stop any other running services (zombie)
+            await Inventory.killAny({ progressCb: stopProgress });
+        } else {
+            // stop any other running services (zombie)
+            await Inventory.stopAny({ progressCb: stopProgress, reset: false });
+        }
 
         endProgress('all services stopped');
     }

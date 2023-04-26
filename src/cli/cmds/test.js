@@ -59,7 +59,7 @@ export default class TestCmd extends Cmd {
             if (options.reset) {
                 await ResetAllCmd.exec(inventory, null);
             } else if (options.restart) {
-                await StopAllCmd.exec(null);
+                await StopAllCmd.exec(false, null);
             }
             // Start 1 worker + all the default chain
             await StartCmd.exec(inventory, 'worker', { count: 1, hub: hubAlias });

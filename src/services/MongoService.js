@@ -10,9 +10,10 @@ import { assertIsStrictlyPositiveInteger, isStrictlyPositiveInteger, throwIfNotS
 import { dirExists, readFile, resolveAbsolutePath, rmrfDir, throwIfDirDoesNotExist, throwIfParentDirDoesNotExist, toRelativePath } from '../common/fs.js';
 import { isNullishOrEmptyString, stringToHostnamePort, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
 import { CodeError } from '../common/error.js';
-import { psGetArgs, psGrepPID, psp } from '../common/ps.js';
+import { psGetArgs, psGetEnv, psGrepPID, psp } from '../common/ps.js';
 import { genNohupBashScript } from '../common/bash.js';
 import { repeatCallUntil } from '../common/repeat-call-until.js';
+import { envVarName } from '../common/consts.js';
 
 /**
  * @typedef {types.ServerServiceArgs &
@@ -332,12 +333,15 @@ export class MongoService extends ServerService {
         return pids[0];
     }
 
-    /** 
-     * @override 
-     * @param {string=} logFile
-     * @param {string=} pidFile
+    /**
+     * @override
+     * @param {{
+     *      logFile?: string
+     *      pidFile?: string
+     *      env?: {[envName:string] : string}
+     * }=} options
      */
-    async getStartBashScript(logFile, pidFile) {
+    async getStartBashScript(options) {
         if (!this.canStart) {
             return null;
         }
@@ -349,21 +353,31 @@ export class MongoService extends ServerService {
         throwIfDirDoesNotExist(mongoDir);
         assert(mongoDir);
 
-        if (logFile) {
-            throwIfParentDirDoesNotExist(logFile);
+        if (options?.logFile) {
+            throwIfParentDirDoesNotExist(options.logFile);
         }
-        if (pidFile) {
-            throwIfParentDirDoesNotExist(pidFile);
+        if (options?.pidFile) {
+            throwIfParentDirDoesNotExist(options.pidFile);
         }
 
-        const args = this.#getMongoCliArgs(logFile, pidFile);
+        const args = this.#getMongoCliArgs(options?.logFile, options?.pidFile);
         if (!args) {
             return null;
         }
 
-        return genNohupBashScript('mongod', {
-            args: args
-        });
+        /** @type {any} */
+        const o = {
+            args,
+            env: {}
+        }
+        if (options?.env) {
+            const xnames = Object.keys(options.env);
+            for (let i = 0; i < xnames.length; ++i) {
+                o.env[envVarName(xnames[i])] = options.env[xnames[i]];
+            }
+        }
+
+        return genNohupBashScript('mongod', o);
     }
 
     /** 
@@ -642,7 +656,12 @@ export class MongoService extends ServerService {
         return MongoService.fromPID(pid);
     }
 
-    static async running() {
+    /**
+     * @override
+     * @param {any=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(MongoService | null)}[] | null>} 
+     */
+    static async running(filters) {
         const grepPattern = "mongod -";
         const pids = await psGrepPID(grepPattern);
         if (!pids) {
@@ -651,11 +670,12 @@ export class MongoService extends ServerService {
 
         /** @param {number} pid */
         async function __fromPID(pid) {
+            const configFile = (await psGetEnv(pid, envVarName('MARKER'))) ?? '';
             try {
                 const s = await MongoService.fromPID(pid);
-                return { pid, service: s }
+                return { pid, configFile, service: s }
             } catch {
-                return { pid, service: null }
+                return { pid, configFile, service: null }
             }
         }
         return Promise.all(pids.map(pid => __fromPID(pid)));
@@ -696,7 +716,7 @@ async function findMongoArgs(pid) {
             return; /* undefined */
         }
         assert(argsArray.length === 1);
-        const args= argsArray[0];
+        const args = argsArray[0];
 
         // not a redis-server ??
         const prefix = 'mongod -';
@@ -728,12 +748,12 @@ async function findMongoArgs(pid) {
         const pidFile = __getOptValue(args, '--pidfilepath');
 
         return {
-            port, 
-            bindIp, 
-            dbPath, 
-            ipv6, 
+            port,
+            bindIp,
+            dbPath,
+            ipv6,
             logFile,
-            logAppend, 
+            logAppend,
             pidFile
         };
     } catch { }
@@ -751,7 +771,7 @@ async function mongoDirPID(absoluteDir) {
         }
         const grepPattern = `mongod.*--dbpath ${absoluteDir} |mongod.*--dbpath ${absoluteDir}$`;
         const pids = await psGrepPID(grepPattern);
-    if (!pids) {
+        if (!pids) {
             return; /* undefined */
         }
         assert(pids.length === 1);
@@ -772,7 +792,7 @@ async function mongoHostnamePortPID(hostname, port) {
         }
         const grepPattern = `mongod.*--port ${port}.*--bind_ip ${hostname} |mongod.*--bind_ip ${hostname}.*--port ${port} `;
         const pids = await psGrepPID(grepPattern);
-    if (!pids) {
+        if (!pids) {
             return; /* undefined */
         }
         assert(pids.length === 1);

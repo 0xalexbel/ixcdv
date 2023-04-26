@@ -6,10 +6,10 @@ import assert from 'assert';
 import { PoCoHubRef } from '../common/contractref.js';
 import { Service } from '../common/service.js';
 import { hostnamePortToString, isNullishOrEmptyString, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
-import { getPIDCWD, psGrepPIDAndEnv, pspWithArgsAndEnv } from '../common/ps.js';
+import { getPIDCWD, psGetEnv, psGrepPIDAndEnv, pspWithArgsAndEnv } from '../common/ps.js';
 import { CodeError } from '../common/error.js';
 import { resolveAbsolutePath, saveToFile, throwIfDirDoesNotExist, throwIfParentDirDoesNotExist } from '../common/fs.js';
-import { genNohupBashScript } from '../common/bash.js';
+import { genNohupBashScript, genSetMBashScript } from '../common/bash.js';
 import { envVarName } from '../common/consts.js';
 
 const ENTRY = "./src/index.js";
@@ -24,7 +24,7 @@ const CHAIN = envVarName('MARKET_API');
  *      hub: PoCoHubRef
  * }} MarketWatcherServiceConstructorArgs
  */
-   
+
 /* -------------------- Protected Constructor ------------------------ */
 
 const MarketWatcherServiceConstructorGuard = { value: false };
@@ -193,29 +193,42 @@ export class MarketWatcherService extends Service {
         }
     }
 
-    static async running() {
+    /**
+     * @override
+     * @param {any=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(MarketWatcherService | null)}[] | null>} 
+     */
+    static async running(filters) {
         const pids = await MarketWatcherService.allPIDsWithEnvs();
         if (!pids) {
             return null;
         }
         const services = [];
         for (let i = 0; i < pids.length; ++i) {
-            const pid = pids[i];
-            const cwd = await getPIDCWD(pid.pid);
+            const pidInfo = pids[i];
+            const cwd = await getPIDCWD(pidInfo.pid);
+            const configFile = (await psGetEnv(pidInfo.pid, envVarName('MARKER'))) ?? '';
 
             const watcherService = newMarketWatcherService({
                 repository: cwd,
-                mongoHost: pid.mongoHost,
-                redisHost: pid.redisHost,
-                hub: pid.hub
+                mongoHost: pidInfo.mongoHost,
+                redisHost: pidInfo.redisHost,
+                hub: pidInfo.hub
             });
-            services.push({ pid:pid.pid, service:watcherService });
+            services.push({ pid: pidInfo.pid, configFile, service: watcherService });
         }
         return (services.length === 0) ? null : services;
     }
 
-    /** @override */
-    async getStartBashScript() {
+    /**
+     * @override
+     * @param {{
+     *      logFile?: string
+     *      pidFile?: string
+     *      env?: {[envName:string] : string}
+     * }=} options
+     */
+    async getStartBashScript(options) {
         if (!this.canStart) {
             throw new CodeError(`Cannot start market watcher service.`);
         }
@@ -232,19 +245,38 @@ export class MarketWatcherService extends Service {
             throwIfParentDirDoesNotExist(pidFilePath);
         }
 
-        return genNohupBashScript('node', {
+        /**
+         * @todo use options.logFile & options.pidFile instead
+         */
+        assert(logFilePath === options?.logFile);
+        assert(pidFilePath === options?.pidFile);
+
+        // return genNohupBashScript('node', {
+        //     dir: watcherRepoDir,
+        //     env: this.#getEnv(),
+        //     args: [ENTRY],
+        //     logFile: logFilePath,
+        //     pidFile: pidFilePath
+        // });
+
+        /** @type {any} */
+        const o = {
             dir: watcherRepoDir,
-            env: this.#getEnv(),
+            env: this.#getEnv(options?.env ?? {}),
             args: [ENTRY],
             logFile: logFilePath,
             pidFile: pidFilePath
-        });
+        }
+
+        return genSetMBashScript('node', o);
+
     }
 
     /**
+     * @param {{[envName:string] : string}} extras
      * @returns {Object.<string,string>}
      */
-    #getEnv() {
+    #getEnv(extras) {
         /*
         MONGO_HOST,
         REDIS_HOST,
@@ -287,13 +319,22 @@ export class MarketWatcherService extends Service {
         env['DEBUG'] = 'iexec-watcher:*';
         //env['DEBUG'] = '*';
 
+        const xnames = Object.keys(extras);
+        for (let i= 0 ; i < xnames.length; ++i) {
+            env[envVarName(xnames[i])] = extras[xnames[i]];
+        }
+
         return env;
     }
 
     /**
-     * @param {string} destFilename 
+     * @param {{
+     *      filename?: string
+     *      env: {[envName:string] : string}
+     * }} options
      */
-    async saveEnvFile(destFilename) {
+    async saveEnvFile({ filename, env }) {
+        const destFilename = filename;
         assert(!isNullishOrEmptyString(destFilename));
         assert(destFilename);
         assert(path.isAbsolute(destFilename));
@@ -301,7 +342,7 @@ export class MarketWatcherService extends Service {
         const destDir = path.dirname(destFilename);
         throwIfDirDoesNotExist(destDir);
 
-        const envs = this.#getEnv();
+        const envs = this.#getEnv(env);
         assert(envs);
 
         let str = '';
@@ -487,7 +528,7 @@ export class MarketWatcherService extends Service {
             'ETH_WS_HOST',
             'IEXEC_ADDRESS',
             'DEBUG'];
-            
+
         /** @type {any} */
         const o = {};
         for (let k = 0; k < varNames.length; ++k) {

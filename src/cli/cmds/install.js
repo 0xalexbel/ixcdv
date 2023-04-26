@@ -40,7 +40,7 @@ export default class InstallCmd extends Cmd {
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir);
 
-            await StopAllCmd.exec(null);
+            await StopAllCmd.exec(false, null);
 
             await inventory.installAll((name, type, progress, progressTotal) => {
                 if (type === 'worker') {

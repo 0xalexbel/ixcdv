@@ -34,6 +34,7 @@ Prior to installing **ixcdv** on your mac, make sure the following software tool
 - Git
 - Ipfs
 - Gradle
+- Node
 - Npm
 - Docker desktop for MacOS
 - MongoDB
@@ -55,34 +56,39 @@ ixcdv show sysreq
 ## Install
 
 ```sh
-$ git clone <gitHubRepo>
-$ cd <repoDir>
-$ npm install
-$ npm install -g .
-$ ixcdv --version
-$ ixcdv --help
+# download the latest version
+git clone https://github.com/0xalexbel/ixcdv.git
+cd ./ixcdv
+
+# install the npm package locally 
+npm install
+# make it accessible globally
+npm install -g .
+
+ixcdv --version
+ixcdv --help
 ```
 
 ## Quick start
 
 ```sh
 # create a new empty folder to host our future ixcdv workspace
-$ mkdir ./my-workspace
+mkdir ./my-workspace
 
 # make it the current working directory
-$ cd ./my-workspace
+cd ./my-workspace
 
 # initialize a new ixcdv workspace
-$ ixcdv init 
+ixcdv init 
 
 # install the full iExec infrastructure
 # this may take a few minutes
 # note that everything is strictly kept inside the 'my-workspace' folder
-$ ixcdv install 
+ixcdv install 
 
 # once done, simply run an elementary test
 # to make sure the whole stuff is properly installed and configured
-$ ixcdv test 
+ixcdv test 
 ```
 
 ## How to run iExec's 'nodejs-hello-world' example
@@ -93,29 +99,29 @@ First we must download the hello-world test app available at: https://github.com
 
 ```sh
 # let's install the hello world example
-$ cd ./my-workspace
+cd ./my-workspace
 
 # Keep it clean and create a dedicated folder for all your apps  
-$ mkdir ./apps
+mkdir ./apps
 
-$ cd ./apps
+cd ./apps
 
 # download the official test program named 'nodejs-hello-world'
-$ git clone https://github.com/iExecBlockchainComputing/nodejs-hello-world
+git clone https://github.com/iExecBlockchainComputing/nodejs-hello-world
 
 # Please note that the 'Dockerfile' we are looking for is located in the 'cloud-computing' sub-folder.
-$ ls -l ./nodejs-hello-world/cloud-computing
+ls -l ./nodejs-hello-world/cloud-computing
 ```
 
 Once downloaded, we can run the app in our local iExec infrastructure we just deployed in the `./my-workspace` folder.
 
 ```sh
 # let's go back to our top-level workspace folder
-$ cd ./my-workspace
+cd ./my-workspace
 
 # Run the dapp inside our 'local' iExec infrastructure
 # Et voila!
-$ ixcdv app run ./apps/nodejs-hello-world/cloud-computing --name nodejs-hello-world
+ixcdv app run ./apps/nodejs-hello-world/cloud-computing --name nodejs-hello-world
 ```
 
 Below, you can see the kind of terminal output you should get once the dapp has successfully completed.
@@ -134,41 +140,54 @@ No dataset was found
 ## Run 'nodejs-hello-world' using the `iexec` CLI.
 
 ```sh
-$ mkdir ./my-workspace/hello-using-iexec-cli
-$ cd ./my-workspace/hello-using-iexec-cli
+#!/bin/bash
+# Let's go back to our ixcdv root workspace
+cd ./my-workspace
 
-# Generate 'chain.json' + 'iexec.json'
-$ ixcdv app init ../apps/nodejs-hello-world/cloud-computing --name nodejs-hello-world --chain 1337.standard
+# Make sure out local iExec cloud computing is running using 1 scheduler and 1 worker
+ixcdv start worker --count 1 --chain 1337.standard
 
+# Let's create a folder where we will execute all the iexec sdk commands
+mkdir ./hello-using-iexec-cli
+
+cd ./hello-using-iexec-cli
+
+# Generate 'chain.json' + 'iexec.json' using ixcdv command
+ixcdv app init ../apps/nodejs-hello-world/cloud-computing --name nodejs-hello-world --chain 1337.standard
+
+# Now let's run the iexec sdk
 # Deploy app
-$ iexec app deploy --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet2.json --password whatever --chain 1337.standard
+iexec app deploy --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet2.json --password whatever --chain 1337.standard
 
 # View deployed app
-$ iexec app show --chain 1337.standard
+iexec app show --chain 1337.standard
 
 # Create a new default app order (appended to file 'iexec.json')
-$ iexec order init --app --chain 1337.standard
+iexec order init --app --chain 1337.standard
 
 # Take a look at the new order field in 'iexec.json' file
-$ cat ./iexec.json
+cat ./iexec.json
 
 # Sign the newly created app order using the app's wallet (index=2).
 # Basically, the app's owner gives anybody the right to use its app 
 # X amount of time. By default, X=1000000 (limitless)
 # The signed order is stored in 'orders.json'
-$ iexec order sign --app --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet2.json --password whatever --chain 1337.standard
+iexec order sign --app --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet2.json --password whatever --chain 1337.standard
 
 # iexec created a new file called 'orders.json'
 # You can view the new signed app order in it
-$ cat ./orders.json
+cat ./orders.json
 
 # Create a new default workerpool order
-$ iexec order init --workerpool --chain 1337.standard
+iexec order init --workerpool --chain 1337.standard
 
 # Sign the newly created workerpool order using the workerpool's wallet (index=1)
 # Here, the workerpool's owner gives anybody the right to use its 
 # network of computers (usually refered as 'workers') only 1 single time
-$ iexec order sign --workerpool --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet1.json --password whatever --chain 1337.standard
+iexec order sign --workerpool --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet1.json --password whatever --chain 1337.standard
+
+# setup requester storage token for provider "ipfs"
+iexec storage init --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet4.json --password whatever --chain 1337.standard --force-update
 
 # At this point, we have:
 # 1. an app owner who granted anybody the right to run its app 
@@ -176,7 +195,7 @@ $ iexec order sign --workerpool --keystoredir ../shared/db/ganache.1337/wallets 
 #    on its computer network. 
 # Here comes a third user refered to as the 'requester'
 # and identified by wallet #4 (index=4).
-$ iexec order fill --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet4.json --password whatever --chain 1337.standard --force
+iexec order fill --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet4.json --password whatever --chain 1337.standard --force
 ```
 
 ## Make it work from VSCode 
@@ -185,10 +204,10 @@ $ iexec order fill --keystoredir ../shared/db/ganache.1337/wallets --wallet-file
 
 ```sh
 # again, from our favorite workspace folder
-$ cd ./my-workspace
+cd ./my-workspace
 
 # Let's generate the necessary '.code-workspace' files
-$ ixcdv vscode install
+ixcdv vscode install
 
 # iExec services are grouped into so-called 'chains' 
 # Each one of these chains is governed by a unique iExec Hub,
@@ -196,14 +215,14 @@ $ ixcdv vscode install
 # Chain names are formatted like this :
 # <chainId>.<'standard'|'enterprise'|'native'>
 # Each chain folder contains a VSCode workspace file, see below:
-$ ls -l ./vscode/chains/1337.standard/
+ls -l ./vscode/chains/1337.standard/
 ```
 ## Take a look at all the running services
 
 To inspect the running processes, type:
 
 ```sh
-$ ixcdv pid
+ixcdv pid
 ```
 
 ## Stop everything
@@ -211,7 +230,7 @@ $ ixcdv pid
 To stop all running `iexec` services, type:
 
 ```sh
-$ ixcdv stop all
+ixcdv stop all
 ```
 
 ## Uninstall an ixcdv workspace 
@@ -220,12 +239,12 @@ To uninstall any ixcdv workspace do as follow:
 
 ```sh
 # Go back to the workspace folder you want to uninstall
-$ cd ./my-workspace
+cd ./my-workspace
 
-$ ixcdv uninstall 
+ixcdv uninstall 
 
 # Get rid of the workspace folder
-$ rm -rf ./my-workspace
+rm -rf ./my-workspace
 
 # That's it!
 ```

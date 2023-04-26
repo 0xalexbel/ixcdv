@@ -45,7 +45,7 @@ export class DockerService extends AbstractService {
 
     /** 
      * @param {any=} filters 
-     * @returns {Promise<{pid: number, service:(DockerService | null)}[] | null>} 
+     * @returns {Promise<{pid: number, configFile: string, service:(DockerService | null)}[] | null>} 
      */
     static async running(filters) {
         // Not supported

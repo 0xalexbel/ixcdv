@@ -142,6 +142,7 @@ representation of binary data as a string.
  * @property {boolean=} quiet
  * @property {boolean=} killIfFailed
  * @property {boolean=} createDir
+ * @property {{[envName:string] : string}=} env
  * @property {AbortSignal=} abortSignal
  * @property {progressCallback=} progressCb
  */

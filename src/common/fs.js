@@ -5,7 +5,7 @@ import assert from 'assert';
 import * as types from './types.js'
 import * as ERROR_CODES from './error-codes.js'
 import { fail, throwTypeError, CodeError, falseOrThrow, falseOrThrowAny, nullOrThrowAny } from './error.js'
-import { assertNonEmptyString, isNullishOrEmptyString, stringIsPositiveInteger, throwIfNullishOrEmptyString } from './string.js'
+import { assertNonEmptyString, errorNullishOrEmptyString, isNullishOrEmptyString, stringIsPositiveInteger, throwIfNullishOrEmptyString } from './string.js'
 import fsext from 'fs-extra';
 import { isPositiveInteger } from './number.js'
 import { randomUUID } from 'crypto';
@@ -315,6 +315,9 @@ export function fileExists(path, options = { strict: false }) {
  * @param {types.Strict=} options
  */
 export function fileExistsInDir(dir, relPath, options = { strict: false }) {
+    if (isNullishOrEmptyString(dir)) {
+        return falseOrThrow(errorNullishOrEmptyString(dir), options);
+    }
     return fileExists(pathlib.join(dir, relPath), options);
 }
 

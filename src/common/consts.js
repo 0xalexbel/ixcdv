@@ -18,7 +18,7 @@ const PROD_ENV_VAR_PREFIX = 'IXCDV';
 
 /** @param {string} s */
 export function envVarName(s) {
-    return PROD_ENV_VAR_PREFIX + '_' + s;
+    return PROD_ENV_VAR_PREFIX + '_' + s.toUpperCase();
 }
 
 /** @param {string} imgName */
