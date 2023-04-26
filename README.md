@@ -139,6 +139,9 @@ No dataset was found
 # Let's go back to our ixcdv root workspace
 cd ./my-workspace
 
+# Make sure out local iExec cloud computing is running using 1 scheduler and 1 worker
+ixcdv start worker --count 1 --chain 1337.standard
+
 # Let's create a folder where we will execute all the iexec sdk commands
 mkdir ./hello-using-iexec-cli
 
@@ -177,6 +180,9 @@ iexec order init --workerpool --chain 1337.standard
 # Here, the workerpool's owner gives anybody the right to use its 
 # network of computers (usually refered as 'workers') only 1 single time
 iexec order sign --workerpool --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet1.json --password whatever --chain 1337.standard
+
+# setup requester storage token for provider "ipfs"
+iexec storage init --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet4.json --password whatever --chain 1337.standard --force-update
 
 # At this point, we have:
 # 1. an app owner who granted anybody the right to run its app 
