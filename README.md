@@ -24,6 +24,8 @@ ixcdv (=*iexecdev*) is a macOS tool for creating and running a **local** iExec c
 ## Limitations
 
 - Does not yet support 'tee' mode (this feature requires Intel SGX processor).
+- Not tested on Linux
+- Not tested on Windows
 
 ## System Requirements
 
