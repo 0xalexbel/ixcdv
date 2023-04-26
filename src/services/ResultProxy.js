@@ -162,11 +162,11 @@ export class ResultProxyService extends SpringMongoServerService {
 
     /**
      * @override
+     * @param {{[envName:string] : string}} extras
      * @returns {Promise<{[envName:string] : string}>}
      */
-    async getEnvVars() {
-        /** @type {{[envName:string] : string}} */
-        const env = await super.getEnvVars();
+    async getEnvVars(extras) {
+        const env = await super.getEnvVars(extras);
 
         if (this.#ipfsHost) {
             env[envVarName('IPFSHOST')] = this.#ipfsHost;

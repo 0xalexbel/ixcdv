@@ -9,6 +9,7 @@ import * as srvTypes from './services-types.js';
  *      ymlConfig?:any,
  *      applicationYmlHash?: string
  *      springConfigLocation?: string
+ *      marker?: string
  * }} SpringServerServiceConstructorArgs
  */
 

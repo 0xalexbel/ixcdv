@@ -11,7 +11,8 @@ import { CodeError } from './error.js';
 import * as ERROR_CODES from './error-codes.js';
 import { repeatCallUntil } from './repeat-call-until.js';
 import { ServerService } from './service.js';
-import { psGetArgs, psGrepPID, psGrepPIDAndArgs } from './ps.js';
+import { psGetArgs, psGetEnv, psGrepPID, psGrepPIDAndArgs } from './ps.js';
+import { envVarName } from './consts.js';
 
 /* ---------------------- Ganache defaults ------------------------ */
 
@@ -222,6 +223,7 @@ export class GanacheService extends ServerService {
     }
 
     /**
+     * @override
      * @param {object=} filters 
      */
     static async running(filters) {
@@ -232,12 +234,12 @@ export class GanacheService extends ServerService {
 
         const services = [];
         for (let i = 0; i < pids.length; ++i) {
+            const pid = pids[i].pid;
+            const configFile = (await psGetEnv(pid, envVarName('MARKER'))) ?? '';
+
             const opts = pids[i].options;
             const g = GanacheService.#fromOpts(opts);
-            if (!g) {
-                continue;
-            }
-            services.push({ pid: pids[i].pid, service: g });
+            services.push({ pid, configFile, service: g });
         }
         if (services.length === 0) {
             return null;
@@ -256,6 +258,9 @@ export class GanacheService extends ServerService {
 
         for (let i = 0; i < services.length; ++i) {
             const g = services[i].service;
+            if (!g) {
+                continue;
+            }
             if (chains.has(g.chainid)) {
                 throw new CodeError(
                     `Multiple ganache services with chainid=${g.chainid} are running.`,
@@ -514,10 +519,14 @@ export class GanacheService extends ServerService {
     /* --------------------------- Bash script --------------------------- */
 
     /**
-     * @param {string=} logFile
-     * @param {string=} pidFile
+     * @override
+     * @param {{
+     *      logFile?: string
+     *      pidFile?: string
+     *      env?: {[envName:string] : string}
+     * }=} options
      */
-    async getStartBashScript(logFile, pidFile) {
+    async getStartBashScript(options) {
         if (!this.canStart) {
             throw new CodeError(`Cannot start ganache service.`);
         }
@@ -526,25 +535,30 @@ export class GanacheService extends ServerService {
         const dbPath = this.dbPath;
         throwIfDirDoesNotExist(dbPath);
 
-        if (logFile) {
-            throwIfParentDirDoesNotExist(logFile);
+        if (options?.logFile) {
+            throwIfParentDirDoesNotExist(options?.logFile);
         }
-        if (pidFile) {
-            throwIfParentDirDoesNotExist(pidFile);
+        if (options?.pidFile) {
+            throwIfParentDirDoesNotExist(options?.pidFile);
         }
 
-        // return genNohupBashScript('ganache', {
-        //     args: this.#getGanacheCliArgs(),
-        //     logFile,
-        //     pidFile
-        // });
-
-        return genSetMBashScript('ganache', {
+        /** @type {any} */
+        const o = {
             args: this.#getGanacheCliArgs(),
-            logFile,
-            pidFile,
-            version: 1
-        });
+            logFile: options?.logFile,
+            pidFile: options?.pidFile,
+            version: 1,
+            env: {}
+        }
+
+        if (options?.env) {
+            const xnames = Object.keys(options.env);
+            for (let i = 0; i < xnames.length; ++i) {
+                o.env[envVarName(xnames[i])] = options.env[xnames[i]];
+            }
+        }
+
+        return genSetMBashScript('ganache', o);
     }
 
     /* ------------------------------ Some RPC methods ------------------------------ */
@@ -579,7 +593,7 @@ export class GanacheService extends ServerService {
             const queryObj = {
                 jsonrpc: "2.0",
                 method: "eth_newFilter",
-                id:this.#chainid,
+                id: this.#chainid,
                 params: [filter]
             };
             const response = await httpPOST(this.urlString, null, null, queryObj);
@@ -602,7 +616,7 @@ export class GanacheService extends ServerService {
             const queryObj = {
                 jsonrpc: "2.0",
                 method: "eth_uninstallFilter",
-                id:this.#chainid,
+                id: this.#chainid,
                 params: [filterID]
             };
             const response = await httpPOST(this.urlString, null, null, queryObj);
@@ -620,7 +634,7 @@ export class GanacheService extends ServerService {
      */
     async fixFilterIDBug(filter) {
         let i = 0;
-        while(i <= 16) {
+        while (i <= 16) {
             // FilterID must be > 0xf, 2 digits is Hex  (otherwise bug in java, js etc.!)
             const filterID = await this.newEthFilter(filter);
             const filterIDNum = parseInt(filterID, 16);

@@ -9,7 +9,7 @@ import { ServerService } from '../common/service.js';
 import { hostnamePortToString, isNullishOrEmptyString, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
 import { resolveAbsolutePath, saveToFile, throwIfDirDoesNotExist, throwIfParentDirDoesNotExist } from '../common/fs.js';
 import { repeatCallUntil } from '../common/repeat-call-until.js';
-import { getPIDCWD, psGrepPIDAndEnv, pspWithArgsAndEnv } from '../common/ps.js';
+import { getPIDCWD, psGetEnv, psGrepPIDAndEnv, pspWithArgsAndEnv } from '../common/ps.js';
 import { CodeError } from '../common/error.js';
 import { genSetMBashScript } from '../common/bash.js';
 import { httpGET } from '../common/http.js';
@@ -201,9 +201,10 @@ export class MarketApiService extends ServerService {
     /* --------------------------- Bash script --------------------------- */
 
     /**
+     * @param {{[envName:string] : string}} extras
      * @returns {Object.<string,string>}
      */
-    #getEnv() {
+    #getEnv(extras) {
         /*
         PORT,
         MONGO_HOST,
@@ -269,13 +270,23 @@ export class MarketApiService extends ServerService {
         //env['DEBUG'] = 'iexec-market-api:config';
         env['DEBUG'] = 'iexec-market-api:*';
         //env['DEBUG'] = '*';
+
+        const xnames = Object.keys(extras);
+        for (let i= 0 ; i < xnames.length; ++i) {
+            env[envVarName(xnames[i])] = extras[xnames[i]];
+        }
+
         return env;
     }
 
     /**
-     * @param {string} destFilename 
+     * @param {{
+     *      filename?: string
+     *      env: {[envName:string] : string}
+     * }} options
      */
-    async saveEnvFile(destFilename) {
+    async saveEnvFile({ filename, env }) {
+        const destFilename = filename;
         assert(!isNullishOrEmptyString(destFilename));
         assert(destFilename);
         assert(path.isAbsolute(destFilename));
@@ -283,7 +294,7 @@ export class MarketApiService extends ServerService {
         const destDir = path.dirname(destFilename);
         throwIfDirDoesNotExist(destDir);
 
-        const envs = this.#getEnv();
+        const envs = this.#getEnv(env);
         assert(envs);
 
         let str = '';
@@ -331,8 +342,15 @@ export class MarketApiService extends ServerService {
         return; /* undefined */
     }
 
-    /** @override */
-    async getStartBashScript() {
+    /**
+     * @override
+     * @param {{
+     *      logFile?: string
+     *      pidFile?: string
+     *      env?: {[envName:string] : string}
+     * }=} options
+     */
+    async getStartBashScript(options) {
         if (!this.canStart) {
             throw new CodeError(`Cannot start market api service.`);
         }
@@ -349,6 +367,12 @@ export class MarketApiService extends ServerService {
             throwIfParentDirDoesNotExist(pidFilePath);
         }
 
+        /**
+         * @todo use options.logFile & options.pidFile instead
+         */
+        assert(logFilePath === options?.logFile);
+        assert(pidFilePath === options?.pidFile);
+
         // return genNohupBashScript('node', {
         //     dir: apiRepoDir,
         //     env: this.#getEnv(),
@@ -357,15 +381,17 @@ export class MarketApiService extends ServerService {
         //     pidFile: pidFilePath
         // });
 
-        return genSetMBashScript('node', {
+        /** @type {any} */
+        const o = {
             dir: apiRepoDir,
-            env: this.#getEnv(),
+            env: this.#getEnv(options?.env ?? {}),
             args: [ENTRY],
             logFile: logFilePath,
             pidFile: pidFilePath,
             version: 1
-        });
+        }
 
+        return genSetMBashScript('node', o);
     }
 
     async #getVersionSucceeded() {
@@ -406,7 +432,12 @@ export class MarketApiService extends ServerService {
         }
     }
 
-    static async running() {
+    /**
+     * @override
+     * @param {any=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(MarketApiService | null)}[] | null>} 
+     */
+    static async running(filters) {
         const pids = await MarketApiService.allPIDsWithEnvs();
         if (!pids) {
             return null;
@@ -414,17 +445,18 @@ export class MarketApiService extends ServerService {
 
         const services = [];
         for (let i = 0; i < pids.length; ++i) {
-            const pid = pids[i];
-            const cwd = await getPIDCWD(pid.pid);
+            const pidInfo = pids[i];
+            const cwd = await getPIDCWD(pidInfo.pid);
+            const configFile = (await psGetEnv(pidInfo.pid, envVarName('MARKER'))) ?? '';
 
             const apiService = newMarketApiService({
-                port: pid.port,
+                port: pidInfo.port,
                 repository: cwd,
-                mongoHost: pid.mongoHost,
-                redisHost: pid.redisHost,
-                chains: pid.chains ?? []
+                mongoHost: pidInfo.mongoHost,
+                redisHost: pidInfo.redisHost,
+                chains: pidInfo.chains ?? []
             });
-            services.push({ pid: pid.pid, service: apiService });
+            services.push({ pid: pidInfo.pid, configFile, service: apiService });
         }
         return (services.length === 0) ? null : services;
     }

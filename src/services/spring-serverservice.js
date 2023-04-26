@@ -12,7 +12,7 @@ import { CodeError, throwPureVirtual } from '../common/error.js';
 import { isNullishOrEmptyString, placeholdersPropertyReplace, stringToHostnamePort } from '../common/string.js';
 import { mkDir, saveToFile, throwIfDirDoesNotExist, throwIfParentDirDoesNotExist, toRelativePath } from '../common/fs.js';
 import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
-import { psGrepPIDAndEnv, pspWithArgsAndEnv } from '../common/ps.js';
+import { psGetEnv, psGrepPIDAndEnv, pspWithArgsAndEnv } from '../common/ps.js';
 import { genNohupBashScript } from '../common/bash.js';
 import { PoCoHubRef } from '../common/contractref.js';
 import { springArgsParseSpringConfigLocation, springClassPathParseRepoDir } from '../common/spring.js';
@@ -151,9 +151,10 @@ export class SpringServerService extends ServerService {
 
     /**
      * @virtual
+     * @param {{[envName:string] : string}} extras
      * @returns {Promise<{[envName:string] : string}>}
      */
-    async getEnvVars() {
+    async getEnvVars(extras) {
         const appYmlHash = await this.getApplicationYmlHash();
 
         assert(!isNullishOrEmptyString(appYmlHash));
@@ -165,6 +166,10 @@ export class SpringServerService extends ServerService {
         /** @type {{[envName:string] : string}} */
         let env = {};
 
+        const xnames = Object.keys(extras);
+        for (let i= 0 ; i < xnames.length; ++i) {
+            env[envVarName(xnames[i])] = extras[xnames[i]];
+        }
         env[envVarName('HOST')] = this.hostname + ":" + this.port.toString();
         env[envVarName('APPLICATION_YML')] = appYmlHash;
         env[envVarName('SPRING_CONFIG_LOC')] = this.#springConfigLocation;
@@ -192,6 +197,7 @@ export class SpringServerService extends ServerService {
             envVarName('APPLICATION_YML'),
             envVarName('SPRING_CONFIG_LOC'),
             envVarName('REPODIR'),
+            envVarName('MARKER'),
         ];
         const o = utilsParseEnvVars(varNames, str);
         const { hostname, port } = stringToHostnamePort(o[envVarName('HOST')]);
@@ -202,7 +208,8 @@ export class SpringServerService extends ServerService {
             port,
             applicationYmlHash: o[envVarName('APPLICATION_YML')],
             springConfigLocation: o[envVarName('SPRING_CONFIG_LOC')],
-            repoDir: o[envVarName('REPODIR')]
+            repoDir: o[envVarName('REPODIR')],
+            marker: o[envVarName('MARKER')]
         }
     }
 
@@ -251,6 +258,7 @@ export class SpringServerService extends ServerService {
     }
 
     /**
+     * @override
      * @param {any=} filters 
      */
     static async running(filters) {
@@ -262,16 +270,17 @@ export class SpringServerService extends ServerService {
         /** 
          * @param {typeof SpringServerService} theClass 
          * @param {number} pid 
-         * @returns {Promise<{pid:number, service:SpringServerService | null}>}
+         * @returns {Promise<{pid:number, configFile: string, service:SpringServerService | null}>}
          */
         async function __fromPID(theClass, pid) {
+            const configFile = (await psGetEnv(pid, envVarName('MARKER'))) ?? '';
             try {
                 const s = await theClass.fromPID(pid);
                 assert(s instanceof SpringServerService);
                 assert(s instanceof theClass);
-                return { pid, service: s }
+                return { pid, configFile, service: s }
             } catch {
-                return { pid, service: null }
+                return { pid, configFile, service: null }
             }
         }
         return Promise.all(pidsAndCmds.map(pc => __fromPID(this, pc.pid)));
@@ -371,9 +380,13 @@ export class SpringServerService extends ServerService {
     }
 
     /**
-     * @param {string=} destFilename 
+     * @param {{
+     *      filename?: string
+     *      env: {[envName:string] : string}
+     * }} options
      */
-    async saveEnvFile(destFilename) {
+    async saveEnvFile({ filename, env }) {
+        let destFilename = filename;
         if (isNullishOrEmptyString(destFilename)) {
             if (!this.springConfigLocation) {
                 throw new CodeError('Missing destination filename');
@@ -384,7 +397,7 @@ export class SpringServerService extends ServerService {
         const destDir = path.dirname(destFilename);
         throwIfDirDoesNotExist(destDir);
 
-        const envs = await this.getEnvVars();
+        const envs = await this.getEnvVars(env);
         assert(envs);
 
         let str = '';
@@ -395,19 +408,22 @@ export class SpringServerService extends ServerService {
         await saveToFile(str, destDir, path.basename(destFilename), { strict: true });
     }
 
-    /** 
+    /**
      * @override
-     * @param {string=} logFile
-     * @param {string=} pidFile
+     * @param {{
+     *      logFile?: string
+     *      pidFile?: string
+     *      env?: {[envName:string] : string}
+     * }=} options
      */
-    async getStartBashScript(logFile, pidFile) {
+    async getStartBashScript(options) {
         if (!this.canStart) {
             throw new CodeError(`Cannot start ${this.typename()} service.`);
         }
 
-        if (logFile) {
-            assert(path.isAbsolute(logFile));
-            throwIfParentDirDoesNotExist(logFile);
+        if (options?.logFile) {
+            assert(path.isAbsolute(options?.logFile));
+            throwIfParentDirDoesNotExist(options?.logFile);
         }
 
         /* ----------------- Save application.yml --------------------------- */
@@ -429,7 +445,7 @@ export class SpringServerService extends ServerService {
 
         /* ----------------- Compute application.yml hash ------------------- */
 
-        const envs = await this.getEnvVars();
+        const envs = await this.getEnvVars(options?.env ?? {});
 
         assert(envs[envVarName('APPLICATION_YML')] === savedAppYmlHash);
         assert(envs[envVarName('SPRING_CONFIG_LOC')] === springConfigLocation);
@@ -451,7 +467,7 @@ export class SpringServerService extends ServerService {
             dir: this.#repoDir,
             env: envs,
             args: args,
-            logFile: logFile,
+            logFile: options?.logFile,
         });
     }
 
@@ -528,12 +544,12 @@ export class SpringHubServerService extends SpringServerService {
     }
 
     /**
-     * @virtual
+     * @override
+     * @param {{[envName:string] : string}} extras
      * @returns {Promise<{[envName:string] : string}>}
      */
-    async getEnvVars() {
-        /** @type {{[envName:string] : string}} */
-        const env = await super.getEnvVars();
+    async getEnvVars(extras) {
+        const env = await super.getEnvVars(extras);
 
         const hubKey = this.hub?.key;
 
@@ -725,11 +741,11 @@ export class SpringMongoServerService extends SpringHubServerService {
 
     /**
      * @override
+     * @param {{[envName:string] : string}} extras
      * @returns {Promise<{[envName:string] : string}>}
      */
-    async getEnvVars() {
-        /** @type {{[envName:string] : string}} */
-        const env = await super.getEnvVars();
+    async getEnvVars(extras) {
+        const env = await super.getEnvVars(extras);
 
         if (this.#mongoDBName) {
             env[envVarName('MONGODBNAME')] = this.#mongoDBName;

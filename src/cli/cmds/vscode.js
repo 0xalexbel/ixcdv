@@ -106,7 +106,7 @@ export default class VSCodeCmd extends Cmd {
                     assert(instance.springConfigLocation);
                     mkDirP(instance.springConfigLocation);
                     await instance.saveApplicationYml();
-                    await instance.saveEnvFile();
+                    await instance.saveEnvFile({ filename: undefined, env: { marker: inventory._inv.rootDir } });
                 }
 
                 if (instance instanceof WorkerService) {
@@ -122,7 +122,7 @@ export default class VSCodeCmd extends Cmd {
                     assert(marketConf.type === 'market');
                     assert(marketConf.directory);
                     assert(instance instanceof Market);
-                    await instance.saveEnvFile({ directory: marketConf.directory });
+                    await instance.saveEnvFile({ directory: marketConf.directory, env: { marker: inventory._inv.rootDir } });
                 }
 
                 if (instance instanceof WorkerService) {

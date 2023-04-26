@@ -13,7 +13,7 @@ import { MongoService } from './MongoService.js';
 import { RedisService } from './RedisService.js';
 import { DB_SERVICE_TYPES } from './base-internal.js';
 import { CodeError } from '../common/error.js';
-import { rmFileSync } from '../common/fs.js';
+import { pathIsPOSIXPortable, rmFileSync } from '../common/fs.js';
 import { isNullishOrEmptyString } from '../common/string.js';
 import { isPositiveInteger } from '../common/number.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
@@ -46,9 +46,11 @@ export class InventoryRun {
      * }=} options
      */
     async #startByName(name, options) {
+        assert(pathIsPOSIXPortable(this._inv.rootDir));
         const instance = await this._inv.newInstanceFromName(name);
         const startReturn = await instance.start({
             createDir: true,
+            env: { marker: this._inv.rootDir },
             context: {
                 name
             },
@@ -146,6 +148,7 @@ export class InventoryRun {
                 const instance = await this._inv.newInstanceFromName(name);
                 assert(instance instanceof Market);
                 const startReturn = await instance.start({
+                    env: { marker: this._inv.rootDir },
                     onlyDB: true
                 });
                 allResults.push({ name, instance, startReturn });
@@ -236,6 +239,7 @@ export class InventoryRun {
             const instance = await this._inv.newWorkerInstance(hub, options.workerIndex);
             const startReturn = await instance.start({
                 createDir: true,
+                env: { marker: this._inv.rootDir },
                 progressCb: options.progressCb,
                 context: {
                     hub,
@@ -246,7 +250,7 @@ export class InventoryRun {
             allResults.push({ name: workerName, instance, startReturn });
         } else {
             const ic = this._inv.getWorkerConfig(hub, options.workerIndex);
-            
+
             // To prevent error mis-detection in vscode prelaunch tasks
             // ========================================================
             // Problem occurs when starting 2 different debug sessions of 2 different services

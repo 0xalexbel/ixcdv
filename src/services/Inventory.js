@@ -273,7 +273,7 @@ export class Inventory {
             const out = await Promise.all(promises);
             assert(out.length === ORDERED_SERVICE_TYPES.length);
 
-            /** @type {{[serviceType:string]: {pid:number, service:(AbstractService | null)}[] | null}} */
+            /** @type {{[serviceType:string]: {pid:number, configFile: string, service:(AbstractService | null)}[] | null}} */
             const o = {};
             for (let i = 0; i < out.length; ++i) {
                 const t = ORDERED_SERVICE_TYPES[i];

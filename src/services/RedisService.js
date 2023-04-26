@@ -10,9 +10,10 @@ import { isNullishOrEmptyString, stringToHostnamePort, stringToPositiveInteger, 
 import { dirExists, errorDirDoesNotExist, fileExists, generateTmpPathname, mkDirP, resolveAbsolutePath, rmFile, rmrfDir, saveToFile, throwIfDirDoesNotExist, toRelativePath } from '../common/fs.js';
 import { CodeError, fail, falseOrThrow } from '../common/error.js';
 import { repeatCallUntil } from '../common/repeat-call-until.js';
-import { killPIDAndWaitUntilFullyStopped, psGetArgs, psGrepPID } from '../common/ps.js';
+import { killPIDAndWaitUntilFullyStopped, psGetArgs, psGetEnv, psGrepPID } from '../common/ps.js';
 import { genSetMBashScript } from '../common/bash.js';
 import { childProcessSpawn } from '../common/process.js';
+import { envVarName } from '../common/consts.js';
 
 /**
  * @typedef {types.ServerServiceArgs &
@@ -242,12 +243,15 @@ export class RedisService extends ServerService {
         await super.isBusyOverride();
     }
 
-    /** 
-     * @override 
-     * @param {string=} logFile
-     * @param {string=} pidFile
+    /**
+     * @override
+     * @param {{
+     *      logFile?: string
+     *      pidFile?: string
+     *      env?: {[envName:string] : string}
+     * }=} options
      */
-    async getStartBashScript(logFile, pidFile) {
+    async getStartBashScript(options) {
         if (!this.canStart) {
             return null;
         }
@@ -271,7 +275,7 @@ export class RedisService extends ServerService {
             // generate the temporary conf file
             mkDirP(path.dirname(this.#redisConfFile));
             const ok = await saveToFile(
-                this.#genRedisConf(logFile, pidFile),
+                this.#genRedisConf(options?.logFile, options?.pidFile),
                 path.dirname(this.#redisConfFile),
                 path.basename(this.#redisConfFile));
 
@@ -280,11 +284,22 @@ export class RedisService extends ServerService {
             }
         }
 
-        return genSetMBashScript('redis-server', {
+        /** @type {any} */
+        const o = {
             dir: redisDir,
             args: [this.#redisConfFile],
+            env: {},
             version: 4
-        });
+        }
+
+        if (options?.env) {
+            const xnames = Object.keys(options.env);
+            for (let i = 0; i < xnames.length; ++i) {
+                o.env[envVarName(xnames[i])] = options.env[xnames[i]];
+            }
+        }
+
+        return genSetMBashScript('redis-server', o);
     }
 
     /** 
@@ -676,7 +691,12 @@ export class RedisService extends ServerService {
         return result[0];
     }
 
-    static async running() {
+    /**
+     * @override
+     * @param {any=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(RedisService | null)}[] | null>} 
+     */
+    static async running(filters) {
         const grepPattern = "redis-server ";
         const pids = await psGrepPID(grepPattern);
         if (!pids) {
@@ -685,11 +705,12 @@ export class RedisService extends ServerService {
 
         /** @param {number} pid */
         async function __fromPID(pid) {
+            const configFile = (await psGetEnv(pid, envVarName('MARKER'))) ?? '';
             try {
                 const s = await RedisService.fromPID(pid);
-                return { pid, service: s }
+                return { pid, configFile, service: s }
             } catch {
-                return { pid, service: null }
+                return { pid, configFile, service: null }
             }
         }
         return Promise.all(pids.map(pid => __fromPID(pid)));
@@ -731,7 +752,7 @@ async function findRedisHostPort(pid) {
             return; /* undefined */
         }
         assert(argsArray.length === 1);
-        const args= argsArray[0];
+        const args = argsArray[0];
 
         // not a redis-server ??
         const prefix = 'redis-server ';
@@ -742,7 +763,7 @@ async function findRedisHostPort(pid) {
         if (i < 0) {
             return; /* undefined */
         }
-        const port = stringToPositiveInteger(args.substring(i+1));
+        const port = stringToPositiveInteger(args.substring(i + 1));
         if (!port) {
             return; /* undefined */
         }
@@ -868,7 +889,7 @@ export async function redisCliGet(dir, args, env, options = { strict: true }) {
     /** @type {any} */
     const opts = {
         mergeProcessEnv: true,
-            stdout: {
+        stdout: {
             trim: false,
             return: true
         },

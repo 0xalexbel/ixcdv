@@ -238,11 +238,11 @@ export class WorkerService extends SpringServerService {
 
     /**
      * @override
+     * @param {{[envName:string] : string}} extras
      * @returns {Promise<{[envName:string] : string}>}
      */
-    async getEnvVars() {
-        /** @type {{[envName:string] : string}} */
-        const env = await super.getEnvVars();
+    async getEnvVars(extras) {
+        const env = await super.getEnvVars(extras);
 
         if (this.#name) {
             env[envVarName('WORKERNAME')] = this.#name;

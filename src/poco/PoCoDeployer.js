@@ -95,9 +95,9 @@ export class PoCoDeployer {
     constructor() {
     }
 
-    get #PoCoDir() { 
+    get #PoCoDir() {
         assert(this.#PoCoPkg);
-        return this.#PoCoPkg.directory; 
+        return this.#PoCoPkg.directory;
     }
 
     /**
@@ -144,8 +144,8 @@ export class PoCoDeployer {
         if (typeof PoCoChainConfig.PoCo === 'string') {
             const version = "v5.3.0";
             let PoCoDir = placeholdersReplace(PoCoChainConfig.PoCo, {
-                "${repoName}" : 'PoCo',
-                "${version}" : version
+                "${repoName}": 'PoCo',
+                "${version}": version
             });
             PoCoDir = resolveAbsolutePath(PoCoDir);
             this.#PoCoPkg = {
@@ -299,7 +299,11 @@ export class PoCoDeployer {
         }
 
         // starts the temporary ganache service
-        await g.start({ killIfFailed: true, strict: true });
+        await g.start({
+            env: { marker: 'PoCoDeployer' },
+            killIfFailed: true,
+            strict: true
+        });
 
         let deployError;
         try {

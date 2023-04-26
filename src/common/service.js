@@ -134,11 +134,10 @@ export class AbstractService extends EventEmitter {
 
     /** 
      * @param {any=} filters 
-     * @returns {Promise<{pid: number, service:(AbstractService | null)}[] | null>} 
+     * @returns {Promise<{pid: number, configFile: string, service:(AbstractService | null)}[] | null>} 
      */
     static async running(filters) {
-        throwPureVirtual('Service.running()');
-        return null;
+        throw pureVirtualError('AbstractService.running()');
     }
 
     /** 
@@ -575,7 +574,7 @@ export class Service extends AbstractService {
             };
         } catch (err) {
             // @ts-ignore
-            console.log(err.stack);
+            // console.log(err.stack);
             assert(err instanceof CodeError);
             startError = err;
         }
@@ -726,6 +725,7 @@ export class Service extends AbstractService {
             // - if failed : throws an error
             pid = await this.#startProcessViaBashScript(
                 {
+                    env: { ...options?.env },
                     bashScriptTimeoutMS: 5000,
                     fast: false,
                     quiet: false,
@@ -847,6 +847,7 @@ export class Service extends AbstractService {
      * @param {!types.positiveInteger=} options.bashScriptTimeoutMS 
      * @param {!boolean=} options.fast 
      * @param {!boolean=} options.quiet 
+     * @param {!{[envName:string] : string}} options.env 
      * @param {!AbortSignal=} options.abortSignal
      * @param {types.progressCallback=} options.progressCb
      * @returns {Promise<number>}
@@ -855,7 +856,8 @@ export class Service extends AbstractService {
         {
             bashScriptTimeoutMS: 5000,
             fast: false,
-            quiet: false
+            quiet: false,
+            env: {}
         }) {
 
         if (options.abortSignal?.aborted) {
@@ -871,7 +873,7 @@ export class Service extends AbstractService {
             rmFileSync(this.#pidFile);
         }
         // Prepare bash start script
-        const tmpStartBashScriptFile = await this.#saveTmpStartBashScript();
+        const tmpStartBashScriptFile = await this.#saveTmpStartBashScript(true, options.env ?? {});
         if (!tmpStartBashScriptFile) {
             throw this.#errorBashScriptGen();
         }
@@ -1369,21 +1371,24 @@ export class Service extends AbstractService {
 
     /** 
      * @abstract 
-     * @param {string=} logFile
-     * @param {string=} pidFile
+     * @param {{
+     *      logFile?: string
+     *      pidFile?: string
+     *      env?: {[envName:string] : string}
+     * }=} options
      * @returns {Promise<string?>}
      */
-    async getStartBashScript(logFile, pidFile) {
-        throwPureVirtual('generateStartBashScript');
-        return ''; //compiler warning
+    async getStartBashScript(options) {
+        throw pureVirtualError('getStartBashScript');
     }
 
     /**
      * Returns the generated bash script pathname
      * @param {boolean} force override any existing file
+     * @param {{[envName:string] : string}} env env var marker
      * @returns generated bash script pathname or `null` if failed
      */
-    async #saveTmpStartBashScript(force = true) {
+    async #saveTmpStartBashScript(force, env) {
         if (!this.canStart) {
             return null;
         }
@@ -1417,7 +1422,12 @@ export class Service extends AbstractService {
         }
 
         // generate Bash script
-        const script_src = await this.getStartBashScript(this.#logFile, this.#pidFile);
+        const script_src = await this.getStartBashScript({
+            logFile: this.#logFile,
+            pidFile: this.#pidFile,
+            env
+        });
+
         if (isNullishOrEmptyString(script_src)) {
             return null;
         }
@@ -1603,12 +1613,12 @@ export class Service extends AbstractService {
     }
 
     /** 
+     * @override
      * @param {any=} filters 
-     * @returns {Promise<{pid: number, service:(Service | null)}[] | null>} 
+     * @returns {Promise<{pid: number, configFile: string, service:(Service | null)}[] | null>} 
      */
     static async running(filters) {
-        throwPureVirtual('Service.running()');
-        return null;
+        throw pureVirtualError('Service.running()');
     }
 
     /** 

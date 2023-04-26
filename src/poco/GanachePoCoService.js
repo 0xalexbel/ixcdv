@@ -18,7 +18,8 @@ import { SharedJsonRpcProviders } from '../common/shared-json-rpc-providers.js';
 import { CodeError } from '../common/error.js';
 import { isPackageOrDirectory } from '../pkgmgr/pkg.js';
 import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
-import { PROD_FILE_PREFIX } from '../common/consts.js';
+import { envVarName, PROD_FILE_PREFIX } from '../common/consts.js';
+import { psGetEnv } from '../common/ps.js';
 
 const CONFIG_FILE_BASENAME = `${PROD_FILE_PREFIX}-ganache-poco-config.json`;
 const DBPATH_BASENAME = 'db';
@@ -703,11 +704,11 @@ export class GanachePoCoService extends GanacheService {
         }
         const PoCoServices = [];
         for (let i = 0; i < pidAndServices.length; ++i) {
-            const p = await GanachePoCoService.#fromGanacheService(pidAndServices[i].service);
-            if (!p) {
+            const service = await GanachePoCoService.#fromGanacheService(pidAndServices[i].service);
+            if (!service) {
                 continue;
             }
-            PoCoServices.push({ pid: pidAndServices[i].pid, service: p });
+            PoCoServices.push({ pid: pidAndServices[i].pid, configFile: pidAndServices[i].configFile, service });
         }
         return (PoCoServices.length === 0) ? null : PoCoServices;
     }
