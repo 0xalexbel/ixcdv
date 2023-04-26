@@ -1,0 +1,343 @@
+import * as cTypes from './contracts-types-internal.js';
+import assert from 'assert';
+import { BigNumber, Wallet, Contract } from "ethers";
+import { Registry, RegistryConstructorGuard, registryEntryAtIndex, registryEntryOfOwnerAtIndex } from "./Registry.js";
+import { newContract, SharedReadonlyContracts } from './SharedReadonlyContracts.js';
+import { ContractBase } from './ContractBase.js';
+import { MultiaddrEx } from './MultiaddrEx.js';
+import { AppRegistryEntry } from './AppRegistryEntry.js';
+import { toTxArgs } from './utils.js';
+import { computeDockerChecksumAndMultiaddr } from './app-generator.js';
+import { ContractRef } from '../common/contractref.js';
+import { isNullishOrEmptyString } from '../common/string.js';
+import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
+import { CodeError } from '../common/error.js';
+
+export const AppRegistryConstructorGuard = { value: false };
+
+export class AppRegistry extends Registry {
+
+    /**
+     * @param {Contract} contract 
+     * @param {ContractRef} contractRef 
+     * @param {string} contractDir
+     */
+    constructor(contract, contractRef, contractDir) {
+        if (!AppRegistryConstructorGuard.value) {
+            throw new TypeError('class constructor is not accessible');
+        }
+
+        assert(!RegistryConstructorGuard.value);
+        RegistryConstructorGuard.value = true;
+        super(contract, contractRef, contractDir);
+        RegistryConstructorGuard.value = false;
+    }
+
+    /**
+     * @param {Contract} contract 
+     * @param {ContractRef} contractRef 
+     * @param {string} contractDir
+     */
+    static #newAppRegistry(contract, contractRef, contractDir) {
+        assert(!AppRegistryConstructorGuard.value);
+        AppRegistryConstructorGuard.value = true;
+        const o = new AppRegistry(contract, contractRef, contractDir);
+        AppRegistryConstructorGuard.value = false;
+        return o;
+    }
+
+    /**
+     * @param {ContractRef} contractRef 
+     * @param {string} contractDir
+     */
+    static sharedReadOnly(contractRef, contractDir) {
+        const c = SharedReadonlyContracts.get(contractRef, 'AppRegistry', contractDir);
+        return AppRegistry.#newAppRegistry(c, contractRef, contractDir);
+    }
+
+    /**
+     * @param {string} address 
+     * @param {ContractBase} baseContract 
+     */
+    static fromAddr(address, baseContract) {
+        assert(baseContract);
+
+        const contractRef = new ContractRef({
+            chainid: baseContract.chainid,
+            contractName: 'AppRegistry',
+            address: address,
+            url: baseContract.url
+        });
+
+        if (baseContract.isSharedReadOnly) {
+            return AppRegistry.sharedReadOnly(contractRef, baseContract.contractDir);
+        }
+
+        const newC = newContract(
+            contractRef,
+            'AppRegistry',
+            baseContract.contractDir,
+            baseContract.signerOrProvider);
+
+        return AppRegistry.#newAppRegistry(newC, contractRef, baseContract.contractDir);
+    }
+
+    /**
+     * @param {Wallet} wallet 
+     */
+    newSigningContract(wallet) {
+        return newContract(this.contractRef, 'AppRegistry', this.contractDir, wallet);
+    }
+
+    /**
+     * Converts a MREnclave object to string
+     * @param {?cTypes.MREnclave=} mrenclaveObj 
+     */
+    static MREnclaveToString(mrenclaveObj) {
+        assert(typeof mrenclaveObj == 'object');
+        if (mrenclaveObj == null || mrenclaveObj == undefined) {
+            return '';
+        }
+        return JSON.stringify(mrenclaveObj);
+    }
+
+    /**
+     * Converts a MREnclave object to utf8 buffer
+     * @param {?cTypes.MREnclave=} mrenclaveObj 
+     */
+    static MREnclaveToUtf8Buffer(mrenclaveObj) {
+        const mre = (mrenclaveObj) ? {
+            provider: mrenclaveObj.provider, // key order is important
+            version: mrenclaveObj.version, // key order is important
+            entrypoint: mrenclaveObj.entrypoint, // key order is important
+            heapSize: mrenclaveObj.heapSize, // key order is important
+            fingerprint: mrenclaveObj.fingerprint, // key order is important
+        } : null;
+        return Buffer.from(AppRegistry.MREnclaveToString(mre), 'utf8');
+    }
+
+    /** @param {string} mrenclaveStr */
+    static StringToMREnclave(mrenclaveStr) {
+        if (isNullishOrEmptyString(mrenclaveStr)) {
+            return null;
+        }
+        return JSON.parse(mrenclaveStr);
+    }
+
+    /** @param {string} mrenclaveUtf8BufferHex */
+    static Utf8BufferHexToMREnclave(mrenclaveUtf8BufferHex) {
+        assert(mrenclaveUtf8BufferHex.startsWith('0x'));
+        if (mrenclaveUtf8BufferHex === '0x') {
+            return null;
+        }
+        return AppRegistry.StringToMREnclave(Buffer.from(mrenclaveUtf8BufferHex.substring(2), 'hex').toString());
+    }
+
+    /** @param {cTypes.App} validApp */
+    async predictAddress(validApp) {
+        const c = this.contract;
+
+        const multiaddr = MultiaddrEx.toNonNullOrThrowError(validApp.multiaddr);
+        const mrenclaveUtf8Buffer = AppRegistry.MREnclaveToUtf8Buffer(validApp.mrenclave);
+
+        /*
+        function predictApp(
+            address          _appOwner,
+            string  calldata _appName,
+            string  calldata _appType,
+            bytes   calldata _appMultiaddr,
+            bytes32          _appChecksum,
+            bytes   calldata _appMREnclave)
+        */
+        /** @type {cTypes.checksumaddress} */
+        const predictedAddr = await c.predictApp(
+            validApp.owner,
+            validApp.name,
+            validApp.type,
+            multiaddr, /* Hexable */
+            validApp.checksum,
+            mrenclaveUtf8Buffer);
+        return predictedAddr;
+    }
+
+    /**
+     * API : 
+     * - Returns true, if `value` is a valid app object
+     * @param {any} value
+     */
+    static isValidEntryData(value) {
+        return AppRegistryEntry.isValidObject(value);
+    }
+
+    /**
+     * @param {cTypes.App | cTypes.checksumaddress} appOrAddress
+     */
+    async isRegistered(appOrAddress) {
+        let addr;
+        if (typeof appOrAddress === 'string') {
+            addr = toChecksumAddress(appOrAddress);
+        } else if (typeof appOrAddress === 'object') {
+            if (!AppRegistry.isValidEntryData(appOrAddress)) {
+                throw new CodeError('Invalid app data');
+            }
+            addr = await this.predictAddress(appOrAddress);
+        } else {
+            throw new CodeError('Invalid argument');
+        }
+        const ok = await this.contract.isRegistered(addr);
+        return (ok) ? true : false;
+    }
+
+    /**
+     * @param {cTypes.App} validUnregisteredApp 
+     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     */
+    async createApp(validUnregisteredApp, txArgsOrWallet) {
+        const txArgs = toTxArgs(txArgsOrWallet);
+        const sc = this.newSigningContract(txArgs.wallet);
+
+        const multiaddr = MultiaddrEx.toNonNullOrThrowError(validUnregisteredApp.multiaddr);
+        const mrenclaveUtf8Buffer = AppRegistry.MREnclaveToUtf8Buffer(validUnregisteredApp.mrenclave);
+
+        /*
+        function createApp(
+            address          _appOwner,
+            string  calldata _appName,
+            string  calldata _appType,
+            bytes   calldata _appMultiaddr,
+            bytes32          _appChecksum,
+            bytes   calldata _appMREnclave)
+        */
+        /** @type {any} */
+        const tx = await sc.createApp(
+            validUnregisteredApp.owner,
+            validUnregisteredApp.name,
+            validUnregisteredApp.type,
+            multiaddr, /* Hexable */
+            validUnregisteredApp.checksum,
+            mrenclaveUtf8Buffer,
+            txArgs.txOverrides);
+
+        // wait for tx
+        const txReceipt = await tx.wait(txArgs.txConfirms);
+        const evtTransfer = txReceipt.events.find(/** @param {any} event */(event) => event.event === 'Transfer');
+        if (!evtTransfer) {
+            throw new Error(`Unknown event 'Transfer'`);
+        }
+
+        /*
+            From ERC721.sol
+            _mint(...)
+            emit Transfer(address(0), to, tokenId);
+            event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+         */
+        /** @type {{ tokenId: BigNumber }} */
+        const { tokenId } = evtTransfer.args;
+        assert(tokenId instanceof BigNumber);
+
+        const address = ERC721TokenIdToAddress(tokenId);
+        return {
+            address: address,
+            txHash: txReceipt.transactionHash
+        };
+    }
+
+    /**
+     * API : 
+     * - if `workerpoolOrAddress` is already registered : returns the existing entry.
+     * - if `workerpoolOrAddress` is not yet registered : returns null.
+     * - Throws error if failed.
+     * @param {cTypes.App | string} appOrAddress 
+     */
+    async getEntry(appOrAddress) {
+        if (appOrAddress === null || appOrAddress === undefined) {
+            throw new CodeError('Invalid argument');
+        }
+        if (appOrAddress === NULL_ADDRESS) {
+            return null;
+        }
+        let addr = null;
+        if (typeof appOrAddress == 'string') {
+            addr = toChecksumAddress(appOrAddress);
+        } else {
+            addr = await this.predictAddress(appOrAddress);
+        }
+        const registered = await this.contract.isRegistered(addr);
+        if (!registered) {
+            return null;
+        }
+        return AppRegistryEntry.fromAddr(addr, this);
+    }
+
+    /**
+     * @param {cTypes.App} app 
+     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     */
+    async newEntry(app, txArgsOrWallet) {
+        if (app === null || app === undefined) {
+            throw new CodeError('Invalid argument');
+        }
+
+        const e = await this.getEntry(app);
+        if (e) {
+            return e;
+        }
+
+        const { address, txHash } = await this.createApp(app, txArgsOrWallet);
+        return this.getEntry(address);
+    }
+
+    /**
+     * @param {{
+     *     dockerFileLocation: string
+     *     dockerRepository: string
+     *     dockerTag?: string
+     *     dockerUrl: string
+     *     rebuildDockerImage?: boolean
+     * }} args 
+     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     */
+    async newEntryFromDockerfile(args, txArgsOrWallet) {
+        const txArgs = toTxArgs(txArgsOrWallet);
+
+        // compute app multiaddr & checksum
+        const appMC = await computeDockerChecksumAndMultiaddr(
+            args.dockerFileLocation, /* app dockerfile dir */
+            args.dockerRepository, /* app docker repo */
+            args.dockerTag ?? '1.0.0', /* app docker tag */
+            args.dockerUrl, /* docker registry url */
+            args.rebuildDockerImage ?? false /* rebuild docker image */
+        );
+        
+        /** @type {cTypes.App} */
+        const app = {
+            owner: txArgs.wallet.address,
+            name: args.dockerRepository,
+            type: "DOCKER",
+            checksum: appMC.checksum,
+            multiaddr: appMC.multiaddr,
+            mrenclave: undefined
+        }
+
+        return this.newEntry(app, txArgs);
+    }
+
+    /**
+     * API:
+     * - Returns the `index`th Registry Entry.
+     * @param {cTypes.uint256 | number} index
+     */
+    async getEntryAtIndex(index) {
+        return registryEntryAtIndex(this, index);
+    }
+
+    /**
+     * API:
+     * - Returns the `index`th Registry Entry.
+     * @param {cTypes.checksumaddress} owner
+     * @param {cTypes.uint256 | number} index
+     */
+    async getEntryOfOwnerAtIndex(owner, index) {
+        return registryEntryOfOwnerAtIndex(this, owner, index);
+    }
+}

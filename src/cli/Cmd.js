@@ -1,0 +1,89 @@
+import assert from 'assert';
+import path from 'path';
+import { CodeError } from '../common/error.js';
+import { fileExistsInDir, resolveAbsolutePath } from '../common/fs.js';
+import { isNullishOrEmptyString } from '../common/string.js';
+import { ConfigFile } from '../services/ConfigFile.js';
+import { Inventory } from '../services/Inventory.js';
+import { PROD_BIN } from '../common/consts.js';
+
+export class Cmd {
+
+    /** @type {boolean} */
+    #debugMode = false;
+
+    /**
+     * @param {any} commandOptions 
+     * @param {any} error 
+     */
+    exit(commandOptions, error) {
+        if (this.#debugMode) {
+            console.error(error.stack);
+        }
+        if (!isNullishOrEmptyString(error.message)) {
+            console.error(error.message);
+        }
+        process.exit(1);
+    }
+
+    /**
+     * @param {string} dir 
+     */
+    resolveConfigDir(dir) {
+        let d = resolveAbsolutePath(dir);
+        while (true) {
+            if (fileExistsInDir(d, ConfigFile.basename())) {
+                return d;
+            }
+            try {
+                const parent = path.dirname(d);
+                if (parent === d) {
+                    throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${dir}' or any of its parent directories.`);
+                }
+                d = parent;
+            } catch (err) {
+                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${dir}' or any of its parent directories.`);
+            }
+            if (isNullishOrEmptyString(d)) {
+                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${dir}' or any of its parent directories.`);
+            }
+        }
+    }
+
+    /**
+     * @param {string} dir 
+     */
+    exitIfNoConfig(dir) {
+        if (!fileExistsInDir(dir, ConfigFile.basename())) {
+            throw new CodeError(`Config file '${dir}/${ConfigFile.basename()}' does not exist. Call '${PROD_BIN} init' to create a new default '${ConfigFile.basename()}'`);
+        }
+    }
+
+    /**
+     * @param {Inventory} inventory
+     * @param {*} options 
+     */
+    resolveHubAlias(inventory, options) {
+        if (isNullishOrEmptyString(options.hub)) {
+            return inventory.getDefaultHubAlias();
+        }
+        assert(typeof options.hub === 'string');
+        return options.hub;
+    }
+    /**
+     * @param {Inventory} inventory
+     * @param {*} options 
+     */
+    resolveChainName(inventory, options) {
+        if (isNullishOrEmptyString(options.chain)) {
+            return inventory.getDefaultChainName();
+        }
+        assert(typeof options.chain === 'string');
+        return options.chain;
+    }
+
+    get debugMode() { return this.#debugMode; }
+    set debugMode(value) {
+        this.#debugMode = value;
+    }
+}

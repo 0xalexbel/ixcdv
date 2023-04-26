@@ -1,0 +1,35 @@
+{
+    "name": "ixcdv",
+    "version": "1.0.0",
+    "description": "A MacOS-tool for creating a local iExec cloud-infrastructure for development and testing.",
+    "license": "Apache-2.0",
+    "private": true,
+    "type": "module",
+    "author": "Alexandre Belhoste",
+    "main": "./src/cli/cli.js",
+    "bin": {
+        "ixcdv": "./src/cli/cli.js"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "scripts": {
+        "test": "npm run test-all",
+        "test-all": "mocha --reporter=spec test/*-test.js",
+        "test-git": "mocha --timeout 10000 --reporter=spec test/git-test.js",
+        "test-utils": "mocha --reporter=spec test/utils-test.js"
+    },
+    "dependencies": {
+        "ethers": "^5.6.2",
+        "fs-extra": "^11.1.0",
+        "js-yaml": "^4.1.0",
+        "mongodb": "^4.12.1",
+        "multiaddr": "^10.0.1",
+        "semver": "^7.3.8",
+        "commander": "10.0.0",
+        "cli-progress": "^3.12.0"
+    },
+    "devDependencies": {
+        "mocha": "10.2.0"
+    }
+}
