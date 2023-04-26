@@ -982,9 +982,12 @@ export class Market extends AbstractService {
         }
         Market.#guardConstructing = false;
 
-        // Throws an excpetion if multiple ganache instances 
+        // Throws an exception if multiple ganache instances 
         // running with the same chainid are running
         const chainidToGanacheService = await GanachePoCoService.runningGroupedByUniqueChainid();
+        if (!chainidToGanacheService || chainidToGanacheService.size === 0) {
+            return null;
+        }
         // Ganache is not running ? 
         // External eth nodes not yet supported
         assert(chainidToGanacheService instanceof Map);
@@ -1210,6 +1213,24 @@ export class Market extends AbstractService {
      * @param {types.StopOptionsWithContext} options 
      */
     static async stopAll(filters, options) {
+        this.#stopAll(false, filters, options);
+    }
+
+    /** 
+     * @param {any} filters 
+     * @param {types.StopOptionsWithContext} options 
+     */
+    static async killAll(filters, options) {
+        this.#stopAll(true, filters, options);
+    }
+
+    /** 
+     * @param {boolean} kill
+     * @param {any} filters 
+     * @param {types.StopOptionsWithContext} options 
+     */
+    static async #stopAll(kill, filters, options) {
+
         // filters are not yet used
         // keep the same method signature as service.js 
         const [mongos, redis, apis, watchers] = await Promise.all([
@@ -1221,12 +1242,17 @@ export class Market extends AbstractService {
 
         /** @type {Service[]} */
         let apiAndWatchersGp = [];
+        /** @type {number[]} */
+        let apiPids = [];
+        /** @type {number[]} */
+        let watcherPids = [];
         if (apis) {
             for (let i = 0; i < apis.length; ++i) {
                 const api = apis[i].service;
                 if (api) {
                     apiAndWatchersGp.push(api);
                 }
+                apiPids.push(apis[i].pid);
             }
         }
         if (watchers) {
@@ -1235,29 +1261,72 @@ export class Market extends AbstractService {
                 if (watcher) {
                     apiAndWatchersGp.push(watcher);
                 }
+                watcherPids.push(watchers[i].pid);
             }
         }
 
         /** @type {Service[]} */
         let dbGp = [];
+        /** @type {number[]} */
+        let mongoPids = [];
+        /** @type {number[]} */
+        let redisPids = [];
         if (mongos) {
             dbGp = dbGp.concat(mongos);
+            const pids = await Promise.all(mongos.map(m => m.getPID()));
+            for (let i = 0; i < pids.length; ++i) {
+                const pid = pids[i];
+                if (pid === undefined) {
+                    continue;
+                }
+                mongoPids.push(pid);
+            }
         }
         if (redis) {
             dbGp = dbGp.concat(redis);
+            const pids = await Promise.all(redis.map(m => m.getPID()));
+            for (let i = 0; i < pids.length; ++i) {
+                const pid = pids[i];
+                if (pid === undefined) {
+                    continue;
+                }
+                redisPids.push(pid);
+            }
         }
 
         if (apiAndWatchersGp.length > 0) {
-            await Service.groupStop({
-                services: apiAndWatchersGp,
-                options
-            });
+            if (kill) {
+                await MarketApiService.groupKill({
+                    pids: apiPids,
+                    options
+                });
+                await MarketWatcherService.groupKill({
+                    pids: watcherPids,
+                    options
+                });
+            } else {
+                await Service.groupStop({
+                    services: apiAndWatchersGp,
+                    options
+                });
+            }
         }
         if (dbGp.length > 0) {
-            await Service.groupStop({
-                services: dbGp,
-                options
-            });
+            if (kill) {
+                await MongoService.groupKill({
+                    pids: mongoPids,
+                    options
+                });
+                await RedisService.groupKill({
+                    pids: redisPids,
+                    options
+                });
+            } else {
+                await Service.groupStop({
+                    services: dbGp,
+                    options
+                });
+            }
         }
     }
 

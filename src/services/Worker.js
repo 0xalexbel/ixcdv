@@ -318,6 +318,9 @@ export class WorkerService extends SpringServerService {
         assert(pidsAndServices);
         assert(pidsAndServices.length === 1);
         const g = pidsAndServices[0].service;
+        if (!(g instanceof GanachePoCoService)) {
+            throw new CodeError('Unable to retrieve ganache instance');
+        }
 
         const walletPath = await g.walletFileAtIndex(walletIndex)
 

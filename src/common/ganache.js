@@ -225,6 +225,7 @@ export class GanacheService extends ServerService {
     /**
      * @override
      * @param {object=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(GanacheService | null)}[] | null>} 
      */
     static async running(filters) {
         const pids = await this.runningPIDs(filters);
@@ -284,6 +285,9 @@ export class GanacheService extends ServerService {
 
         for (let i = 0; i < services.length; ++i) {
             const g = services[i].service;
+            if (!g) {
+                continue;
+            }
             if (chains.has(g.chainid)) {
                 chains.get(g.chainid)?.push(g);
             } else {

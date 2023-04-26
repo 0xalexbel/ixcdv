@@ -141,6 +141,14 @@ export class AbstractService extends EventEmitter {
     }
 
     /** 
+     * @param {any} filters 
+     * @param {types.StopOptionsWithContext} options 
+     */
+    static async killAll(filters, options) {
+        throw pureVirtualError('AbstractService.killAll()');
+    }
+
+    /** 
      * @param {any} config 
      * @param {boolean} resolvePlaceholders
      * @param {string=} relativeToDirectory
@@ -1637,6 +1645,22 @@ export class Service extends AbstractService {
         });
     }
 
+    /** 
+     * @param {any} filters 
+     * @param {types.StopOptionsWithContext} options 
+     */
+    static async killAll(filters, options) {
+        // should not be 'null', would prevent from obj destructuring
+        const all = await this.running(filters ?? undefined);
+        if (!all) {
+            return;
+        }
+        return this.groupKill({
+            pids: all.map(s => s.pid),
+            options
+        });
+    }
+
     /**
      * @param {{
      *      services?: (types.IStoppable | null)[] 
@@ -1669,6 +1693,48 @@ export class Service extends AbstractService {
             console.log(r.error.message);
         }
         return ok;
+    }
+
+    /**
+     * @param {{
+    *      pids: number[] 
+    *      options?: types.StopOptionsWithContext 
+    * }} args
+    */
+    static async groupKill({ pids, options }) {
+        if (!pids || pids.length === 0) {
+            return;
+        }
+
+        const context = options?.context;
+        const typename = this.typename();
+        const promises = [];
+        for (let i = 0; i < pids.length; i++) {
+            const pid = pids[i];
+            if (!isPositiveInteger(pid)) {
+                continue;
+            }
+            const p = killPIDAndWaitUntilFullyStopped(pid,
+                {
+                    ... (options?.abortSignal && {
+                        abortSignal: options.abortSignal
+                    }),
+                    ... (options?.progressCb && {
+                        progressCb: (args) => {
+                            options.progressCb?.({
+                                ...args,
+                                value: {
+                                    state: 'kill',
+                                    type: typename,
+                                    pid,
+                                    context
+                                }
+                            });
+                        }
+                    })
+                });
+            promises.push(p);
+        }
     }
 }
 

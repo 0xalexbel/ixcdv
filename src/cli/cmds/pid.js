@@ -125,7 +125,7 @@ async function printIpfsPid(type, pidInfo, inventory) {
     const pid = pidInfo.pid;
     if (!service) {
         if (pidInfo.configFile) {
-            return `${pid}\t[${PROD_NAME} zombie]\t${type} (config=${pidInfo.configFile})\n`;
+            return `${pid}\t???.???\t${type} (config=${pidInfo.configFile})\n`;
         }
         return `${pid}\t???:???\t${type}\n`;
     }
@@ -246,7 +246,7 @@ function printGanachePid(type, pidInfo, inventory) {
     const ganache = pidInfo.service;
     const pid = pidInfo.pid;
     if (!ganache) {
-        return `${pid}\t???:???\t${type}\n`;
+        return `${pid}\t???:???\t${type} (config=${pidInfo.configFile})\n`;
     }
     assert(ganache instanceof GanachePoCoService);
     const b = `${ganache.typename()}`;

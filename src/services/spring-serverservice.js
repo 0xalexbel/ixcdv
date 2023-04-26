@@ -260,6 +260,7 @@ export class SpringServerService extends ServerService {
     /**
      * @override
      * @param {any=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(SpringServerService | null)}[] | null>} 
      */
     static async running(filters) {
         const pidsAndCmds = await this.runningPIDs(filters);

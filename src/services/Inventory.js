@@ -212,6 +212,13 @@ export class Inventory {
     /**
      * @param {types.StopOptionsWithContext=} options 
      */
+    static async killAny(options) {
+        return InventoryRun.killAny(options);
+    }
+
+    /**
+     * @param {types.StopOptionsWithContext=} options 
+     */
     async resetAll(options) {
         const run = new InventoryRun(this._inv);
         return run.resetAll(options);

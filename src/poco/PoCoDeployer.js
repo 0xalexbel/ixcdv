@@ -293,6 +293,9 @@ export class PoCoDeployer {
         let runningGanacheServices = await GanacheService.running({ port });
         if (runningGanacheServices) {
             assert(runningGanacheServices.length === 1);
+            if (!runningGanacheServices[0].service) {
+                throw new CodeError(`Another instane of ganache is already running on port ${port}`)
+            }
             await runningGanacheServices[0].service.stop({ strict: true });
         } else {
             await g.stop({ strict: true });

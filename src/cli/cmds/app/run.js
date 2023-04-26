@@ -91,7 +91,7 @@ export default class AppRunCmd extends Cmd {
             if (options.reset) {
                 await ResetAllCmd.exec(inventory, null);
             } else if (options.restart) {
-                await StopAllCmd.exec(null);
+                await StopAllCmd.exec(false, null);
             }
             // Start 'numWorkers' worker + all the specified chain services
             await StartCmd.exec(inventory, 'worker', { count: numWorkers, hub: hubAlias });

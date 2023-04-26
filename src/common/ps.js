@@ -1,3 +1,4 @@
+import * as types from './types.js'
 import { assertNonEmptyString, isNullishOrEmptyString, stringToPositiveInteger, throwIfNullishOrEmptyString } from './string.js';
 import * as timersPromises from 'timers/promises';
 import * as pathlib from 'path';
@@ -223,6 +224,7 @@ export async function psGetEnv(pid, envName) {
  * @param {number=} options.waitBetweenPIDChecksMS the amount of time to wait in ms between 2 `ps -p` calls
  * @param {number=} options.maxPIDChecks maximum number of `ps -p` calls (default 20)
  * @param {string=} options.progressMessage when provided, used as a prefix to display a progress message. If not provided, does not display any progress message.
+ * @param {types.progressCallback=} options.progressCb 
  * @param {AbortSignal=} options.abortSignal when provided the corresponding `AbortController` can be used to cancel the operation.
  */
 export async function killPIDAndWaitUntilFullyStopped(pid, options = {
@@ -301,7 +303,10 @@ export async function killPIDAndWaitUntilFullyStopped(pid, options = {
     const messagePrefix = (isNullishOrEmptyString(options.progressMessage)) ? null : options.progressMessage;
 
     if (messagePrefix) {
-        console.log(`${messagePrefix} 0%`);
+        //console.log(`${messagePrefix} 0%`);
+    }
+    if (options.progressCb) {
+        options.progressCb({ count: 0, total: 100, value: null });
     }
 
     const abortSignal = options.abortSignal;
@@ -326,9 +331,12 @@ export async function killPIDAndWaitUntilFullyStopped(pid, options = {
             return;
         }
 
+        const perc = Math.floor(100 * checkCount / maxCheckCount);
         if (messagePrefix) {
-            const perc = Math.floor(100 * checkCount / maxCheckCount);
-            console.log(`${messagePrefix} ${perc}%`);
+            //console.log(`${messagePrefix} ${perc}%`);
+        }
+        if (options.progressCb) {
+            options.progressCb({ count: perc, total: 100, value: null });
         }
 
         if (checkCount >= maxCheckCount) {

@@ -221,6 +221,7 @@ export class IpfsService extends ServerService {
     /**
      * @override
      * @param {any=} filters 
+     * @returns {Promise<{pid: number, configFile: string, service:(IpfsService | null)}[] | null>} 
      */
     static async running(filters) {
         const grepPattern = "ipfs daemon";

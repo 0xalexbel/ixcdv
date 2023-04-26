@@ -34,6 +34,7 @@ Prior to installing **ixcdv** on your mac, make sure the following software tool
 - Git
 - Ipfs
 - Gradle
+- Node
 - Npm
 - Docker desktop for MacOS
 - MongoDB

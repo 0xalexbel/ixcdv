@@ -19,6 +19,7 @@ import { isPositiveInteger } from '../common/number.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
 import { IpfsService } from '../ipfs/IpfsService.js';
 import { PoCoHubRef } from '../common/contractref.js';
+import { DockerService } from './DockerService.js';
 
 /** @type {srvTypes.NonWorkerServiceType[][]} */
 const ORDERED_SERVICE_TYPE_GROUPS = [
@@ -316,30 +317,91 @@ export class InventoryRun {
      */
     static async stopAny(options) {
         const cb = options?.progressCb;
-        let count = 0;
-        const total = 10;
 
-        cb?.({ count, total, value: { type: 'worker' } }); count++;
-        await WorkerService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'worker' } }); count++;
-        await CoreService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'core' } }); count++;
-        await BlockchainAdapterService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'blockchainadapter' } }); count++;
-        await SmsService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'sms' } }); count++;
-        await ResultProxyService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'resultproxy' } }); count++;
-        await Market.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'market' } }); count++;
-        await MongoService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'mongo' } }); count++;
-        await RedisService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'redis' } }); count++;
-        await GanachePoCoService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'ganache' } }); count++;
-        await IpfsService.stopAll(null, { reset: options?.reset });
-        cb?.({ count, total, value: { type: 'ipfs' } }); count++;
+        /** @type {srvTypes.ServiceType[]} */
+        const types = [
+            'worker',
+            'core',
+            'blockchainadapter',
+            'sms',
+            'resultproxy',
+            'market',
+            'mongo',
+            'redis',
+            'ganache',
+            'ipfs',
+        ];
+
+        let count = 0;
+        const total = types.length;
+
+        cb?.({ count, total, value: { type: types[0] } }); count++;
+        for (let i= 0; i < types.length; ++i) {
+            if (types[i] === 'docker') {
+                continue;
+            }
+            const theClass = fromServiceType[types[i]];
+            // @ts-ignore
+            assert(typeof theClass.stopAll === 'function');
+            // @ts-ignore
+            await theClass.stopAll(null, options ?? {});
+            cb?.({ count, total, value: { type: types[i] } }); count++;
+        }
+
+        // await WorkerService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'worker' } }); count++;
+        // await CoreService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'core' } }); count++;
+        // await BlockchainAdapterService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'blockchainadapter' } }); count++;
+        // await SmsService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'sms' } }); count++;
+        // await ResultProxyService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'resultproxy' } }); count++;
+        // await Market.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'market' } }); count++;
+        // await MongoService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'mongo' } }); count++;
+        // await RedisService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'redis' } }); count++;
+        // await GanachePoCoService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'ganache' } }); count++;
+        // await IpfsService.stopAll(null, { reset: options?.reset });
+        // cb?.({ count, total, value: { type: 'ipfs' } }); count++;
+    }
+
+    /**
+     * @param {types.StopOptionsWithContext=} options 
+     */
+    static async killAny(options) {
+        const cb = options?.progressCb;
+
+        /** @type {srvTypes.ServiceType[]} */
+        const types = [
+            'worker',
+            'core',
+            'blockchainadapter',
+            'sms',
+            'resultproxy',
+            'market',
+            'mongo',
+            'redis',
+            'ganache',
+            'ipfs',
+        ];
+
+        let count = 0;
+        const total = types.length;
+
+        cb?.({ count, total, value: { type: types[0] } }); count++;
+        for (let i= 0; i < types.length; ++i) {
+            if (types[i] === 'docker') {
+                continue;
+            }
+            const theClass = fromServiceType[types[i]];
+            await theClass.killAll(null, {});
+            cb?.({ count, total, value: { type: types[i] } }); count++;
+        }
     }
 
     /**
