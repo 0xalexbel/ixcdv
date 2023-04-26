@@ -56,12 +56,17 @@ ixcdv show sysreq
 ## Install
 
 ```sh
-$ git clone <gitHubRepo>
-$ cd <repoDir>
-$ npm install
-$ npm install -g .
-$ ixcdv --version
-$ ixcdv --help
+# download the latest version
+git clone https://github.com/0xalexbel/ixcdv.git
+cd ./ixcdv
+
+# install the npm package locally 
+npm install
+# make it accessible globally
+npm install -g .
+
+ixcdv --version
+ixcdv --help
 ```
 
 ## Quick start
@@ -217,7 +222,7 @@ ls -l ./vscode/chains/1337.standard/
 To inspect the running processes, type:
 
 ```sh
-$ ixcdv pid
+ixcdv pid
 ```
 
 ## Stop everything
