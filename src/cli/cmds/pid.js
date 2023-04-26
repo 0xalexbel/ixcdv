@@ -31,10 +31,11 @@ export default class PidCmd extends Cmd {
         try {
             /** @type {Inventory=} */
             let inventory;
-            if (fileExistsInDir(cliDir, ConfigFile.basename())) {
+            try {
+                const configDir = this.resolveConfigDir(cliDir);
                 // Load inventory from config json file
-                inventory = await Inventory.fromConfigFile(cliDir);
-            }
+                inventory = await Inventory.fromConfigFile(configDir);
+            } catch {}
 
             // some funcs are async
             const printFunc = {
