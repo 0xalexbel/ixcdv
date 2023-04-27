@@ -99,6 +99,9 @@ export class MarketApiService extends ServerService {
 
     get mongoHost() { return this.#mongoHost; }
     get redisHost() { return this.#redisHost; }
+    get hubs() { 
+        return this.#chains.map((ref) => PoCoHubRef.from(ref)); 
+    }
 
     /**
      * @param {PoCoHubRef | string} hub 

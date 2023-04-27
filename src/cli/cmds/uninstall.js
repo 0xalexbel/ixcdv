@@ -2,11 +2,7 @@ import { Cmd } from "../Cmd.js";
 import path from "path";
 import cliProgress from 'cli-progress';
 import StopAllCmd from "./stopAll.js";
-import { getSysReq } from "../../common/sysreq.js";
-import { sleep } from "../../common/utils.js";
-import { CodeError } from "../../common/error.js";
 import { Inventory } from "../../services/Inventory.js";
-import { PROD_BIN } from "../../common/consts.js";
 import { rmrfDir } from "../../common/fs.js";
 import readline from 'readline/promises'
 
@@ -41,11 +37,16 @@ export default class UninstallCmd extends Cmd {
 
             await StopAllCmd.exec(false, null);
 
-            const folders = [
-                'chains',
-                'src',
-                'shared'
-            ];
+            /** @type {string[]} */
+            let folders= [ 'chains', 'src' ];
+
+            if (options.keepGanache) {
+                folders.push('shared/db/ipfs');
+                folders.push('shared/markets');
+            }  else {
+                folders.push('shared');
+            }
+
             for (let i = 0; i < folders.length; ++i) {
                 const d = path.join(configDir, folders[i]);
                 console.log(`Please wait, deleting folder ${d} ...`);

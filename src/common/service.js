@@ -447,7 +447,7 @@ export class Service extends AbstractService {
         } else {
             e = new CodeError(error.message, '', this.#context);
         }
-        console.error(e.message);
+        //console.error(e.message);
         return { ok: false, error: e };
     }
 

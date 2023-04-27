@@ -104,16 +104,17 @@ By default all the chainids are sharing the same following mnemonic: "${DEFAULT_
 
 installCmd.description(`Installs a new ${PROD_NAME} workspace in the current working directory (or in the folder specified using the global '--config' option). The command will fail if the install directory does contain a valid '${PROD_CONFIG_BASENAME}' file. Use the '${PROD_BIN} init' command to generate a new config file.`)
     .summary(`Installs a new ${PROD_NAME} workspace.`)
-    .action(() => {
-        execCmd('install');
+    .action((options) => {
+        execCmd('install', options);
     });
 
 /* ------------- install -------------- */
 
 uninstallCmd.description(`Uninstalls a ${PROD_NAME} workspace in the current working directory (or in the folder specified using the global '--config' option). The command will fail if the install directory does contain a valid '${PROD_CONFIG_BASENAME}' file.`)
     .summary(`Uninstalls an existing ${PROD_NAME} workspace.`)
-    .action(() => {
-        execCmd('uninstall');
+    .option('--keep-ganache', 'Uninstalls everything except the ganache dbs (which take time to initialize)')
+    .action((options) => {
+        execCmd('uninstall', options);
     });
 
 /* ------------- test -------------- */

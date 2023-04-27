@@ -332,7 +332,7 @@ async function installPkgDirCore(pkgDir, setup) {
     const assert_git = await gitApi.showTopLevel(cloneDir, { strict: false });
     // Happens when a previous clone failed.
     // Rm directory and re-install.
-    assert(assert_git.ok);
+    assert(assert_git.ok, `git rev-parse --show-toplevel (dir=${cloneDir}) FAILED`);
 
     /* --------------------------------------------------------------------- */
     /*                                                                       */

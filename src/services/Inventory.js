@@ -13,6 +13,7 @@ import { isNullishOrEmptyString, stringToPositiveInteger } from '../common/strin
 import { resolveAbsolutePath, saveToFile, throwIfDirDoesNotExist, throwIfFileAlreadyExists } from '../common/fs.js';
 import { AbstractService } from '../common/service.js';
 import { createRandomMnemonic, ethersIsValidMnemonic } from '../common/ethers.js';
+import { getDockerDesktopPids } from '../docker/docker-api.js';
 
 export const InventoryConstructorGuard = { value: false };
 
@@ -119,8 +120,8 @@ export class Inventory {
      * }=} options 
      */
     static newDefault(dir, options) {
-        const firstChainId = stringToPositiveInteger(options?.firstChainId ?? "1337", { strict : true });
-        const countChainIds = stringToPositiveInteger(options?.countChainIds ?? "2", { strict : true });
+        const firstChainId = stringToPositiveInteger(options?.firstChainId ?? "1337", { strict: true });
+        const countChainIds = stringToPositiveInteger(options?.countChainIds ?? "2", { strict: true });
 
         assert(firstChainId);
         assert(countChainIds);
@@ -265,6 +266,13 @@ export class Inventory {
 
     /**
      * @param {srvTypes.ServiceType | 'all'} type 
+     * @returns {Promise<{
+     *      [serviceType:string]: ?{ 
+     *          pid: number, 
+     *          configFile: string, 
+     *          service: ?AbstractService
+     *      }[]
+     * }>}
      */
     static async running(type) {
         if (type === 'all') {
@@ -284,7 +292,17 @@ export class Inventory {
             const o = {};
             for (let i = 0; i < out.length; ++i) {
                 const t = ORDERED_SERVICE_TYPES[i];
-                o[t] = out[i];
+                if (t === 'docker') {
+                    assert(out[i] === null);
+                    const dockerPids = await getDockerDesktopPids();
+                    if (dockerPids && dockerPids.length === 1) {
+                        if (dockerPids.length === 1) {
+                            o[t] = [{ pid: dockerPids[0], service: null, configFile: '' }];
+                        }
+                    }
+                } else {
+                    o[t] = out[i];
+                }
             }
             return o;
         } else {
