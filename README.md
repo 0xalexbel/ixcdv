@@ -15,6 +15,7 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 ## Features in a Nutshell
 
 - Runs on **Mac** (macOs BigSur or higher).
+- Full **[iExec stack](https://github.com/iExecBlockchainComputing)** with any number of workers. 
 - Full **VSCode** support. 
     - You can run and debug every single iExec piece of software directly withing VSCode.
 - Fully local. 
