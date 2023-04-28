@@ -8,7 +8,7 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 
 - Each iExec microservice is open-source and published on github (https://github.com/iExecBlockchainComputing). However, it can be tricky to install and configure this whole machinery on your Mac. iExec services have been primarily developped to run on Linux systems and must be individually configured.
 
-- In order to deeply understand the inner mechanisms and subtleties, it is much more convenient to be able to locally install the full set of [iExec](https://github.com/iExecBlockchainComputing) services and run them within your favorite IDE. By doing so, you are free to place breakpoints here and there and better figure out how the whole thing works.
+- In order to deeply understand the iExec stack inner mechanisms and subtleties, it is much more convenient to be able to locally install the full set of [iExec](https://github.com/iExecBlockchainComputing) services and run them within your favorite IDE. By doing so, you are free to place breakpoints here and there and better figure out how the whole thing works.
 
 - Here comes **ixcdv**, a software tool that allows you to install, run and manipulate a **local** instance of the full iExec cloud computing stack. **ixcdv** will do all the dirty work for you, so you can focus on testing your dapp and understand the inner mechanisms of the iExec platform.  
 
