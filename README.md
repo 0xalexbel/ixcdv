@@ -152,7 +152,8 @@ cd ./apps
 # download the official test program named 'nodejs-hello-world'
 git clone https://github.com/iExecBlockchainComputing/nodejs-hello-world
 
-# Please note that the 'Dockerfile' we are looking for is located in the 'cloud-computing' sub-folder.
+# Please note that the 'Dockerfile' we are looking for 
+# is located in the 'cloud-computing' sub-folder.
 ls -l ./nodejs-hello-world/cloud-computing
 ```
 
