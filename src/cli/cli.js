@@ -483,6 +483,17 @@ Example: iexec app count \`${PROD_BIN} sdk wallet print-cli-opts --type app\``)
         execCmd('sdk/wallet/printCliOpts', options);
     });
 
+cmd = sdkCmd.command('init');
+addChainAndHubOptions(cmd);
+cmd.description(`Helper, generates the iExec sdk files : 'chain.json', 'iexec.json' and 'deployed.json'.
+These files are required by the iExec sdk. If 'chain.json' or 'iexec.json' is missing, the sdk will raise and error.`)
+    .summary(`Helper, generates iExec sdk files : 'chain.json', 'iexec.json' and 'deployed.json'.`)
+    .option('--out <directory>', "The folder where files will be generated or updated.\n(default: current working directory)")
+    .option('--force', "- Creates missing directories")
+    .action((options) => {
+        execCmd('sdk/init', options);
+    });
+
 /* ------------- foo (Dev only) -------------- */
 
 cmd = program.command('foo', { hidden: true })
