@@ -777,6 +777,32 @@ export class Market extends AbstractService {
     }
 
     /**
+     *  @param {{ 
+     *          pid: number, 
+     *          configFile: string, 
+     *          service: ?AbstractService
+     *  }} pidInfo
+     */
+    static toMarketPidInfo(pidInfo) {
+        /** @type {any} */
+        const anyInfo = pidInfo;
+        assert(anyInfo.api);
+        assert(anyInfo.watchers);
+        assert(anyInfo.service instanceof Market);
+        /**
+         *  @type {{ 
+        *      pid: number, 
+        *      configFile: string, 
+        *      service: Market,  
+        *      api: { pid: number | null }, 
+        *      watchers:{ pid: number, hub:PoCoHubRef }[]         
+        * }}
+        */
+       const mpidInfo = anyInfo;
+       return mpidInfo;
+    }
+
+    /**
      * @param {{
      *      mongoHost?: string
      *      hub?: PoCoHubRef

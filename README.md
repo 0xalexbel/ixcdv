@@ -1,6 +1,6 @@
-# ixcdv - for macOS
+# ixcdv - for macOS & VSCode
 
-ixcdv (=*iexecdev*) is a macOS tool for creating and running a **local** iExec cloud computing infrastructure for development and testing.
+ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **local** iExec cloud computing stack for development and testing.
 
 ## Rationale
 
@@ -10,48 +10,67 @@ ixcdv (=*iexecdev*) is a macOS tool for creating and running a **local** iExec c
 
 - In order to deeply understand the inner mechanisms and subtleties, it is much more convenient to be able to locally install the full set of [iExec](https://github.com/iExecBlockchainComputing) services and run them within your favorite IDE. By doing so, you are free to place breakpoints here and there and better figure out how the whole thing works.
 
-- Here comes **ixcdv**, a software tool that allows you to install, run and manipulate a **local** instance of the full iExec cloud computing infrastructure. **ixcdv** will do all the dirty work for you, so you can focus on testing your dapp and understand the inner mechanisms of the iExec platform.  
+- Here comes **ixcdv**, a software tool that allows you to install, run and manipulate a **local** instance of the full iExec cloud computing stack. **ixcdv** will do all the dirty work for you, so you can focus on testing your dapp and understand the inner mechanisms of the iExec platform.  
+
+## How it works ?
+- Install ixcdv
+- Create a new folder somewhere
+- Use ixcdv to **install and configure** a full iExec stack inside that folder
+- start your new local iExec stack
+- run an app Dockerfile within your new **local** iExec stack
+- when you are done, stop the stack
+- delete the folder
 
 ## Features in a Nutshell
 
-- Runs on MacOS.
-- Designed to run within Microsoft VSCode IDE.
-- Is fully local. **ixcdv** does not rely on any external online services (with the unique exception of Docker which has to access https://docker.io when images are built for the first time).
-- **ixcdv** comes with a minimal CLI allowing you to interact & perform tests with a local iExec cloud infrastructure. 
-- in conjunction to its integrated CLI, **ixcdv** also supports the official [iExec CLI](https://github.com/iExecBlockchainComputing/iexec-sdk). You can run any **iexec-sdk** command against your local testing environment. 
-- **ixcdv** is trivial to uninstall and leaves nothing behind on your mac.
+- Runs on **Mac** (macOs BigSur or higher).
+- Install/Run/Debug the Full **[iExec stack](https://github.com/iExecBlockchainComputing)** with any number of workers. 
+- Full **VSCode** support. 
+    - You can run and debug every single iExec piece of software directly withing VSCode.
+- Fully local. 
+    - **ixcdv** does not rely on any external online services (with the unique exception of Docker which has to access https://docker.io when images are built for the first time).
+- Native execution. 
+    - Every iExec service is running natively on your Mac, outside of any container.
+- CLI.
+    - **ixcdv** comes with a minimal CLI allowing you to interact & perform tests with a local iExec cloud stack. It also offers handy helpers to monitor your stack.
+- Full [iExec CLI/SDK](https://github.com/iExecBlockchainComputing/iexec-sdk) support.
+    - **ixcdv** also supports the official [iExec CLI](https://github.com/iExecBlockchainComputing/iexec-sdk). You can run any **iexec-sdk** command against your local testing environment. 
+- Clean uninstall
+    - every **ixcdv** workspaces are trivial to uninstall and nothing is left behind on your Mac.
 
 ## Limitations
 
 - Does not yet support 'tee' mode (this feature requires Intel SGX processor).
+- Not tested on Linux
+- Not tested on Windows
 
 ## System Requirements
 
-Prior to installing **ixcdv** on your mac, make sure the following software tools are properly installed.
+Prior to installing **ixcdv** on your Mac, make sure the following software tools are properly installed. 
 
 - macOS Big Sur or higher (never tested on a previous version)
+- Node
+- Npm
 - Java
 - Git
 - Ipfs
 - Gradle
-- Node
-- Npm
 - Docker desktop for MacOS
 - MongoDB
 - Redis
 - Truffle
 - Ganache
 
+### java on Mac
+- Eclipse Temurin : https://adoptium.net/en-GB/temurin/releases/
+    - Operating System : macOS
+    - Architecture : x64(Intel)/aarch64(Apple M1/M2)
+    - Version : 17
+
 ### vscode
 - vscode (https://code.visualstudio.com/download)
-- java tools (https://code.visualstudio.com/docs/languages/java)
-
-Once the **ixcdv** repo downloaded and installed, you can type the following command to check whether the system requirements are properly met or not:
-
-```sh 
-# the command will also provide you with detailed actions to execute if tools are missing.
-ixcdv show sysreq
-```
+- Microsoft Extension Pack for Java : https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack
+- vscode java tools page : https://code.visualstudio.com/docs/languages/java
 
 ## Install
 
@@ -69,6 +88,25 @@ ixcdv --version
 ixcdv --help
 ```
 
+## Check System Requirements
+
+Once the **ixcdv** repo downloaded and installed, you can type the following command to check whether the system requirements are properly met or not:
+
+```sh 
+# the command will also provide you with detailed actions to execute if tools are missing.
+ixcdv show sysreq
+```
+
+## Uninstall
+
+```sh
+# remove any global reference to ixcdv
+npm uninstall -g ixcdv
+
+# remove ixcdv downloaded repo folder
+rm -rf ./ixcdv
+```
+
 ## Quick start
 
 ```sh
@@ -79,6 +117,7 @@ mkdir ./my-workspace
 cd ./my-workspace
 
 # initialize a new ixcdv workspace
+# a file named 'ixcdv-config.json' will be created
 ixcdv init 
 
 # install the full iExec infrastructure
@@ -89,6 +128,10 @@ ixcdv install
 # once done, simply run an elementary test
 # to make sure the whole stuff is properly installed and configured
 ixcdv test 
+
+# If the test passed successfully, 
+# you can now try to run the official iExec hello world
+# example named : 'nodejs-hello-world'
 ```
 
 ## How to run iExec's 'nodejs-hello-world' example
@@ -119,7 +162,7 @@ Once downloaded, we can run the app in our local iExec infrastructure we just de
 # let's go back to our top-level workspace folder
 cd ./my-workspace
 
-# Run the dapp inside our 'local' iExec infrastructure
+# Run the dapp inside our 'local' iExec stack
 # Et voila!
 ixcdv app run ./apps/nodejs-hello-world/cloud-computing --name nodejs-hello-world
 ```
@@ -136,6 +179,7 @@ Below, you can see the kind of terminal output you should get once the dapp has 
 Hello, World
 No dataset was found
 ```
+Note: the message 'No dataset was found' is printed out because we did not provided the dapp with a dataset argument (you can do so by using the --dataset option).
 
 ## Run 'nodejs-hello-world' using the `iexec` CLI.
 
@@ -231,6 +275,14 @@ To stop all running `iexec` services, type:
 
 ```sh
 ixcdv stop all
+```
+
+## Kill everything
+
+In some situations (like multiple ixcdv workspaces) calling the stop command may not work as expected. To make sure all the ixcdv services are stopped, you can use the kill command:
+
+```sh
+ixcdv kill all
 ```
 
 ## Uninstall an ixcdv workspace 

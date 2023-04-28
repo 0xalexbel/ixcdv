@@ -104,16 +104,17 @@ By default all the chainids are sharing the same following mnemonic: "${DEFAULT_
 
 installCmd.description(`Installs a new ${PROD_NAME} workspace in the current working directory (or in the folder specified using the global '--config' option). The command will fail if the install directory does contain a valid '${PROD_CONFIG_BASENAME}' file. Use the '${PROD_BIN} init' command to generate a new config file.`)
     .summary(`Installs a new ${PROD_NAME} workspace.`)
-    .action(() => {
-        execCmd('install');
+    .action((options) => {
+        execCmd('install', options);
     });
 
 /* ------------- install -------------- */
 
 uninstallCmd.description(`Uninstalls a ${PROD_NAME} workspace in the current working directory (or in the folder specified using the global '--config' option). The command will fail if the install directory does contain a valid '${PROD_CONFIG_BASENAME}' file.`)
     .summary(`Uninstalls an existing ${PROD_NAME} workspace.`)
-    .action(() => {
-        execCmd('uninstall');
+    .option('--keep-ganache', 'Uninstalls everything except the ganache dbs (which take time to initialize)')
+    .action((options) => {
+        execCmd('uninstall', options);
     });
 
 /* ------------- test -------------- */
@@ -480,6 +481,17 @@ Example: iexec app count \`${PROD_BIN} sdk wallet print-cli-opts --type app\``)
     .option('--type <type>', '<"admin"|"app"|"dataset"|"workerpool"|"requester">')
     .action((options) => {
         execCmd('sdk/wallet/printCliOpts', options);
+    });
+
+cmd = sdkCmd.command('init');
+addChainAndHubOptions(cmd);
+cmd.description(`Helper, generates the iExec sdk files : 'chain.json', 'iexec.json' and 'deployed.json'.
+These files are required by the iExec sdk. If 'chain.json' or 'iexec.json' is missing, the sdk will raise and error.`)
+    .summary(`Helper, generates iExec sdk files : 'chain.json', 'iexec.json' and 'deployed.json'.`)
+    .option('--out <directory>', "The folder where files will be generated or updated.\n(default: current working directory)")
+    .option('--force', "- Creates missing directories")
+    .action((options) => {
+        execCmd('sdk/init', options);
     });
 
 /* ------------- foo (Dev only) -------------- */

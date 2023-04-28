@@ -132,14 +132,24 @@ export class RedisService extends ServerService {
     }
 
     /**
-     * @param {string=} logFile
-     * @param {string=} pidFile
+     * @param {{
+     *      logFile?: string     
+     *      pidFile?: string     
+     *      env?: {[envName: string]: string};
+     * }} options
      */
-    #genRedisConf(logFile, pidFile) {
+    #genRedisConf({logFile, pidFile, env}) {
         const h = this.hostname;
         const p = this.port;
         if (!p) {
             throw new CodeError('Missing redis port', ERROR_CODES.REDIS_ERROR);
+        }
+
+        let e = '';
+        if (env) {
+            Object.entries(env).forEach(([envName, value]) => {
+                e += envVarName(envName) + '=' + value.toString() + ' ';
+            });
         }
 
         let s = ""
@@ -160,6 +170,10 @@ export class RedisService extends ServerService {
             s += `logfile ${logFile}\n`;
         }
         s += `dir ./\n`;
+
+        if (!isNullishOrEmptyString(e)) {
+            s += `proc-title-template "{title} {listen-addr} {server-mode} ${e}"\n`;
+        }
         return s;
     }
 
@@ -275,7 +289,7 @@ export class RedisService extends ServerService {
             // generate the temporary conf file
             mkDirP(path.dirname(this.#redisConfFile));
             const ok = await saveToFile(
-                this.#genRedisConf(options?.logFile, options?.pidFile),
+                this.#genRedisConf(options ?? {}),
                 path.dirname(this.#redisConfFile),
                 path.basename(this.#redisConfFile));
 
@@ -763,7 +777,11 @@ async function findRedisHostPort(pid) {
         if (i < 0) {
             return; /* undefined */
         }
-        const port = stringToPositiveInteger(args.substring(i + 1));
+        let i1 = args.indexOf(' ', i);
+        if (i1 < 0) {
+            i1 = args.length;
+        }
+        const port = stringToPositiveInteger(args.substring(i + 1, i1));
         if (!port) {
             return; /* undefined */
         }

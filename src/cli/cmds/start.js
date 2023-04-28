@@ -5,6 +5,7 @@ import cliProgress from 'cli-progress';
 import { Inventory } from '../../services/Inventory.js';
 import { stringToPositiveInteger } from '../../common/string.js';
 import { CodeError } from '../../common/error.js';
+import { sleep } from '../../common/utils.js';
 
 export default class StartCmd extends Cmd {
 

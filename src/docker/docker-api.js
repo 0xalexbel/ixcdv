@@ -12,6 +12,7 @@ import * as ERROR_CODES from "../common/error-codes.js";
 import * as nodeUtil from 'util';
 import { exec as childProcessExec } from 'child_process';
 import { PROD_PRIVATE_LOCAL_DOCKER_REGISTRY_NAME } from '../common/consts.js';
+import { psGrepPID } from '../common/ps.js';
 const exec_promise = nodeUtil.promisify(childProcessExec);
 
 const OFFICIAL_DOCKER_REGISTRY_IMAGE_NAME = "registry:2";
@@ -25,6 +26,17 @@ export async function isDockerDesktopRunning() {
         return true;
     } catch (e) {
         return false;
+    }
+}
+
+export async function getDockerDesktopPids() {
+    if (!dirExists("/Applications/Docker.app")) {
+        return undefined;
+    }
+    try {
+        return await psGrepPID('/Applications/Docker.app/Contents/MacOS/Docker Desktop.app/Contents/MacOS/Docker Desktop --name=tray');
+    } catch (e) {
+        return undefined;
     }
 }
 
