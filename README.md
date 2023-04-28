@@ -10,12 +10,21 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 
 - In order to deeply understand the inner mechanisms and subtleties, it is much more convenient to be able to locally install the full set of [iExec](https://github.com/iExecBlockchainComputing) services and run them within your favorite IDE. By doing so, you are free to place breakpoints here and there and better figure out how the whole thing works.
 
-- Here comes **ixcdv**, a software tool that allows you to install, run and manipulate a **local** instance of the full iExec cloud computing infrastructure. **ixcdv** will do all the dirty work for you, so you can focus on testing your dapp and understand the inner mechanisms of the iExec platform.  
+- Here comes **ixcdv**, a software tool that allows you to install, run and manipulate a **local** instance of the full iExec cloud computing stack. **ixcdv** will do all the dirty work for you, so you can focus on testing your dapp and understand the inner mechanisms of the iExec platform.  
+
+## How it works ?
+- Install ixcdv
+- Create a new folder somewhere
+- Use ixcdv to **install and configure** a full iExec stack inside that folder
+- start your new local iExec stack
+- run an app Dockerfile within your new **local** iExec stack
+- when you are done, stop the stack
+- delete the folder
 
 ## Features in a Nutshell
 
 - Runs on **Mac** (macOs BigSur or higher).
-- Full **[iExec stack](https://github.com/iExecBlockchainComputing)** with any number of workers. 
+- Install/Run/Debug the Full **[iExec stack](https://github.com/iExecBlockchainComputing)** with any number of workers. 
 - Full **VSCode** support. 
     - You can run and debug every single iExec piece of software directly withing VSCode.
 - Fully local. 
@@ -63,13 +72,6 @@ Prior to installing **ixcdv** on your Mac, make sure the following software tool
 - Microsoft Extension Pack for Java : https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack
 - vscode java tools page : https://code.visualstudio.com/docs/languages/java
 
-Once the **ixcdv** repo downloaded and installed, you can type the following command to check whether the system requirements are properly met or not:
-
-```sh 
-# the command will also provide you with detailed actions to execute if tools are missing.
-ixcdv show sysreq
-```
-
 ## Install
 
 ```sh
@@ -84,6 +86,15 @@ npm install -g .
 
 ixcdv --version
 ixcdv --help
+```
+
+## Check System Requirements
+
+Once the **ixcdv** repo downloaded and installed, you can type the following command to check whether the system requirements are properly met or not:
+
+```sh 
+# the command will also provide you with detailed actions to execute if tools are missing.
+ixcdv show sysreq
 ```
 
 ## Uninstall
