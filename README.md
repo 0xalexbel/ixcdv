@@ -44,9 +44,9 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 - Not tested on Linux
 - Not tested on Windows
 
-## [System Requirements](https://github.com/0xalexbel/ixcdv/INSTALL.md)
+## [System Requirements](./INSTALL.md)
 
-For detailed info about the sytem requirements please refer to [INSTALL.md](https://github.com/0xalexbel/ixcdv/INSTALL.md)
+For detailed info about the sytem requirements please refer to [INSTALL.md](./INSTALL.md)
 
 ## Install
 
