@@ -44,33 +44,9 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 - Not tested on Linux
 - Not tested on Windows
 
-## System Requirements
+## [System Requirements](https://github.com/0xalexbel/ixcdv/INSTALL.md)
 
-Prior to installing **ixcdv** on your Mac, make sure the following software tools are properly installed. 
-
-- macOS Big Sur or higher (never tested on a previous version)
-- Node
-- Npm
-- Java
-- Git
-- Ipfs
-- Gradle
-- Docker desktop for MacOS
-- MongoDB
-- Redis
-- Truffle
-- Ganache
-
-### java on Mac
-- Eclipse Temurin : https://adoptium.net/en-GB/temurin/releases/
-    - Operating System : macOS
-    - Architecture : x64(Intel)/aarch64(Apple M1/M2)
-    - Version : 17
-
-### vscode
-- vscode (https://code.visualstudio.com/download)
-- Microsoft Extension Pack for Java : https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack
-- vscode java tools page : https://code.visualstudio.com/docs/languages/java
+For detailed info about the sytem requirements please refer to [INSTALL.md](https://github.com/0xalexbel/ixcdv/INSTALL.md)
 
 ## Install
 
