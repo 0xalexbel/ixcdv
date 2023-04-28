@@ -1,6 +1,6 @@
-# ixcdv - for macOS
+# ixcdv - for macOS & VSCode
 
-ixcdv (=*iexecdev*) is a macOS tool for creating and running a **local** iExec cloud computing infrastructure for development and testing.
+ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **local** iExec cloud computing stack for development and testing.
 
 ## Rationale
 
@@ -18,9 +18,10 @@ ixcdv (=*iexecdev*) is a macOS tool for creating and running a **local** iExec c
 - Designed to run within Microsoft VSCode IDE.
 - Is fully local. **ixcdv** does not rely on any external online services (with the unique exception of Docker which has to access https://docker.io when images are built for the first time).
 - Every iExec service is running natively on your Mac, outside of any container.
-- **ixcdv** comes with a minimal CLI allowing you to interact & perform tests with a local iExec cloud infrastructure. 
+- Full **VSCode** support. You can run and debug every single iExec piece of software directly withing VSCode.
+- **ixcdv** comes with a minimal CLI allowing you to interact & perform tests with a local iExec cloud stack. 
 - in conjunction to its integrated CLI, **ixcdv** also supports the official [iExec CLI](https://github.com/iExecBlockchainComputing/iexec-sdk). You can run any **iexec-sdk** command against your local testing environment. 
-- **ixcdv** is trivial to uninstall and leaves nothing behind on your mac.
+- **ixcdv** is trivial to uninstall and leaves nothing behind on your Mac.
 
 ## Limitations
 
