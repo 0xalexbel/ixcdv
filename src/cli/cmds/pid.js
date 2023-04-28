@@ -24,21 +24,25 @@ function updateMaxLen(s, property, obj) {
     }
 }
 
+/**
+ @typedef {{
+    type: string,
+    pid: string,
+    host: string,
+    configFile: string,
+    name: string,
+    hub: string,
+    shared: string[],
+ }} PidLine
+ */
+
 const UNKNOWN = '??';
 export default class PidCmd extends Cmd {
 
     static cmdname() { return 'pid'; }
 
     /** 
-     * @type {{ 
-     *      type: string, 
-     *      pid: string, 
-     *      host: string, 
-     *      name: string, 
-     *      configFile: string 
-     *      hub: string 
-     *      shared: string[]
-     * }[]}
+     * @type {PidLine[]}
      */
     #pids = [];
 
@@ -49,6 +53,7 @@ export default class PidCmd extends Cmd {
         name: { len: 0, header: 'NAME' },
         hub: { len: 0, header: 'CHAINID/HUB' },
         configFile: { len: 0, header: 'CONFIG DIR' },
+        shared: { len: 0, header: 'DEPS' },
     }
 
     /**
@@ -80,6 +85,7 @@ export default class PidCmd extends Cmd {
              */
             let runningServices = {};
 
+            // Compute running services infos
             if (type === 'ganache' ||
                 type === 'ipfs' ||
                 type === 'mongo' ||
@@ -101,6 +107,7 @@ export default class PidCmd extends Cmd {
             const entries = Object.entries(runningServices);
             for (const [st, pis] of entries) {
                 if (!pis) {
+                    // empty service = no running services of a given type
                     this.#pids.push({
                         type: st,
                         pid: UNKNOWN,
@@ -112,8 +119,13 @@ export default class PidCmd extends Cmd {
                     });
                     continue;
                 }
+
                 for (const pi of pis) {
                     countIExecServices++;
+                    // Special case for market
+                    // - handle mongo + redis
+                    // - handle api service
+                    // - handle watcher services
                     if (pi.service instanceof Market) {
                         const marketpi = Market.toMarketPidInfo(pi);
                         const market = pi.service;
@@ -156,6 +168,14 @@ export default class PidCmd extends Cmd {
                         continue;
                     }
 
+                    // Compute :
+                    // - host
+                    // - hub
+                    // - name
+
+                    /**
+                     * @type {PidLine}
+                     */
                     const o = {
                         type: st,
                         pid: pi.pid.toString(),
@@ -183,6 +203,9 @@ export default class PidCmd extends Cmd {
                         o.hub = pi.service.chainid.toString();
                     }
 
+                    // Special case for worker
+                    // - compute wallet index 
+                    // - compute 
                     if (pi.service instanceof WorkerService) {
                         if (pi.service.coreUrl) {
                             const cu = new URL(pi.service.coreUrl);
@@ -191,6 +214,7 @@ export default class PidCmd extends Cmd {
                             });
                             if (coreIndex >= 0) {
                                 o.hub = this.#pids[coreIndex].hub;
+                                o.shared.push(this.#pids[coreIndex].pid);
                             }
                         }
                         o.name = 'worker (wallet #' + pi.service.walletIndex + ')';
@@ -220,11 +244,16 @@ export default class PidCmd extends Cmd {
                 return;
             }
 
+            // Compute shared PIDs
+            // - resultproxy <-> mongo
+            // - blockchainadapter <-> mongo
+            // - core <-> mongo
             const mongoSrvTypes = [
                 'resultproxy',
                 'blockchainadapter',
                 'core'
             ];
+
             for (let i = 0; i < this.#pids.length; ++i) {
                 const springMongoServices = runningServices[mongoSrvTypes[i]];
                 if (springMongoServices) {
@@ -248,6 +277,9 @@ export default class PidCmd extends Cmd {
                 }
             }
 
+            // Compute reflexive shared PIDs
+            // - Deps(PID0) = PID1
+            // - Deps(PID1) = PID0
             for (let i = 0; i < this.#pids.length; ++i) {
                 const pi = this.#pids[i];
                 const pid0 = pi.pid;
@@ -268,6 +300,18 @@ export default class PidCmd extends Cmd {
                 }
             }
 
+            // Convert arrays to strings
+            for (const pi of this.#pids) {
+                Object.entries(pi).forEach(([col, s]) => {
+                    if (typeof s !== 'string') {
+                        assert(Array.isArray(s));
+                        // @ts-ignore
+                        pi.shared = s.join(',')
+                    }
+                });
+            }
+
+            // Compute column width
             for (const pi of this.#pids) {
                 Object.entries(pi).forEach(([col, s]) => {
                     if (typeof s === 'string') {
@@ -276,12 +320,15 @@ export default class PidCmd extends Cmd {
                 });
             }
 
-            Object.entries(this.#cols).forEach(([type,col]) => {
+            // Format column headers
+            Object.entries(this.#cols).forEach(([type, col]) => {
                 const s = col.header;
                 col.header = s.concat(' '.repeat(col.len - s.length));
             });
-            console.log(`${this.#cols.pid.header}  ${this.#cols.host.header}  ${this.#cols.name.header}  ${this.#cols.hub.header}  ${this.#cols.configFile.header}  DEPS`);
+            // Print column headers
+            console.log(`${this.#cols.pid.header}  ${this.#cols.host.header}  ${this.#cols.name.header}  ${this.#cols.hub.header}  ${this.#cols.configFile.header}  ${this.#cols.shared.header}`);
 
+            // Format strings (fill with whitespaces)
             for (const pi of this.#pids) {
                 const cols = Object.keys(pi);
                 for (let i = 0; i < cols.length; i++) {
@@ -298,6 +345,7 @@ export default class PidCmd extends Cmd {
                 }
             }
 
+            // Print lines
             for (let i = 0; i < this.#pids.length; ++i) {
                 const pi = this.#pids[i];
                 // Do not print 'market', only 'market.api' + 'market.watcher'
@@ -305,7 +353,7 @@ export default class PidCmd extends Cmd {
                     continue;
                 }
 
-                console.log(`${pi.pid}  ${pi.host}  ${pi.name}  ${pi.hub}  ${pi.configFile}  ${pi.shared.join(',')}`);
+                console.log(`${pi.pid}  ${pi.host}  ${pi.name}  ${pi.hub}  ${pi.configFile}  ${pi.shared}`);
             }
         } catch (err) {
             this.exit(options, err);
