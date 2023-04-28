@@ -14,14 +14,19 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 
 ## Features in a Nutshell
 
-- Runs on MacOS.
-- Designed to run within Microsoft VSCode IDE.
-- Is fully local. **ixcdv** does not rely on any external online services (with the unique exception of Docker which has to access https://docker.io when images are built for the first time).
-- Every iExec service is running natively on your Mac, outside of any container.
-- Full **VSCode** support. You can run and debug every single iExec piece of software directly withing VSCode.
-- **ixcdv** comes with a minimal CLI allowing you to interact & perform tests with a local iExec cloud stack. 
-- in conjunction to its integrated CLI, **ixcdv** also supports the official [iExec CLI](https://github.com/iExecBlockchainComputing/iexec-sdk). You can run any **iexec-sdk** command against your local testing environment. 
-- **ixcdv** is trivial to uninstall and leaves nothing behind on your Mac.
+- Runs on **Mac** (macOs BigSur or higher).
+- Full **VSCode** support. 
+    - You can run and debug every single iExec piece of software directly withing VSCode.
+- Fully local. 
+    - **ixcdv** does not rely on any external online services (with the unique exception of Docker which has to access https://docker.io when images are built for the first time).
+- Native execution. 
+    - Every iExec service is running natively on your Mac, outside of any container.
+- CLI.
+    - **ixcdv** comes with a minimal CLI allowing you to interact & perform tests with a local iExec cloud stack. It also offers handy helpers to monitor your stack.
+- Full [iExec CLI/SDK](https://github.com/iExecBlockchainComputing/iexec-sdk) support.
+    - **ixcdv** also supports the official [iExec CLI](https://github.com/iExecBlockchainComputing/iexec-sdk). You can run any **iexec-sdk** command against your local testing environment. 
+- Clean uninstall
+    - every **ixcdv** workspaces are trivial to uninstall and nothing is left behind on your Mac.
 
 ## Limitations
 
@@ -31,15 +36,15 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 
 ## System Requirements
 
-Prior to installing **ixcdv** on your mac, make sure the following software tools are properly installed.
+Prior to installing **ixcdv** on your Mac, make sure the following software tools are properly installed. 
 
 - macOS Big Sur or higher (never tested on a previous version)
+- Node
+- Npm
 - Java
 - Git
 - Ipfs
 - Gradle
-- Node
-- Npm
 - Docker desktop for MacOS
 - MongoDB
 - Redis
