@@ -382,8 +382,10 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
 function addWorkerService(inventory, vscodeWorkspace, vscodeWorkspaceDir, chainName, chainHub, index, config, settings) {
     assert(path.isAbsolute(vscodeWorkspaceDir));
     assert(path.isAbsolute(config.springConfigLocation));
+    assert(path.isAbsolute(config.directory));
+    assert(typeof config.repository !== 'string');
 
-    const relPath = toRelativePath(vscodeWorkspaceDir, config.springConfigLocation);
+    const relPath = toRelativePath(config.repository.directory, config.springConfigLocation);
     assert(relPath);
     assert(!relPath.startsWith('/'));
     assert(relPath.startsWith('./') || relPath.startsWith('../'));

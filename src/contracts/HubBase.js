@@ -1,5 +1,6 @@
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
+import path from 'path';
 import { Contract, BigNumber, Wallet } from "ethers";
 import { ContractBase, ContractBaseConstructorGuard } from './ContractBase.js';
 import { AppRegistry } from './AppRegistry.js';
@@ -23,7 +24,7 @@ import { newTaskFromRPC } from './Task.js';
 import { ContractRef, PoCoContractRef } from '../common/contractref.js';
 import { CodeError, pureVirtualError } from '../common/error.js';
 import { isBytes32String, NULL_ADDRESS, NULL_BYTES32, toChecksumAddress } from '../common/ethers.js';
-import { throwIfNullishOrEmptyString } from '../common/string.js';
+import { isNullishOrEmptyString, throwIfNullishOrEmptyString } from '../common/string.js';
 
 export const HubBaseConstructorGuard = { value: false };
 export const ORDER_VOLUME_INFINITE = 1000000;
@@ -404,8 +405,34 @@ export class HubBase extends ContractBase {
         }
 
         if (args.params?.iexec_input_files) {
-            ro.params.iexec_input_files = [...args.params?.iexec_input_files];
+            const inputFiles = [...args.params.iexec_input_files];
+            for (let i = 0; i < inputFiles.length; ++i) {
+                if (isNullishOrEmptyString(inputFiles[i])) {
+                    throw new CodeError( `inputFile[${i}] parameter is invalid. Expecting a non empty string` );
+                }
+
+                // ./src/main/java/com/iexec/common/utils/IexecEnvUtils.java
+                // public static Map<String, String> getComputeStageEnvMap(TaskDescription taskDescription) {
+                //   ...                     
+                //   map.put(IEXEC_INPUT_FILE_NAME_PREFIX + index, FilenameUtils.getName(inputFileUrl));
+                //   ...                     
+                // }
+                // org.apache.commons.io.FilenameUtils.indexOfLastSeparator(final String filename)
+                // org.apache.commons.io.FilenameUtils.getName(final String filename)
+
+                // Prevent from passing invalid inputFiles as parameters
+                const inputFile = inputFiles[i];
+                const posPosix = inputFile.lastIndexOf(path.posix.sep);
+                const posWin = inputFile.lastIndexOf(path.win32.sep);
+                const pos = (posWin > posPosix) ? posWin : posPosix;
+                const basename = inputFile.substring(pos);
+                if (basename.trim().length === 0) {
+                    throw new CodeError( `inputFile[${i}] parameter is invalid. Basename is empty (='${basename}')` );
+                }
+            }
+            ro.params.iexec_input_files = [...args.params.iexec_input_files];
         }
+
 
         return newRequestOrder(ro);
     }

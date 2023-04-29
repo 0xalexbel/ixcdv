@@ -13,6 +13,7 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 - Here comes **ixcdv**, a software tool that allows you to install, run and manipulate a **local** instance of the full iExec cloud computing stack. **ixcdv** will do all the dirty work for you, so you can focus on testing your dapp and understand the inner mechanisms of the iExec platform.  
 
 ## How it works ?
+
 - Install ixcdv
 - Create a new folder somewhere
 - Use ixcdv to **install and configure** a full iExec stack inside that folder
@@ -25,9 +26,11 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 
 - Runs on **Mac** (macOs BigSur or higher).
 - Install/Run/Debug the Full **[iExec stack](https://github.com/iExecBlockchainComputing)** with any number of workers. 
+    - install multiple stacks
+    - configure each stack individually
 - Full **VSCode** support. 
     - You can run and debug every single iExec piece of software directly withing VSCode.
-- Fully local. 
+- Fully **local**. 
     - **ixcdv** does not rely on any external online services (with the unique exception of Docker which has to access https://docker.io when images are built for the first time).
 - Native execution. 
     - Every iExec service is running natively on your Mac, outside of any container.
@@ -36,7 +39,7 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 - Full [iExec CLI/SDK](https://github.com/iExecBlockchainComputing/iexec-sdk) support.
     - **ixcdv** also supports the official [iExec CLI](https://github.com/iExecBlockchainComputing/iexec-sdk). You can run any **iexec-sdk** command against your local testing environment. 
 - Clean uninstall
-    - every **ixcdv** workspaces are trivial to uninstall and nothing is left behind on your Mac.
+    - every **ixcdv** workspace is trivial to uninstall and nothing is left behind on your Mac.
 
 ## Limitations
 
