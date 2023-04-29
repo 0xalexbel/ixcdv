@@ -7,13 +7,15 @@ import { helperAbstractServiceToPackage } from './spring-serverservice.js';
 import { Market } from './Market.js';
 import { ENV_FILE_BASENAME } from './base-internal.js';
 import { fromServiceType } from './InventoryDB.js';
-import { dirExists, fileExistsInDir, mkDirP, saveToFile, saveToFileSync, toRelativePath } from '../common/fs.js';
-import { ensureSuffix, isNullishOrEmptyString } from '../common/string.js';
+import { dirExists, fileExists, fileExistsInDir, mkDirP, readObjectFromJSONFile, saveToFile, saveToFileSync, toRelativePath } from '../common/fs.js';
+import { ensureSuffix, isNullishOrEmptyString, removePrefix } from '../common/string.js';
 import { parseSettingsDotGradleFile } from '../common/iexec/spring.js';
 import { toPackage } from '../pkgmgr/pkg.js';
 import { getGradleWrapperVersion } from '../common/gradlew.js';
 import { CodeError } from '../common/error.js';
 import { PROD_BIN, PROD_VAR_PREFIX } from '../common/consts.js';
+
+const MAIN_PROJECT_NAME = 'chain';
 
 /**
  * @param {Inventory} inventory 
@@ -96,7 +98,7 @@ function addService(inventory, vscodeWorkspace, vscodeWorkspaceDir, chainName, c
     const projectName = settings.rootProjectName + '-' + settings.version;
     const type = config.type;
     const launchCwd = "${workspaceFolder:" + projectName + "}";
-    const taskCwd = "${workspaceFolder:" + projectName + "}/" + taskRelPath;
+    const taskCwd = "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath;
 
     const appYmlLocWithTrailingSlash = launchCwd + "/" + ensureSuffix('/', relPath);
 
@@ -157,7 +159,7 @@ function addMarketService(inventory, vscodeWorkspace, vscodeWorkspaceDir, projec
 
     const type = config.type;
     const launchCwd = "${workspaceFolder:" + projectName + "}";
-    const taskCwd = "${workspaceFolder:" + projectName + "}/" + taskRelPath;
+    const taskCwd = "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath;
 
     const envFileDirname = launchCwd + "/" + ensureSuffix('/', relPath);
 
@@ -235,6 +237,19 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
     assert(!relPath.startsWith('/'));
     assert(relPath.startsWith('./') || relPath.startsWith('../'));
 
+    const pkgJson = path.join(config.repository.directory, 'package.json');
+    assert(fileExists(pkgJson));
+    const pkgObj = await readObjectFromJSONFile(pkgJson, { strict: true });
+
+    assert(pkgObj.bin);
+    assert(!isNullishOrEmptyString(pkgObj.bin.iexec));
+    const cliBin = removePrefix('./', pkgObj.bin.iexec);
+    assert(!path.isAbsolute(cliBin));
+    const srcDir = path.join(config.repository.directory, 'src');
+    assert(dirExists(srcDir));
+    const pos = cliBin.indexOf('/cli/');
+    const launchProgram = "${workspaceFolder:" + projectName + "}/src" + cliBin.substring(pos);
+    
     const taskRelPath = toRelativePath(vscodeWorkspaceDir, inventory._inv.rootDir);
     assert(taskRelPath);
     assert(!taskRelPath.startsWith('/'));
@@ -242,7 +257,7 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
 
     const type = config.type;
     const launchCwd = "${workspaceFolder:" + projectName + "}/" + relPath;
-    const taskCwd = "${workspaceFolder:" + projectName + "}/" + taskRelPath;
+    const taskCwd = "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath;
 
     const { PoCoHubRef: hubRef, service: ganache } = await inventory._inv.resolve(chainHub);
     assert(hubRef.deployConfigName);
@@ -277,7 +292,7 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
                 "<node_internals>/**"
             ],
             "console": "integratedTerminal",
-            "program": "${workspaceFolder:" + projectName + "}/dist/cli/cmd/iexec.js",
+            "program": launchProgram,
             "args": [
                 "info"
             ],
@@ -288,19 +303,20 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
     vscodeWorkspace.launch.configurations.push(
         {
             "type": "node",
-            "name": "iexec-sdk workerpool show",
+            "name": "iexec-sdk workerpool show 0",
             "request": "launch",
             "cwd": launchCwd,
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "console": "integratedTerminal",
-            "program": "${workspaceFolder:" + projectName + "}/dist/cli/cmd/iexec.js",
+            "program": launchProgram,
             "args": [
                 "workerpool", "show", "--raw",
                 "--wallet-file", path.join(walletsRel, `wallet${workerpool.accountIndex}.json`),
                 "--keystoredir", "local",
-                "--password", walletsPassword
+                "--password", walletsPassword,
+                "0"
             ],
             "preLaunchTask": taskName
         }
@@ -309,14 +325,14 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
     vscodeWorkspace.launch.configurations.push(
         {
             "type": "node",
-            "name": "iexec-sdk app show",
+            "name": "iexec-sdk app show 0",
             "request": "launch",
             "cwd": launchCwd,
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "console": "integratedTerminal",
-            "program": "${workspaceFolder:" + projectName + "}/dist/cli/cmd/iexec.js",
+            "program": launchProgram,
             "args": [
                 "app", "show", "--raw",
                 "--wallet-file", path.join(walletsRel, `wallet${appWalletIndex}.json`),
@@ -332,14 +348,14 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
     vscodeWorkspace.launch.configurations.push(
         {
             "type": "node",
-            "name": "iexec-sdk dataset show",
+            "name": "iexec-sdk dataset show 0",
             "request": "launch",
             "cwd": launchCwd,
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "console": "integratedTerminal",
-            "program": "${workspaceFolder:" + projectName + "}/dist/cli/cmd/iexec.js",
+            "program": launchProgram,
             "args": [
                 "dataset", "show", "--raw",
                 "--wallet-file", path.join(walletsRel, `wallet${datasetWalletIndex}.json`),
@@ -380,7 +396,7 @@ function addWorkerService(inventory, vscodeWorkspace, vscodeWorkspaceDir, chainN
     const projectName = settings.rootProjectName + '-' + settings.version;
     const type = config.type;
     const launchCwd = "${workspaceFolder:" + projectName + "}";
-    const taskCwd = "${workspaceFolder:" + projectName + "}/" + taskRelPath;
+    const taskCwd = "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath;
 
     const appYmlLocWithTrailingSlash = launchCwd + "/" + ensureSuffix('/', relPath);
 
@@ -658,7 +674,7 @@ export async function generateChainVSCodeWorkspace(
 
     srcDirs.push({
         path: ".",
-        name: "chain"
+        name: MAIN_PROJECT_NAME
     });
 
     if (hasGradle) {
