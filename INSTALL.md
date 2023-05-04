@@ -27,11 +27,12 @@ ixcdv --help
 - [mongo](#mongo)
 - [redis](#redis)
 
-## vscode
+## vscode 
 
+Minimum vscode config:
 - vscode (https://code.visualstudio.com/download)
-- vscode java tools page : https://code.visualstudio.com/docs/languages/java
 - [Microsoft Extension Pack for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack)
+- For more info, vscode java tools page : https://code.visualstudio.com/docs/languages/java
 
 
 ## java
