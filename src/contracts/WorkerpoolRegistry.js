@@ -1,13 +1,15 @@
+// Dependencies
+// ../common
+import * as types from '../common/common-types.js';
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import { Contract, Wallet, BigNumber } from "ethers";
 import { Registry, RegistryConstructorGuard, registryEntryAtIndex, registryEntryOfOwnerAtIndex } from "./Registry.js";
-import { newContract, SharedReadonlyContracts } from './SharedReadonlyContracts.js';
-import { ContractBase } from './ContractBase.js';
+import { SharedReadonlyContracts } from '../common/contracts/SharedReadonlyContracts.js';
+import { ContractBase } from '../common/contracts/ContractBase.js';
 import { WorkerpoolRegistryEntry } from './WorkerpoolRegistryEntry.js';
-import { toTxArgs } from './utils.js';
-import { ContractRef } from '../common/contractref.js';
-import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
+import { ContractRef, newContract } from '../common/contractref.js';
+import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress, toTxArgs } from '../common/ethers.js';
 import { CodeError } from '../common/error.js';
 
 export const WorkerpoolRegistryConstructorGuard = { value: false };
@@ -46,9 +48,13 @@ export class WorkerpoolRegistry extends Registry {
     /**
      * @param {ContractRef} contractRef 
      * @param {string} contractDir
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static sharedReadOnly(contractRef, contractDir) {
-        const c = SharedReadonlyContracts.get(contractRef, 'WorkerpoolRegistry', contractDir);
+    static sharedReadOnly(contractRef, contractDir, options) {
+        const c = SharedReadonlyContracts.get(contractRef, 'WorkerpoolRegistry', contractDir, options);
         return WorkerpoolRegistry.#newWorkerpoolRegistry(c, contractRef, contractDir);
     }
 
@@ -67,7 +73,10 @@ export class WorkerpoolRegistry extends Registry {
         });
 
         if (baseContract.isSharedReadOnly) {
-            return WorkerpoolRegistry.sharedReadOnly(contractRef, baseContract.contractDir);
+            return WorkerpoolRegistry.sharedReadOnly(
+                contractRef, 
+                baseContract.contractDir, 
+                baseContract.network);
         }
 
         const newC = newContract(
@@ -107,7 +116,7 @@ export class WorkerpoolRegistry extends Registry {
     /**
      * API: 
      * - if `strict = true`, throws error when `workerpoollike` is not valid.
-     * @param {cTypes.Workerpool | cTypes.checksumaddress} workerpoolOrAddress
+     * @param {cTypes.Workerpool | types.checksumaddress} workerpoolOrAddress
      */
     async isRegistered(workerpoolOrAddress) {
         let addr;
@@ -136,7 +145,7 @@ export class WorkerpoolRegistry extends Registry {
 
     /**
      * @param {cTypes.Workerpool} validUnregisteredWorkerpool 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async createWorkerpool(validUnregisteredWorkerpool, txArgsOrWallet) {
         const txArgs = toTxArgs(txArgsOrWallet);
@@ -206,7 +215,7 @@ export class WorkerpoolRegistry extends Registry {
 
     /**
      * @param {cTypes.Workerpool} workerpool 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async newEntry(workerpool, txArgsOrWallet) {
         if (workerpool === null || workerpool === undefined) {
@@ -225,7 +234,7 @@ export class WorkerpoolRegistry extends Registry {
     /**
      * API:
      * - Returns the `index`th Registry Entry.
-     * @param {cTypes.uint256 | number} index
+     * @param {types.uint256 | number} index
      */
     async getEntryAtIndex(index) {
         return registryEntryAtIndex(this, index);
@@ -234,8 +243,8 @@ export class WorkerpoolRegistry extends Registry {
     /**
      * API:
      * - Returns the `index`th Registry Entry.
-     * @param {cTypes.checksumaddress} owner
-     * @param {cTypes.uint256 | number} index
+     * @param {types.checksumaddress} owner
+     * @param {types.uint256 | number} index
      */
     async getEntryOfOwnerAtIndex(owner, index) {
         return registryEntryOfOwnerAtIndex(this, owner, index);

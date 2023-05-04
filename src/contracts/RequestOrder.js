@@ -1,3 +1,6 @@
+// Dependencies
+// ../common
+import * as types from '../common/common-types.js';
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import { BigNumber } from "ethers";
@@ -169,7 +172,7 @@ export class RequestOrder extends Order {
 
     /**
      * @param {string} requestOrderHash 
-     * @param {cTypes.uint256like} idx 
+     * @param {types.uint256like} idx 
      */
     static computeDealId(requestOrderHash, idx) {
         const idxBN = toUint256(idx);
@@ -182,8 +185,8 @@ export class RequestOrder extends Order {
 
     /**
      * @param {EIP712Domain} domain 
-     * @param {cTypes.bytes32string} salt 
-     * @param {cTypes.uint256like} idx 
+     * @param {types.bytes32string} salt 
+     * @param {types.uint256like} idx 
      */
     computeDealId(domain, salt, idx) {
         const requestOrderHash = this.hash(domain, salt);

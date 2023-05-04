@@ -1,16 +1,19 @@
+// Dependencies
+// ../common
+// ../ipfs
+import * as types from "../common/common-types.js";
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import path from 'path';
 import { BigNumber, Wallet, Contract } from "ethers";
 import { Registry, RegistryConstructorGuard, registryEntryAtIndex, registryEntryOfOwnerAtIndex } from "./Registry.js";
-import { newContract, SharedReadonlyContracts } from './SharedReadonlyContracts.js';
-import { ContractBase } from './ContractBase.js';
+import { SharedReadonlyContracts } from '../common/contracts/SharedReadonlyContracts.js';
+import { ContractBase } from '../common/contracts/ContractBase.js';
 import { MultiaddrEx } from './MultiaddrEx.js';
 import { DatasetRegistryEntry } from './DatasetRegistryEntry.js';
-import { toTxArgs } from './utils.js';
 import { computeIpfsChecksumAndMultiaddr } from './dataset-generator.js';
-import { ContractRef } from '../common/contractref.js';
-import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
+import { ContractRef, newContract } from '../common/contractref.js';
+import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress, toTxArgs } from '../common/ethers.js';
 import { CodeError } from '../common/error.js';
 import { IpfsService } from '../ipfs/IpfsService.js';
 import { errorFileDoesNotExist, fileExists } from '../common/fs.js';
@@ -51,9 +54,13 @@ export class DatasetRegistry extends Registry {
     /**
      * @param {ContractRef} contractRef 
      * @param {string} contractDir
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static sharedReadOnly(contractRef, contractDir) {
-        const c = SharedReadonlyContracts.get(contractRef, 'DatasetRegistry', contractDir);
+    static sharedReadOnly(contractRef, contractDir, options) {
+        const c = SharedReadonlyContracts.get(contractRef, 'DatasetRegistry', contractDir, options);
         return DatasetRegistry.#newDatasetRegistry(c, contractRef, contractDir);
     }
 
@@ -72,7 +79,11 @@ export class DatasetRegistry extends Registry {
         });
 
         if (baseContract.isSharedReadOnly) {
-            return DatasetRegistry.sharedReadOnly(contractRef, baseContract.contractDir);
+            return DatasetRegistry.sharedReadOnly(
+                contractRef,
+                baseContract.contractDir,
+                baseContract.network
+            );
         }
 
         const newC = newContract(
@@ -104,7 +115,7 @@ export class DatasetRegistry extends Registry {
             bytes   calldata _datasetMultiaddr,
             bytes32          _datasetChecksum)
         */
-        /** @type {cTypes.checksumaddress} */
+        /** @type {types.checksumaddress} */
         const predictedAddr = await c.predictDataset(
             validDataset.owner,
             validDataset.name,
@@ -123,7 +134,7 @@ export class DatasetRegistry extends Registry {
     }
 
     /**
-     * @param {cTypes.Dataset | cTypes.checksumaddress} datasetOrAddress
+     * @param {cTypes.Dataset | types.checksumaddress} datasetOrAddress
      */
     async isRegistered(datasetOrAddress) {
         let addr;
@@ -143,7 +154,7 @@ export class DatasetRegistry extends Registry {
 
     /**
      * @param {cTypes.Dataset} validUnregisteredDataset 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async createDataset(validUnregisteredDataset, txArgsOrWallet) {
         const txArgs = toTxArgs(txArgsOrWallet);
@@ -215,7 +226,7 @@ export class DatasetRegistry extends Registry {
 
     /**
      * @param {cTypes.Dataset} dataset 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async newEntry(dataset, txArgsOrWallet) {
         if (dataset === null || dataset === undefined) {
@@ -236,7 +247,7 @@ export class DatasetRegistry extends Registry {
     *     file: string
     *     ipfs: IpfsService
     * }} args 
-    * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+    * @param {types.TxArgsOrWallet} txArgsOrWallet 
     */
     async newEntryFromFile(args, txArgsOrWallet) {
         const txArgs = toTxArgs(txArgsOrWallet);
@@ -277,7 +288,7 @@ export class DatasetRegistry extends Registry {
     /**
      * API:
      * - Returns the `index`th Registry Entry.
-     * @param {cTypes.uint256 | number} index
+     * @param {types.uint256 | number} index
      */
     async getEntryAtIndex(index) {
         return registryEntryAtIndex(this, index);
@@ -286,8 +297,8 @@ export class DatasetRegistry extends Registry {
     /**
      * API:
      * - Returns the `index`th Registry Entry.
-     * @param {cTypes.checksumaddress} owner
-     * @param {cTypes.uint256 | number} index
+     * @param {types.checksumaddress} owner
+     * @param {types.uint256 | number} index
      */
     async getEntryOfOwnerAtIndex(owner, index) {
         return registryEntryOfOwnerAtIndex(this, owner, index);

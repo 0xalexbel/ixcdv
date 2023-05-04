@@ -16,6 +16,8 @@ import { ERC721TokenIdToAddress, toChecksumAddress } from '../common/ethers.js';
 import { importJsonModule } from '../common/import.cjs';
 import { keysAtIndex } from '../common/wallet.js';
 import { PROD_NAME } from '../common/consts.js';
+import { PoCoContractRef } from '../common/contractref.js';
+import { ENSRegistry } from '../common/contracts/ENSRegistry.js';
 
 export const CONTRACTS_MIN_BASENAME = 'contracts-min';
 export const WALLETS_BASENAME = 'wallets';
@@ -329,6 +331,7 @@ export class PoCoDeployer {
      */
     async #deployCore(ganacheService, truffleConfigFile) {
         assert(this.#chainDeployConfig);
+
         const len = this.#chainDeployConfig.length;
         for (let i = 0; i < len; i++) {
             const PoCoConfig = this.#chainDeployConfig.getPoCoConfigAt(i);
@@ -363,13 +366,59 @@ export class PoCoDeployer {
                 out.result);
 
             const wpArgs = this.#chainDeployConfig.workerpoolAt(i);
+            assert(wpArgs);
             const workerpoolRegistryAddr = wpArgs?.registry;
+            let ensAddress = this.#chainDeployConfig.address(PoCoConfigName, 'ENSRegistry');
+            assert(ensAddress);
+            let publicResolverAddress = this.#chainDeployConfig.address(PoCoConfigName, 'PublicResolver');
+            assert(publicResolverAddress);
+
+            ensAddress = toChecksumAddress(ensAddress);
+            publicResolverAddress = toChecksumAddress(publicResolverAddress);
+
+            const ensRef = new PoCoContractRef({
+                chainid: ganacheService.chainid,
+                url: ganacheService.urlString,
+                address: ensAddress,
+                contractName: 'ENSRegistry',
+                deployConfigName: PoCoConfigName,
+            });
+
+            const provider = new JsonRpcProvider(ganacheService.urlString, {
+                ensAddress,
+                chainId: ganacheService.chainid,
+                name: 'unknown'
+            });
+
+            const contractDir = path.join(this.#PoCoDir, 'build/contracts');
+            const adminAccountIndex = 0;
+            const adminKeys = keysAtIndex(ganacheService.mnemonic, adminAccountIndex);
+            const adminWallet = new Wallet(adminKeys.privateKey, provider);
+            const wpKeys = keysAtIndex(ganacheService.mnemonic, wpArgs.accountIndex);
+            const wpWallet = new Wallet(wpKeys.privateKey, provider);
+
+            const ensRegistryContract = ENSRegistry.sharedReadOnly(
+                ensRef,
+                contractDir,
+                {
+                    ensAddress,
+                    networkName: 'unknown'
+                });
+
+            let newFIFSReg;
+            newFIFSReg = await ensRegistryContract.addFIFSRegistrar('pools', 'iexec.eth', publicResolverAddress, adminWallet);
+            console.log(`new FIFSRegistrar : domain=${newFIFSReg.domain} addr=${newFIFSReg.address}`);
+            newFIFSReg = await ensRegistryContract.addFIFSRegistrar('apps', 'iexec.eth', publicResolverAddress, adminWallet);
+            console.log(`new FIFSRegistrar : domain=${newFIFSReg.domain} addr=${newFIFSReg.address}`);
+            newFIFSReg = await ensRegistryContract.addFIFSRegistrar('datasets', 'iexec.eth', publicResolverAddress, adminWallet);
+            console.log(`new FIFSRegistrar : domain=${newFIFSReg.domain} addr=${newFIFSReg.address}`);
 
             if (workerpoolRegistryAddr) {
                 const { address, txHash } = await this.#addWorkerpool(
                     ganacheService,
+                    provider,
                     workerpoolRegistryAddr,
-                    path.join(this.#PoCoDir, 'build/contracts'),
+                    contractDir,
                     wpArgs.accountIndex,
                     wpArgs.description
                 );
@@ -379,34 +428,38 @@ export class PoCoDeployer {
                     {
                         "Workerpool": address
                     });
+                    
+                await ensRegistryContract.registerAddress(
+                    'default',
+                    'pools.iexec.eth',
+                    address,
+                    wpWallet);
             }
         }
     }
 
     /**
      * @param {GanacheService} ganacheService 
+     * @param {JsonRpcProvider} provider
      * @param {string} workerpoolRegistryAddr 
      * @param {string} contractsDir 
-     * @param {number} accoundIndex 
+     * @param {number} accountIndex 
      * @param {string} description 
      */
     async #addWorkerpool(
         ganacheService,
+        provider,
         workerpoolRegistryAddr,
         contractsDir,
-        accoundIndex,
+        accountIndex,
         description) {
-        const provider = new JsonRpcProvider(ganacheService.urlString, {
-            chainId: ganacheService.chainid,
-            name: 'unknown'
-        });
 
         workerpoolRegistryAddr = toChecksumAddress(workerpoolRegistryAddr);
 
         const modulePath = path.join(contractsDir, 'WorkerpoolRegistry.json');
         const contractModule = importJsonModule(modulePath);
 
-        const keys = keysAtIndex(ganacheService.mnemonic, accoundIndex);
+        const keys = keysAtIndex(ganacheService.mnemonic, accountIndex);
         const wallet = new Wallet(keys.privateKey, provider);
 
         const sc = new Contract(workerpoolRegistryAddr, contractModule.abi, wallet);

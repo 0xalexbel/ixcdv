@@ -9,19 +9,23 @@ export class Hub {
     /**
      * @param {PoCoHubRef} hubRef 
      * @param {string} contractDir
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static sharedReadOnly(hubRef, contractDir) {
+    static sharedReadOnly(hubRef, contractDir, options) {
         if (hubRef.isStandard) {
-            return HubStandard.sharedReadOnly(hubRef, contractDir);
+            return HubStandard.sharedReadOnly(hubRef, contractDir, options);
         }
         if (hubRef.isEnterprise) {
-            return HubEnterprise.sharedReadOnly(hubRef, contractDir);
+            return HubEnterprise.sharedReadOnly(hubRef, contractDir, options);
         }
         if (hubRef.isNative) {
-            return HubNative.sharedReadOnly(hubRef, contractDir);
+            return HubNative.sharedReadOnly(hubRef, contractDir, options);
         }
         if (hubRef.isUniswap) {
-            return HubUniswap.sharedReadOnly(hubRef, contractDir);
+            return HubUniswap.sharedReadOnly(hubRef, contractDir, options);
         }
         throw new CodeError('Invalid hub argument');
     }

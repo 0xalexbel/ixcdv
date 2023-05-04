@@ -1,12 +1,13 @@
+// Dependencies
+// ../common
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import { Contract } from "ethers";
-import { newContract, SharedReadonlyContracts } from './SharedReadonlyContracts.js';
+import { SharedReadonlyContracts } from '../common/contracts/SharedReadonlyContracts.js';
 import { RegistryEntry, RegistryEntryConstructorGuard } from './RegistryEntry.js';
-import { ContractBase } from './ContractBase.js';
+import { ContractBase } from '../common/contracts/ContractBase.js';
 import { MultiaddrEx } from './MultiaddrEx.js';
-import { AppRegistry } from './AppRegistry.js';
-import { ContractRef } from '../common/contractref.js';
+import { ContractRef, newContract } from '../common/contractref.js';
 import { isValidAddress, NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
 import { isNullishOrEmptyString } from '../common/string.js';
 import { isPositiveInteger } from '../common/number.js';
@@ -59,9 +60,13 @@ export class AppRegistryEntry extends RegistryEntry {
     /**
      * @param {ContractRef} contractRef 
      * @param {string} contractDir
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static sharedReadOnly(contractRef, contractDir) {
-        const c = SharedReadonlyContracts.get(contractRef, 'App', contractDir);
+    static sharedReadOnly(contractRef, contractDir, options) {
+        const c = SharedReadonlyContracts.get(contractRef, 'App', contractDir, options);
         return AppRegistryEntry.#newAppRegistryEntry(c, contractRef, contractDir);
     }
 
@@ -80,7 +85,10 @@ export class AppRegistryEntry extends RegistryEntry {
         });
 
         if (baseContract.isSharedReadOnly) {
-            return AppRegistryEntry.sharedReadOnly(contractRef, baseContract.contractDir);
+            return AppRegistryEntry.sharedReadOnly(
+                contractRef, 
+                baseContract.contractDir,
+                baseContract.network);
         }
 
         const newC = newContract(
@@ -159,13 +167,31 @@ export class AppRegistryEntry extends RegistryEntry {
     async mrenclave() {
         if (!this.#m_appMREnclave) {
             const mrenclave = await this.contract['m_appMREnclave']();
-            this.#m_appMREnclave = AppRegistry.Utf8BufferHexToMREnclave(mrenclave);
+            this.#m_appMREnclave = AppRegistryEntry.#Utf8BufferHexToMREnclave(mrenclave);
             if (!this.#m_appMREnclave) {
                 throw new CodeError("Failed to retrieve m_appMREnclave property value.");
             }
         }
         return this.#m_appMREnclave;
     }
+
+    /** @param {string} mrenclaveStr */
+    static #StringToMREnclave(mrenclaveStr) {
+        if (isNullishOrEmptyString(mrenclaveStr)) {
+            return null;
+        }
+        return JSON.parse(mrenclaveStr);
+    }
+
+    /** @param {string} mrenclaveUtf8BufferHex */
+    static #Utf8BufferHexToMREnclave(mrenclaveUtf8BufferHex) {
+        assert(mrenclaveUtf8BufferHex.startsWith('0x'));
+        if (mrenclaveUtf8BufferHex === '0x') {
+            return null;
+        }
+        return AppRegistryEntry.#StringToMREnclave(Buffer.from(mrenclaveUtf8BufferHex.substring(2), 'hex').toString());
+    }
+
 
     /**
      * Helper

@@ -77,6 +77,7 @@ const showCmd = program.command('show');
 
 const appCmd = program.command('app');
 const datasetCmd = program.command('dataset');
+const workerpoolCmd = program.command('workerpool');
 const dealCmd = program.command('deal');
 const taskCmd = program.command('task');
 const kycCmd = program.command('kyc');
@@ -274,6 +275,17 @@ Both files are required to execute any command using the official 'iexec' sdk cl
         execCmd('dataset/init', datasetFile, options);
     });
 
+/* ------------- dataset -------------- */
+
+workerpoolCmd.description('Workerpools related commands.');
+
+cmd = workerpoolCmd.command('show');
+addChainAndHubOptions(cmd);
+cmd.description(`Displays infos about the pre-installed workerpool.`)
+    .action((options) => {
+        execCmd('workerpool/show', options);
+    });
+
 /* ------------- deal -------------- */
 
 dealCmd.description('Deals related commands.');
@@ -305,13 +317,13 @@ stopCmd.description('Stops services.');
 cmd = stopCmd.command('all');
 cmd.description('Stops all running services.')
     .action((options) => {
-        execCmd('stopAll', false, options);
+        execCmd('stopAll', 'all', false, options);
     });
 
 cmd = stopCmd.command('worker');
 cmd.description('Stops all running workers.')
     .action((options) => {
-        execCmd('stop', 'worker', options);
+        execCmd('stopAll', 'worker', false, options);
     });
 
 /* ------------- stop -------------- */
@@ -321,7 +333,13 @@ killCmd.description('Kills services.');
 cmd = killCmd.command('all');
 cmd.description('Kills all running services.')
     .action((options) => {
-        execCmd('stopAll', true, options);
+        execCmd('stopAll', 'all', true, options);
+    });
+
+cmd = killCmd.command('worker');
+cmd.description('Kills all running workers.')
+    .action((options) => {
+        execCmd('stopAll', 'worker', true, options);
     });
 
 /* ------------- reset -------------- */

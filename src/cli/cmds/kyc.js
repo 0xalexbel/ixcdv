@@ -2,9 +2,9 @@ import { Cmd } from "../Cmd.js";
 import assert from 'assert';
 import { Inventory } from "../../services/Inventory.js";
 import { CodeError } from "../../common/error.js";
-import { PoCoContractRef, PoCoHubRef } from "../../common/contractref.js";
+import { PoCoContractRef, PoCoHubRef, newContract } from "../../common/contractref.js";
 import { Hub } from "../../contracts/Hub.js";
-import { newContract, SharedReadonlyContracts } from "../../contracts/SharedReadonlyContracts.js";
+import { SharedReadonlyContracts } from "../../common/contracts/SharedReadonlyContracts.js";
 import { toChecksumAddress } from "../../common/ethers.js";
 
 export default class KycCmd extends Cmd {
@@ -40,7 +40,16 @@ export default class KycCmd extends Cmd {
             assert(hub.address);
             assert(hub instanceof PoCoHubRef);
 
-            const hubContract = Hub.sharedReadOnly(hub, g.contractsMinDir);
+            const chainName = inventory._inv.hubAliasToChainName(hubAlias);
+
+            const ensRef = g.resolve(hubAlias, 'ENSRegistry');
+            assert(ensRef);
+            assert(ensRef.address);
+            assert(ensRef instanceof PoCoContractRef);
+        
+            const providerOpts = { ensAddress: ensRef.address, networkName: chainName ?? 'unknown' };
+        
+            const hubContract = Hub.sharedReadOnly(hub, g.contractsMinDir, providerOpts);
             const symbol = await hubContract.symbol();
 
             if (symbol !== 'SeRLC') {
@@ -51,11 +60,11 @@ export default class KycCmd extends Cmd {
             assert(tokenRef.hasContractName);
 
             if (cmd === 'show') {
-                const c = SharedReadonlyContracts.get(tokenRef, tokenRef.contractName, g.contractsMinDir);
+                const c = SharedReadonlyContracts.get(tokenRef, tokenRef.contractName, g.contractsMinDir, providerOpts);
                 const isKYC = await c.isKYC(address);
                 console.log(isKYC);
             } else if (cmd === 'grant') {
-                const adminWallet = g.newWalletAtIndex(inventory.getDefaultWalletIndex('admin'));
+                const adminWallet = g.newWalletAtIndex(inventory.getDefaultWalletIndex('admin'), providerOpts);
                 const signingContract = newContract(tokenRef, tokenRef.contractName, g.contractsMinDir, adminWallet);
 
                 const isKYC = await signingContract.isKYC(address);
@@ -74,7 +83,7 @@ export default class KycCmd extends Cmd {
                 }
                 console.log(`address=${address} has been successfully granted the KYC role.`);
             } else if (cmd === 'revoke') {
-                const adminWallet = g.newWalletAtIndex(inventory.getDefaultWalletIndex('admin'));
+                const adminWallet = g.newWalletAtIndex(inventory.getDefaultWalletIndex('admin'), providerOpts);
                 const signingContract = newContract(tokenRef, tokenRef.contractName, g.contractsMinDir, adminWallet);
                 if (adminWallet.address === address) {
                     throw new CodeError('Cannot revoke admin');

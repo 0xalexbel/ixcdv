@@ -1,9 +1,12 @@
-import * as cTypes from './contracts-types-internal.js';
+// Dependencies
+// ../common
+import * as types from '../common/common-types.js';
 import assert from "assert";
-import { BigNumber, Wallet } from "ethers";
+import { BigNumber, Wallet, ethers } from "ethers";
 import BN from "BN.js";
 import { getAddress as etherUtilsGetAddress } from 'ethers/lib/utils.js';
 import { isBytes32String, isHexString40, NULL_ADDRESS } from '../common/ethers.js';
+import { CodeError } from '../common/error.js';
 
 /**
  * @param {*} uint256ish 
@@ -63,19 +66,3 @@ export function HexStringToEthAddress(hexStr) {
     return etherUtilsGetAddress(addr);
 }
 
-/**
- * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
- */
-export function toTxArgs(txArgsOrWallet) {
-    if (txArgsOrWallet instanceof Wallet) {
-        return {
-            wallet : txArgsOrWallet,
-            txOverrides: { gasPrice: undefined },
-            txConfirms: 1
-        }
-    }
-    if (!txArgsOrWallet.txOverrides) {
-        txArgsOrWallet.txOverrides = { gasPrice: undefined }
-    }
-    return txArgsOrWallet;
-}

@@ -1,7 +1,7 @@
 import assert from 'assert';
 import { Cmd } from "../Cmd.js";
 import { CodeError } from '../../common/error.js';
-import { PoCoHubRef } from '../../common/contractref.js';
+import { PoCoContractRef, PoCoHubRef } from '../../common/contractref.js';
 import { isNullishOrEmptyString } from '../../common/string.js';
 import { isBytes32String } from '../../common/ethers.js';
 import { Inventory } from '../../services/Inventory.js';
@@ -39,7 +39,16 @@ export default class TaskCmd extends Cmd {
             assert(hub.address);
             assert(hub instanceof PoCoHubRef);
 
-            const hubContract = Hub.sharedReadOnly(hub, g.contractsMinDir);
+            const chainName = inventory._inv.hubAliasToChainName(hubAlias);
+
+            const ensRef = g.resolve(hubAlias, 'ENSRegistry');
+            assert(ensRef);
+            assert(ensRef.address);
+            assert(ensRef instanceof PoCoContractRef);
+
+            const providerOpts = { ensAddress: ensRef.address, networkName: chainName ?? 'unknown' };
+
+            const hubContract = Hub.sharedReadOnly(hub, g.contractsMinDir, providerOpts);
 
             if (isNullishOrEmptyString(taskid)) {
                 const taskids = await hubContract.queryTaskInitializeEvents();

@@ -20,6 +20,7 @@ import { GanachePoCoService } from '../poco/GanachePoCoService.js';
 import { IpfsService } from '../ipfs/IpfsService.js';
 import { PoCoHubRef } from '../common/contractref.js';
 import { DockerService } from './DockerService.js';
+import { WORKERPOOL_NAME, WORKERPOOL_URL_TEXT_RECORD_KEY } from '../common/consts.js';
 
 /** @type {srvTypes.NonWorkerServiceType[][]} */
 const ORDERED_SERVICE_TYPE_GROUPS = [
@@ -43,6 +44,7 @@ export class InventoryRun {
     /**
      * @param {string} name 
      * @param {{
+     *      chain?: string
      *      progressCb?: types.progressCallback
      * }=} options
      */
@@ -57,7 +59,52 @@ export class InventoryRun {
             },
             progressCb: options?.progressCb
         });
+
+        if (instance instanceof GanachePoCoService) {
+            await this.#ganachePostStart(instance, name, options?.chain ?? 'unknown');
+        }
+
         return { name, instance, startReturn };
+    }
+
+    /**
+     * 
+     * @param {GanachePoCoService} ganacheService 
+     * @param {string} configName 
+     * @param {string} networkName 
+     */
+    async #ganachePostStart(ganacheService, configName, networkName) {
+        assert(networkName);
+
+        const hubAliases = ganacheService.hubAliases();
+        for (let i = 0; i < hubAliases.length; ++i) {
+            const hubAlias = hubAliases[i].hubAlias;
+            const deployConfigName = hubAliases[i].deployConfigName;
+            const workepool = ganacheService.workerpool(deployConfigName);
+            if (!workepool) {
+                throw new CodeError('Unable to retrieve workerpool');
+            }
+
+            const ensRegistry = ganacheService.getENSRegistry(deployConfigName, networkName);
+            assert(ensRegistry.address);
+            const wpWallet = ganacheService.newWalletAtIndex(
+                workepool.accountIndex,
+                {
+                    ensAddress: ensRegistry.address,
+                    networkName
+                }
+            );
+
+            const coreURL = this._inv.getHubServiceURL('core', hubAlias);
+            if (coreURL.hostname === 'localhost') {
+                coreURL.hostname = '127.0.0.1';
+            }
+            await ensRegistry.setText(
+                WORKERPOOL_NAME,
+                WORKERPOOL_URL_TEXT_RECORD_KEY,
+                coreURL.toString(),
+                wpWallet);
+        }
     }
 
     /**
@@ -92,6 +139,7 @@ export class InventoryRun {
      * @param {{
      *      name?: string,
      *      chainid?: number | string
+     *      chain?: string
      *      hub?: string,
      *      type?: srvTypes.NonWorkerServiceType | 'iexecsdk',
      *      onlyDependencies?: boolean
@@ -272,7 +320,7 @@ export class InventoryRun {
      */
     async resetAll(options) {
         // Stops everything, including zombies
-        await InventoryRun.stopAny(options);
+        await InventoryRun.stopAny('all', options);
 
         /** @type {any[]} */
         const promises = [];
@@ -304,18 +352,11 @@ export class InventoryRun {
         return this.#stop(name, options);
     }
 
-    // /**
-    //  * @param {types.StopOptionsWithContext=} options 
-    // */
-    // async stopAll(options) {
-    //     await this.stopAllWorkers({ filters: undefined, options });
-    //     return this.#stop(null, { ...options, withDependencies: true });
-    // }
-
     /**
+     * @param {srvTypes.ServiceType | 'all'} type 
      * @param {types.StopOptionsWithContext=} options 
      */
-    static async stopAny(options) {
+    static async stopAny(type, options) {
         const cb = options?.progressCb;
 
         /** @type {srvTypes.ServiceType[]} */
@@ -332,11 +373,33 @@ export class InventoryRun {
             'ipfs',
         ];
 
+        /**
+         * @todo Quick and dirty
+         * Not the right algorithm
+         * type === 'worker' => types = ['worker']
+         * type === 'core' => types = ['worker', 'core']
+         * type === 'blockchainadapter' => types = ['worker', 'core', 'blockchainadapter']
+         * etc.
+         * Missing : should stop corresponding DBs
+         */
+        if (type !== 'all' && type !== types[types.length-1]) {
+            const pos = types.findIndex(t => t === type);
+            if (pos < 0) {
+                throw new CodeError(`Invalid type ${type}`);
+            }
+            types.splice(pos+1, types.length-(pos+1));
+            assert(types[0] === type);
+        }
+
+        if (types.length === 0) {
+            return;
+        }
+
         let count = 0;
         const total = types.length;
 
         cb?.({ count, total, value: { type: types[0] } }); count++;
-        for (let i= 0; i < types.length; ++i) {
+        for (let i = 0; i < types.length; ++i) {
             if (types[i] === 'docker') {
                 continue;
             }
@@ -347,27 +410,6 @@ export class InventoryRun {
             await theClass.stopAll(null, options ?? {});
             cb?.({ count, total, value: { type: types[i] } }); count++;
         }
-
-        // await WorkerService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'worker' } }); count++;
-        // await CoreService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'core' } }); count++;
-        // await BlockchainAdapterService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'blockchainadapter' } }); count++;
-        // await SmsService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'sms' } }); count++;
-        // await ResultProxyService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'resultproxy' } }); count++;
-        // await Market.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'market' } }); count++;
-        // await MongoService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'mongo' } }); count++;
-        // await RedisService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'redis' } }); count++;
-        // await GanachePoCoService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'ganache' } }); count++;
-        // await IpfsService.stopAll(null, { reset: options?.reset });
-        // cb?.({ count, total, value: { type: 'ipfs' } }); count++;
     }
 
     /**
@@ -394,7 +436,7 @@ export class InventoryRun {
         const total = types.length;
 
         cb?.({ count, total, value: { type: types[0] } }); count++;
-        for (let i= 0; i < types.length; ++i) {
+        for (let i = 0; i < types.length; ++i) {
             if (types[i] === 'docker') {
                 continue;
             }

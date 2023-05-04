@@ -34,29 +34,57 @@ export async function generateAllChainsVSCodeWorkspaces(inventory, destDir, save
         'core': true,
         'worker': true,
         'iexecsdk': true,
-    }
+    };
+    const allFlagsKeys = Object.keys(allFlags);
+
     for (let i = 0; i < chains.length; ++i) {
-        const destDirname = path.join(destDir, 'chains', chains[i].name);
-        let saveToBasename;
+        const destDirname = path.join(destDir, chains[i].name);
+        let skip = false;
+        /** @type {string | undefined} */
+        let saveToBasename = undefined;
         if (save) {
-            saveToBasename = chains[i].name + '.code-workspace';
+            saveToBasename = 'all.' + chains[i].name + '.code-workspace';
             if (!override) {
                 if (fileExistsInDir(destDirname, saveToBasename)) {
                     console.log(`File ${destDirname}/${saveToBasename} already exists.`);
-                    continue;
+                    skip = true;
                 }
             }
         }
 
-        const p = generateChainVSCodeWorkspace(
-            inventory,
-            destDirname,
-            chains[i].name,
-            chains[i].chain.hubAlias,
-            allFlags,
-            saveToBasename);
+        if (!skip) {
+            const p = generateChainVSCodeWorkspace(
+                inventory,
+                destDirname,
+                chains[i].name,
+                chains[i].chain.hubAlias,
+                allFlags,
+                saveToBasename);
+            promises.push(p);
+        }
 
-        promises.push(p);
+        for (let j = 0; j < allFlagsKeys.length; ++j) {
+            if (save) {
+                saveToBasename = allFlagsKeys[j] + '.' + chains[i].name + '.code-workspace';
+                if (!override) {
+                    if (fileExistsInDir(destDirname, saveToBasename)) {
+                        console.log(`File ${destDirname}/${saveToBasename} already exists.`);
+                        continue;
+                    }
+                }
+            }
+
+            const p = generateChainVSCodeWorkspace(
+                inventory,
+                destDirname,
+                chains[i].name,
+                chains[i].chain.hubAlias,
+                { [allFlagsKeys[j]]: true },
+                saveToBasename);
+
+            promises.push(p);
+        }
+
     }
     return await Promise.all(promises);
 }
@@ -123,7 +151,7 @@ function addService(inventory, vscodeWorkspace, vscodeWorkspaceDir, chainName, c
             "envFile": appYmlLocWithTrailingSlash + ENV_FILE_BASENAME,
             "mainClass": fromServiceType[type].CLASSNAME(),
             // WARNING !! projectName === gradle project name
-            "projectName": settings.rootProjectName,
+            "projectName": settings.uniqueRootProjectName,
             "cwd": launchCwd,
             "vmArgs": "-Dspring.config.location=" + appYmlLocWithTrailingSlash,
             "preLaunchTask": taskName
@@ -249,7 +277,7 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
     assert(dirExists(srcDir));
     const pos = cliBin.indexOf('/cli/');
     const launchProgram = "${workspaceFolder:" + projectName + "}/src" + cliBin.substring(pos);
-    
+
     const taskRelPath = toRelativePath(vscodeWorkspaceDir, inventory._inv.rootDir);
     assert(taskRelPath);
     assert(!taskRelPath.startsWith('/'));
@@ -423,7 +451,7 @@ function addWorkerService(inventory, vscodeWorkspace, vscodeWorkspaceDir, chainN
             "envFile": appYmlLocWithTrailingSlash + ENV_FILE_BASENAME,
             "mainClass": fromServiceType[type].CLASSNAME(),
             // WARNING !! projectName === gradle project name
-            "projectName": settings.rootProjectName,
+            "projectName": settings.uniqueRootProjectName,
             "cwd": launchCwd,
             "vmArgs": "-Dspring.config.location=" + appYmlLocWithTrailingSlash,
             "preLaunchTask": taskName
@@ -690,7 +718,12 @@ export async function generateChainVSCodeWorkspace(
         };
         vscodeWorkspace.settings["java.test.defaultConfig"] = `${PROD_VAR_PREFIX}-java-test-config`;
 
-        // save <vscode dir>/java-settings.prefs
+        // -------------------------------------------------------------------------------------
+        // CRUCIAL !! iexec-worker (and may be other projects as well) build will FAIL without
+        // the 'org.eclipse.jdt.core.compiler.codegen.methodParameters=generate' configured
+        // using ${workspaceFolder} variables does not seem to work
+        // -------------------------------------------------------------------------------------
+
         const javaSettingsPrefs = "org.eclipse.jdt.core.compiler.codegen.methodParameters=generate";
         saveToFileSync(javaSettingsPrefs, destDirname, 'java-settings.prefs');
 
@@ -704,14 +737,21 @@ export async function generateChainVSCodeWorkspace(
     }
 
     const taskRelPath = toRelativePath(destDirname, inventory._inv.rootDir);
-    const taskName = "Stop-All";
     vscodeWorkspace.tasks.tasks.push({
-        "label": taskName,
+        "label": "Stop-All",
         "type": "shell",
         "options": {
-            "cwd": "${workspaceFolder:chain}/" + taskRelPath
+            "cwd": "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath
         },
         "command": `${PROD_BIN} stop all`
+    });
+    vscodeWorkspace.tasks.tasks.push({
+        "label": "Kill-All",
+        "type": "shell",
+        "options": {
+            "cwd": "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath
+        },
+        "command": `${PROD_BIN} kill all`
     });
 
     const out = {

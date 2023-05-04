@@ -45,14 +45,13 @@ export default class VSCodeCmd extends Cmd {
      */
     async cliExec(cliDir, subcmd, options) {
         try {
-            console.log(process.cwd());
             const configDir = this.resolveConfigDir(cliDir);
             this.exitIfNoConfig(configDir);
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir);
 
             if (subcmd === 'install') {
-                let vscodeDir = options.out ?? path.join(configDir, 'vscode');
+                let vscodeDir = options.out ?? path.join(process.cwd());
                 if (!path.isAbsolute(vscodeDir)) {
                     //vscodeDir = toAbsolutePath(configDir, vscodeDir);
                     vscodeDir = toAbsolutePath(process.cwd(), vscodeDir);

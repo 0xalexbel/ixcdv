@@ -1,3 +1,5 @@
+// Dependencies
+// ../common
 import * as types from "../common/common-types.js";
 import * as cTypes from "./contracts-types.js";
 
@@ -11,18 +13,18 @@ import * as cTypes from "./contracts-types.js";
     app: cTypes.Resource,
     dataset: cTypes.Resource,
     workerpool: cTypes.Resource,
-    trust: cTypes.uint256,
-    category: cTypes.uint256,
-    tag: cTypes.bytes32string,
+    trust: types.uint256,
+    category: types.uint256,
+    tag: types.bytes32string,
     requester: types.checksumaddress,
     beneficiary: types.checksumaddress,
     callback: types.checksumaddress,
     params: string,
-    startTime: cTypes.uint256,
-    botFirst: cTypes.uint256,
-    botSize: cTypes.uint256,
-    workerStake: cTypes.uint256,
-    schedulerRewardRatio: cTypes.uint256,
+    startTime: types.uint256,
+    botFirst: types.uint256,
+    botSize: types.uint256,
+    workerStake: types.uint256,
+    schedulerRewardRatio: types.uint256,
 }} DealRpc
 */
 
@@ -33,19 +35,19 @@ import * as cTypes from "./contracts-types.js";
 /**
 @typedef {{
     status: TaskStatusEnumInt,
-    dealid: cTypes.bytes32string,
-    idx: cTypes.uint256,
-    timeref: cTypes.uint256,
-    contributionDeadline: cTypes.uint256,
-    revealDeadline: cTypes.uint256,
-    finalDeadline: cTypes.uint256,
-    consensusValue: cTypes.bytes32string,
-    revealCounter: cTypes.uint256,
-    winnerCounter: cTypes.uint256,
+    dealid: types.bytes32string,
+    idx: types.uint256,
+    timeref: types.uint256,
+    contributionDeadline: types.uint256,
+    revealDeadline: types.uint256,
+    finalDeadline: types.uint256,
+    consensusValue: types.bytes32string,
+    revealCounter: types.uint256,
+    winnerCounter: types.uint256,
     contributors: types.checksumaddress[],
-    resultDigest: cTypes.bytes32string,
+    resultDigest: types.bytes32string,
     results: string,
-    resultsTimestamp: cTypes.uint256,
+    resultsTimestamp: types.uint256,
     resultsCallback: string
     }} TaskRpc
 */

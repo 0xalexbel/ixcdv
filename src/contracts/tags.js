@@ -1,3 +1,5 @@
+// Dependencies
+// ../common
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 

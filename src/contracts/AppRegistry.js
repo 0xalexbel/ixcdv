@@ -1,16 +1,18 @@
+// Dependencies
+// ../common
+// ../docker
+import * as types from "../common/common-types.js";
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import { BigNumber, Wallet, Contract } from "ethers";
 import { Registry, RegistryConstructorGuard, registryEntryAtIndex, registryEntryOfOwnerAtIndex } from "./Registry.js";
-import { newContract, SharedReadonlyContracts } from './SharedReadonlyContracts.js';
-import { ContractBase } from './ContractBase.js';
+import { SharedReadonlyContracts } from '../common/contracts/SharedReadonlyContracts.js';
+import { ContractBase } from '../common/contracts/ContractBase.js';
 import { MultiaddrEx } from './MultiaddrEx.js';
 import { AppRegistryEntry } from './AppRegistryEntry.js';
-import { toTxArgs } from './utils.js';
 import { computeDockerChecksumAndMultiaddr } from './app-generator.js';
-import { ContractRef } from '../common/contractref.js';
-import { isNullishOrEmptyString } from '../common/string.js';
-import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
+import { ContractRef, newContract } from '../common/contractref.js';
+import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress, toTxArgs } from '../common/ethers.js';
 import { CodeError } from '../common/error.js';
 
 export const AppRegistryConstructorGuard = { value: false };
@@ -49,9 +51,13 @@ export class AppRegistry extends Registry {
     /**
      * @param {ContractRef} contractRef 
      * @param {string} contractDir
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static sharedReadOnly(contractRef, contractDir) {
-        const c = SharedReadonlyContracts.get(contractRef, 'AppRegistry', contractDir);
+    static sharedReadOnly(contractRef, contractDir, options) {
+        const c = SharedReadonlyContracts.get(contractRef, 'AppRegistry', contractDir, options);
         return AppRegistry.#newAppRegistry(c, contractRef, contractDir);
     }
 
@@ -70,7 +76,10 @@ export class AppRegistry extends Registry {
         });
 
         if (baseContract.isSharedReadOnly) {
-            return AppRegistry.sharedReadOnly(contractRef, baseContract.contractDir);
+            return AppRegistry.sharedReadOnly(
+                contractRef, 
+                baseContract.contractDir, 
+                baseContract.network);
         }
 
         const newC = newContract(
@@ -116,23 +125,6 @@ export class AppRegistry extends Registry {
         return Buffer.from(AppRegistry.MREnclaveToString(mre), 'utf8');
     }
 
-    /** @param {string} mrenclaveStr */
-    static StringToMREnclave(mrenclaveStr) {
-        if (isNullishOrEmptyString(mrenclaveStr)) {
-            return null;
-        }
-        return JSON.parse(mrenclaveStr);
-    }
-
-    /** @param {string} mrenclaveUtf8BufferHex */
-    static Utf8BufferHexToMREnclave(mrenclaveUtf8BufferHex) {
-        assert(mrenclaveUtf8BufferHex.startsWith('0x'));
-        if (mrenclaveUtf8BufferHex === '0x') {
-            return null;
-        }
-        return AppRegistry.StringToMREnclave(Buffer.from(mrenclaveUtf8BufferHex.substring(2), 'hex').toString());
-    }
-
     /** @param {cTypes.App} validApp */
     async predictAddress(validApp) {
         const c = this.contract;
@@ -149,7 +141,7 @@ export class AppRegistry extends Registry {
             bytes32          _appChecksum,
             bytes   calldata _appMREnclave)
         */
-        /** @type {cTypes.checksumaddress} */
+        /** @type {types.checksumaddress} */
         const predictedAddr = await c.predictApp(
             validApp.owner,
             validApp.name,
@@ -170,7 +162,7 @@ export class AppRegistry extends Registry {
     }
 
     /**
-     * @param {cTypes.App | cTypes.checksumaddress} appOrAddress
+     * @param {cTypes.App | types.checksumaddress} appOrAddress
      */
     async isRegistered(appOrAddress) {
         let addr;
@@ -190,7 +182,7 @@ export class AppRegistry extends Registry {
 
     /**
      * @param {cTypes.App} validUnregisteredApp 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async createApp(validUnregisteredApp, txArgsOrWallet) {
         const txArgs = toTxArgs(txArgsOrWallet);
@@ -271,7 +263,7 @@ export class AppRegistry extends Registry {
 
     /**
      * @param {cTypes.App} app 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async newEntry(app, txArgsOrWallet) {
         if (app === null || app === undefined) {
@@ -295,7 +287,7 @@ export class AppRegistry extends Registry {
      *     dockerUrl: string
      *     rebuildDockerImage?: boolean
      * }} args 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async newEntryFromDockerfile(args, txArgsOrWallet) {
         const txArgs = toTxArgs(txArgsOrWallet);
@@ -325,7 +317,7 @@ export class AppRegistry extends Registry {
     /**
      * API:
      * - Returns the `index`th Registry Entry.
-     * @param {cTypes.uint256 | number} index
+     * @param {types.uint256 | number} index
      */
     async getEntryAtIndex(index) {
         return registryEntryAtIndex(this, index);
@@ -334,8 +326,8 @@ export class AppRegistry extends Registry {
     /**
      * API:
      * - Returns the `index`th Registry Entry.
-     * @param {cTypes.checksumaddress} owner
-     * @param {cTypes.uint256 | number} index
+     * @param {types.checksumaddress} owner
+     * @param {types.uint256 | number} index
      */
     async getEntryOfOwnerAtIndex(owner, index) {
         return registryEntryOfOwnerAtIndex(this, owner, index);

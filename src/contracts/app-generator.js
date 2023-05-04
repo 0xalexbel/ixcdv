@@ -1,3 +1,6 @@
+// Dependencies
+// ../common
+// ../docker
 import assert from 'assert';
 import path from 'path';
 import { fileExists } from '../common/fs.js';

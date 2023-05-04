@@ -1,10 +1,12 @@
+// Dependencies
+// ../common
 import assert from 'assert';
 import { Contract, BigNumber } from "ethers";
-import { newContract, SharedReadonlyContracts } from './SharedReadonlyContracts.js';
+import { SharedReadonlyContracts } from '../common/contracts/SharedReadonlyContracts.js';
 import { RegistryEntry, RegistryEntryConstructorGuard } from './RegistryEntry.js';
-import { ContractBase } from './ContractBase.js';
+import { ContractBase } from '../common/contracts/ContractBase.js';
 import { CodeError } from '../common/error.js';
-import { ContractRef } from '../common/contractref.js';
+import { ContractRef, newContract } from '../common/contractref.js';
 import { isValidAddress, NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
 import { isNullishOrEmptyString } from '../common/string.js';
 
@@ -47,9 +49,13 @@ export class WorkerpoolRegistryEntry extends RegistryEntry {
     /**
      * @param {ContractRef} contractRef 
      * @param {string} contractDir
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static sharedReadOnly(contractRef, contractDir) {
-        const c = SharedReadonlyContracts.get(contractRef, 'Workerpool', contractDir);
+    static sharedReadOnly(contractRef, contractDir, options) {
+        const c = SharedReadonlyContracts.get(contractRef, 'Workerpool', contractDir, options);
         return WorkerpoolRegistryEntry.#newWorkerpoolRegistryEntry(c, contractRef, contractDir);
     }
 
@@ -68,7 +74,10 @@ export class WorkerpoolRegistryEntry extends RegistryEntry {
         });
 
         if (baseContract.isSharedReadOnly) {
-            return WorkerpoolRegistryEntry.sharedReadOnly(contractRef, baseContract.contractDir);
+            return WorkerpoolRegistryEntry.sharedReadOnly(
+                contractRef, 
+                baseContract.contractDir,
+                baseContract.network);
         }
 
         const newC = newContract(

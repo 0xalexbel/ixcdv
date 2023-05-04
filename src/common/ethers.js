@@ -1,9 +1,12 @@
 import * as types from './types.js'
 import assert from 'assert';
-import { BigNumber, utils, Wallet } from 'ethers';
+import path from 'path';
+import { BigNumber, ContractFactory, ethers, utils, Wallet } from 'ethers';
 import { utils as ethersutils } from 'ethers';
 import { entropyToMnemonic, isValidMnemonic } from '@ethersproject/hdnode';
 import { randomBytes } from 'crypto';
+import { importJsonModule } from './import.cjs';
+import { CodeError } from './error.js';
 
 const BN_MAX_BYTES32 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
 const NULL_BYTES = '0x';
@@ -415,3 +418,99 @@ export function arrayifyConcatenateAndHash(...hexaStringArray) {
     );
     return ethersutils.keccak256(buffer);
 };
+
+/**
+ * @param {string} contractName
+ * @param {string} contractDir
+ */
+export function newAbi(contractName, contractDir) {
+    const modulePath = path.join(contractDir, contractName + '.json');
+    const contractModule = importJsonModule(modulePath);
+
+    return contractModule.abi;
+}
+
+/**
+ * @param {types.TxArgs | types.TxParams | Wallet | undefined} txArgsOrWallet 
+ * @param {Wallet=} overrideWallet 
+ */
+export function toTxArgs(txArgsOrWallet, overrideWallet) {
+    if (txArgsOrWallet === undefined) {
+        assert(overrideWallet);
+        return {
+            wallet: overrideWallet,
+            txOverrides: { gasPrice: undefined },
+            txConfirms: 1
+        }
+    }
+    if (txArgsOrWallet instanceof Wallet) {
+        return {
+            wallet: (overrideWallet) ? overrideWallet : txArgsOrWallet,
+            txOverrides: { gasPrice: undefined },
+            txConfirms: 1
+        }
+    }
+    /** @type {any} */
+    const anyTxArgs = txArgsOrWallet;
+    const wallet = (overrideWallet) ? overrideWallet : anyTxArgs.wallet;
+    if (!(wallet instanceof Wallet)) {
+        throw new CodeError('Invalid argument');
+    }
+
+    /** @type {types.TxArgs} */
+    const txArgs = {
+        ...txArgsOrWallet,
+        wallet
+    }
+    if (!txArgs.txOverrides) {
+        txArgs.txOverrides = { gasPrice: undefined }
+    }
+    if (txArgs.txConfirms === undefined) {
+        txArgs.txConfirms = 1;
+    }
+    return txArgs;
+}
+
+/**
+ * @param {types.TxParams | undefined} txParams 
+ */
+export function toTxParams(txParams) {
+    if (txParams === undefined) {
+        return {
+            txOverrides: { gasPrice: undefined },
+            txConfirms: 1
+        }
+    }
+    assert(txParams);
+    if (!txParams.txOverrides) {
+        txParams.txOverrides = { gasPrice: undefined }
+    }
+    if (txParams.txConfirms === undefined) {
+        txParams.txConfirms = 1;
+    }
+    return txParams;
+}
+
+/**
+ * @param {ethers.providers.BaseProvider} provider 
+ * @param {string} addr 
+ */
+export async function isContract(provider, addr) {
+    try {
+        const code = await provider.getCode(addr);
+        return (code !== '0x');
+    } catch (err) {
+        return false;
+    }
+}
+
+/**
+ * @param {ethers.providers.BaseProvider} provider 
+ * @param {string} addr 
+ */
+export async function getContractCode(provider, addr) {
+    try {
+        return await provider.getCode(addr);
+    } catch (err) { }
+    return undefined;
+}

@@ -1,15 +1,16 @@
-import * as cTypes from './contracts-types-internal.js';
+import * as types from "../common-types.js";
 import assert from 'assert';
-import { Contract } from "ethers";
+import { Contract, Signer, providers } from "ethers";
 import { SharedReadonlyContracts } from './SharedReadonlyContracts.js';
-import { ContractRef } from '../common/contractref.js';
-import { throwIfDirDoesNotExist } from '../common/fs.js';
+import { ContractRef } from '../contractref.js';
+import { throwIfDirDoesNotExist } from '../fs.js';
+import { CodeError } from '../error.js';
 
 export const ContractBaseConstructorGuard = { value: false };
 
 export class ContractBase {
 
-    /** @type {cTypes.checksumaddress=} */
+    /** @type {types.checksumaddress=} */
     #owner;
     /** @type {Contract} */
     #contract;
@@ -44,6 +45,19 @@ export class ContractBase {
     get signerOrProvider() {
         return this.#contract.signer ?? this.#contract.provider;
     }
+    get baseProvider() {
+        let p;
+        const sOrp = this.signerOrProvider;
+        if (sOrp instanceof Signer) {
+            p = sOrp.provider;
+            assert(p);
+        } else {
+            p = sOrp;
+        }
+        assert(this.#contract.provider instanceof providers.JsonRpcProvider);
+        assert(p instanceof providers.JsonRpcProvider);
+        return p;
+    }
     get contractRef() {
         return this.#contractRef;
     }
@@ -56,6 +70,20 @@ export class ContractBase {
     get address() {
         return this.#contractRef.address;
     }
+    get network() {
+        // Add a bunch of asserts. 
+        // Make sure to detect any misconfig
+        const p = this.baseProvider;
+        const network = p.network;
+        const ensAddress = network.ensAddress;
+        const networkName = network.name;
+        assert(ensAddress);
+        assert(networkName);
+        assert(this.#contract.provider instanceof providers.BaseProvider);
+        assert(this.#contract.provider.network.ensAddress === ensAddress);
+        assert(this.#contract.provider.network.name === networkName);
+        return { ensAddress, networkName };
+    }
     get url() {
         assert(this.#contractRef.url);
         return this.#contractRef.url.toString();
@@ -65,6 +93,9 @@ export class ContractBase {
     }
     async owner() {
         if (!this.#owner) {
+            if (typeof this.#contract.owner !== 'function') {
+                throw new CodeError('Contract is not ownable');
+            }
             this.#owner = this.#contract.owner();
         }
         assert(!this.#owner);

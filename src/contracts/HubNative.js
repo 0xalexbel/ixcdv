@@ -1,9 +1,9 @@
 import assert from 'assert';
 import { Contract } from 'ethers';
-import { newContract, SharedReadonlyContracts } from './SharedReadonlyContracts.js';
+import { SharedReadonlyContracts } from '../common/contracts/SharedReadonlyContracts.js';
 import { HubBase, HubBaseConstructorGuard } from './HubBase.js';
-import { ContractBase } from './ContractBase.js';
-import { PoCoHubRef } from '../common/contractref.js';
+import { ContractBase } from '../common/contracts/ContractBase.js';
+import { PoCoHubRef, newContract } from '../common/contractref.js';
 import { CodeError } from '../common/error.js';
 
 export class HubNative extends HubBase {
@@ -28,12 +28,16 @@ export class HubNative extends HubBase {
     /**
      * @param {PoCoHubRef} hubRef 
      * @param {string} contractDir
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static sharedReadOnly(hubRef, contractDir) {
+    static sharedReadOnly(hubRef, contractDir, options) {
         if (!hubRef.isNative) {
             throw new CodeError(`Invalid hub=${hubRef.address} argument (not native hub).`);
         }
-        const c = SharedReadonlyContracts.get(hubRef, this.defaultContractName(), contractDir);
+        const c = SharedReadonlyContracts.get(hubRef, this.defaultContractName(), contractDir, options);
         return new HubNative(c, hubRef, contractDir);
     }
 
@@ -56,7 +60,7 @@ export class HubNative extends HubBase {
         assert(contractRef.isNative);
 
         if (baseContract.isSharedReadOnly) {
-            return HubNative.sharedReadOnly(contractRef, baseContract.contractDir);
+            return HubNative.sharedReadOnly(contractRef, baseContract.contractDir, baseContract.network);
         } 
 
         const newC = newContract(

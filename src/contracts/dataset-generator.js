@@ -1,3 +1,6 @@
+// Dependencies
+// ../common
+// ../ipfs
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import path from 'path';
