@@ -256,16 +256,9 @@ async function npmInstallSetup(setup, options = { strict: false }) {
         }
 
         if (pkgArg.gitHubRepoName === 'iexec-sdk') {
-            /** 
-            @todo
-            Should parse package.json file instead and look for 'iexec' bin entry.
-            instead of using an hardcoded proprietary path.
-            */
-            if (!fileExists(path.join(dir, "./dist/cli/cmd/iexec.js"))) {
-                const out_ins = await npm.run(dir, ['build'], { strict: false });
-                if (!out_ins.ok) {
-                    return out_ins;
-                }
+            const out_ins = await npm.run(dir, ['build'], { strict: false });
+            if (!out_ins.ok) {
+                return out_ins;
             }
         }
     }
