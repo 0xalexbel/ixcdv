@@ -130,7 +130,7 @@ function addService(inventory, vscodeWorkspace, vscodeWorkspaceDir, chainName, c
 
     const appYmlLocWithTrailingSlash = launchCwd + "/" + ensureSuffix('/', relPath);
 
-    const taskName = "PreLaunch-" + projectName;
+    const taskName = `${PROD_BIN}: PreLaunch-${projectName}`;
     vscodeWorkspace.tasks.tasks.push({
         "label": taskName,
         "type": "shell",
@@ -194,12 +194,12 @@ function addMarketService(inventory, vscodeWorkspace, vscodeWorkspaceDir, projec
     const watcherHubs = Market.watcherHubs(config);
 
     /*
-        - task : PreLaunch-iexec-market-api-v5.3.1-api
-        - task : PreLaunch-iexec-market-api-v5.3.1-watcher.1337.standard
-        - task : PreLaunch-iexec-market-api-v5.3.1-watcher.1338.standard
+        - task : "ixcdv: PreLaunch-iexec-market-api-v5.3.1-api"
+        - task : "ixcdv: PreLaunch-iexec-market-api-v5.3.1-watcher.1337.standard"
+        - task : "ixcdv: PreLaunch-iexec-market-api-v5.3.1-watcher.1338.standard"
     */
 
-    const taskName = "PreLaunch-" + projectName;
+    const taskName = `${PROD_BIN}: PreLaunch-${projectName}`;
     vscodeWorkspace.tasks.tasks.push({
         "label": taskName,
         "type": "shell",
@@ -300,7 +300,7 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
     const datasetWalletIndex = inventory.getDefaultWalletIndex('dataset');;
     const datasetWalletKeys = ganache.walletKeysAtIndex(datasetWalletIndex);
 
-    const taskName = "PreLaunch-" + projectName;
+    const taskName = `${PROD_BIN}: PreLaunch-${projectName}`;
     vscodeWorkspace.tasks.tasks.push({
         "label": taskName,
         "type": "shell",
@@ -430,7 +430,7 @@ function addWorkerService(inventory, vscodeWorkspace, vscodeWorkspaceDir, chainN
 
     const appYmlLocWithTrailingSlash = launchCwd + "/" + ensureSuffix('/', relPath);
 
-    const taskName = `PreLaunch-${projectName}-#${index}`;
+    const taskName = `${PROD_BIN}: PreLaunch-${projectName}-#${index}`;
     vscodeWorkspace.tasks.tasks.push({
         "label": taskName,
         "type": "shell",
@@ -738,7 +738,7 @@ export async function generateChainVSCodeWorkspace(
 
     const taskRelPath = toRelativePath(destDirname, inventory._inv.rootDir);
     vscodeWorkspace.tasks.tasks.push({
-        "label": "Stop-All",
+        "label": `${PROD_BIN} stop all`,
         "type": "shell",
         "options": {
             "cwd": "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath
@@ -746,12 +746,20 @@ export async function generateChainVSCodeWorkspace(
         "command": `${PROD_BIN} stop all`
     });
     vscodeWorkspace.tasks.tasks.push({
-        "label": "Kill-All",
+        "label": `${PROD_BIN} kill all`,
         "type": "shell",
         "options": {
             "cwd": "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath
         },
         "command": `${PROD_BIN} kill all`
+    });
+    vscodeWorkspace.tasks.tasks.push({
+        "label": `${PROD_BIN} test`,
+        "type": "shell",
+        "options": {
+            "cwd": "${workspaceFolder:" + MAIN_PROJECT_NAME + "}/" + taskRelPath
+        },
+        "command": `${PROD_BIN} test`
     });
 
     const out = {
