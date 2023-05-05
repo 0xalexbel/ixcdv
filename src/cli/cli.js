@@ -512,4 +512,6 @@ These files are required by the iExec sdk. If 'chain.json' or 'iexec.json' is mi
         execCmd('sdk/init', options);
     });
 
+program.option('--config <directory>', `Folder where the '${PROD_CONFIG_BASENAME}' file is located.\nThis option is ignored when used in conjonction with the 'init' command.`);
+program.option('--debug', `Enable ${PROD_NAME} debug mode (development only).`);
 program.parse();
