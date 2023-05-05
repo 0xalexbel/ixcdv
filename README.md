@@ -14,10 +14,10 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 
 ## How it works ?
 
-- Install ixcdv
+- Install `ixcdv`
 - Create a new folder somewhere
 - Use ixcdv to **install and configure** a full iExec stack inside that folder
-- start your new local iExec stack
+- start your new **local** iExec stack
 - run an app Dockerfile within your new **local** iExec stack
 - when you are done, stop the stack
 - delete the folder
@@ -226,29 +226,10 @@ iexec storage init --keystoredir ../shared/db/ganache.1337/wallets --wallet-file
 iexec order fill --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet4.json --password whatever --chain 1337.standard --force
 ```
 
-## Make it work from VSCode 
+## [Debug inside VSCode](./VSCODE.md)
 
-**ixcdv** CLI comes with a handy command that generates for you a group of VSCode workspace files as well as a few helpers to make life easier when it comes to running and debugging the various iExec services.
+Checkout [VSCODE.md](./VSCODE.md) for a detailed tutorial explaining how to debug the iExec stack inside VSCode.
 
-```sh
-# again, from our favorite workspace folder
-cd ./my-workspace
-
-# Let's create a new folder where all our vscode workspaces will be located
-mkdir ./vscode
-cd ./csvode
-
-# From there, let's generate the necessary '.code-workspace' files
-ixcdv vscode install 
-
-# iExec services are grouped into so-called 'chains' 
-# Each one of these chains is governed by a unique iExec Hub,
-# which is actually a particular Ethereum contract instance deployed on a given chainId.
-# Chain names are formatted like this :
-# <chainId>.<'standard'|'enterprise'|'native'>
-# Each chain folder contains a set of VSCode workspace files, see below:
-ls -l ./1337.standard/
-```
 ## Take a look at all the running services
 
 To inspect the running processes, type:
