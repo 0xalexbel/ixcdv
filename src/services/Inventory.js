@@ -12,7 +12,6 @@ import { PoCoHubRef } from '../common/contractref.js';
 import { isNullishOrEmptyString, stringToPositiveInteger } from '../common/string.js';
 import { resolveAbsolutePath, saveToFile, throwIfDirDoesNotExist, throwIfFileAlreadyExists } from '../common/fs.js';
 import { AbstractService } from '../common/service.js';
-import { createRandomMnemonic, ethersIsValidMnemonic } from '../common/ethers.js';
 import { getDockerDesktopPids } from '../docker/docker-api.js';
 
 export const InventoryConstructorGuard = { value: false };
@@ -82,10 +81,10 @@ export class Inventory {
 
     /**
      * @param {'ganache' | 'sms' | 'blockchainadapter' | 'resultproxy' | 'core' | 'market'} type 
-     * @param {string | PoCoHubRef} hub 
+     * @param {string | PoCoHubRef} hubAliasOrHubRef 
      */
-    getHubServiceURL(type, hub) {
-        return this._inv.getHubServiceURL(type, hub);
+    getHubServiceURL(type, hubAliasOrHubRef) {
+        return this._inv.getHubServiceURL(type, hubAliasOrHubRef);
     }
 
     /**
@@ -204,10 +203,11 @@ export class Inventory {
     // }
 
     /**
+     * @param {srvTypes.ServiceType | 'all'} type 
      * @param {types.StopOptionsWithContext=} options 
      */
-    static async stopAny(options) {
-        return InventoryRun.stopAny(options);
+    static async stopAny(type, options) {
+        return InventoryRun.stopAny(type, options);
     }
 
     /**

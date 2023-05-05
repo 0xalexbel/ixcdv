@@ -1280,7 +1280,6 @@ export class Service extends AbstractService {
      * }=} options
      */
     async #waitUntilReadyUsingLogs(pid, options) {
-
         let ORANDSuccess = this.getSuccessORANDPatterns(pid);
         if (ORANDSuccess && ORANDSuccess.length === 0) {
             ORANDSuccess = null;

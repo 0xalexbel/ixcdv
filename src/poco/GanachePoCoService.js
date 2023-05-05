@@ -18,8 +18,8 @@ import { SharedJsonRpcProviders } from '../common/shared-json-rpc-providers.js';
 import { CodeError } from '../common/error.js';
 import { isPackageOrDirectory } from '../pkgmgr/pkg.js';
 import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
-import { envVarName, PROD_FILE_PREFIX } from '../common/consts.js';
-import { psGetEnv } from '../common/ps.js';
+import { PROD_FILE_PREFIX } from '../common/consts.js';
+import { ENSRegistry } from '../common/contracts/ENSRegistry.js';
 
 const CONFIG_FILE_BASENAME = `${PROD_FILE_PREFIX}-ganache-poco-config.json`;
 const DBPATH_BASENAME = 'db';
@@ -141,11 +141,15 @@ export class GanachePoCoService extends GanacheService {
 
     /**
      * @param {number} index 
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    newWalletAtIndex(index) {
+    newWalletAtIndex(index, { ensAddress, networkName }) {
         return new Wallet(
             this.walletKeysAtIndex(index).privateKey,
-            SharedJsonRpcProviders.fromURL({ url: this.url, chainid: this.chainid }));
+            SharedJsonRpcProviders.fromURL(this.url, this.chainid, { ensAddress, networkName }));
     }
 
     /**
@@ -180,6 +184,19 @@ export class GanachePoCoService extends GanacheService {
         return hubs;
     }
 
+    hubAliases() {
+        if (!this.#PoCoChainDeployConfig) {
+            return [];
+        }
+        const hubAliases = [];
+        const configs = this.#PoCoChainDeployConfig.configNames();
+        for (let i = 0; i < configs.length; ++i) {
+            const hubAlias = this.chainid.toString() + '.' + configs[i];
+            hubAliases.push({ hubAlias, deployConfigName: configs[i] });
+        }
+        return hubAliases;
+    }
+
     /**
      * string value can be one of the following:
      * - `<chainid>.<address>` 
@@ -198,6 +215,19 @@ export class GanachePoCoService extends GanacheService {
         if (!c || (c instanceof PoCoHubRef)) { return c; }
         assert(c.contractName !== 'ERC1538Proxy');
         return c;
+    }
+
+    /**
+     * @param {types.PoCoContractName} contractName 
+     * @param {string} deployConfigName 
+     */
+    resolveContractName(contractName, deployConfigName) {
+        return this.resolve({
+            chainid: this.chainid,
+            contractName,
+            url: this.url,
+            deployConfigName
+        }, contractName);
     }
 
     /**
@@ -266,6 +296,32 @@ export class GanachePoCoService extends GanacheService {
             throw new CodeError('contract reference is not deployed', ERROR_CODES.POCO_ERROR);
         }
         return { service: g, PoCoContractRef: resolvedRef };
+    }
+
+    /**
+     * @param {string} deployConfigName 
+     */
+    ENSRegistryRef(deployConfigName) {
+        const ref = this.resolveContractName('ENSRegistry', deployConfigName);
+        if (!(ref instanceof PoCoContractRef)) {
+            throw new CodeError('Unable to retrieve ENSRegistry');
+        }
+        assert(!(ref instanceof PoCoHubRef));
+        assert(ref.contractName === 'ENSRegistry');
+        return ref;
+    }
+
+    /**
+     * @param {string} deployConfigName 
+     * @param {string=} networkName 
+     */
+    getENSRegistry(deployConfigName, networkName) {
+        const ensRef = this.ENSRegistryRef(deployConfigName);
+        assert(ensRef.address);
+        return ENSRegistry.sharedReadOnly(ensRef, this.contractsMinDir, {
+            ensAddress: ensRef.address,
+            networkName: networkName ?? 'unknown'
+        });
     }
 
     /**

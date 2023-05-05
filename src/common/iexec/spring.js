@@ -5,13 +5,14 @@ import { dirExists, readFileLineByLineSync, toAbsolutePath } from "../fs.js";
 import { assertIsArray } from '../assert-strict.js';
 import { isNullishOrEmptyString, removePrefix, removeSuffix } from '../string.js';
 
+const IXCDV_ROOT_NAME_SUFFIX = '-ixcdv-';
 
 /**
  * @param {!string} repoName
  * @param {!string} dir 
  * @param {types.Strict=} options
  */
-export function parseGradleDotPropertiesFile(repoName, dir, options = { strict: false }) {
+function parseGradleDotPropertiesFile(repoName, dir, options = { strict: false }) {
     const lines = readFileLineByLineSync(path.join(dir, 'gradle.properties'), options);
     if (!lines) {
         return null;
@@ -119,7 +120,7 @@ function __parseSettingsDotGradleFile(dir, options = { recursive: false, strict:
     }
 
     if (options.typesMap) {
-        let projects =options.typesMap.get(settings.rootProjectName);
+        let projects = options.typesMap.get(settings.rootProjectName);
         if (!projects) {
             projects = new Map();
             options.typesMap.set(settings.rootProjectName, projects);
@@ -133,11 +134,58 @@ function __parseSettingsDotGradleFile(dir, options = { recursive: false, strict:
 }
 
 /**
+ * @param {string} line 
+ */
+export function parseSettingsRootProjectName(line) {
+    line = line.trim();
+    const prefix = 'rootProject.name';
+    if (!line.startsWith(prefix)) {
+        return undefined;
+    }
+    line = line.substring(prefix.length).trim();
+    if (!line.startsWith('=')) {
+        return undefined;
+    }
+    line = line.substring(1).trim();
+
+    const quoteChar = "'";
+    const doubleQuoteChar = '"';
+    if (line.startsWith(quoteChar)) {
+        if (!line.endsWith(quoteChar)) {
+            return undefined;
+        }
+        line = removePrefix(quoteChar, line);
+        line = removeSuffix(quoteChar, line);
+    } else if (line.startsWith(doubleQuoteChar)) {
+        if (!line.endsWith(doubleQuoteChar)) {
+            return undefined;
+        }
+        line = removePrefix(doubleQuoteChar, line);
+        line = removeSuffix(doubleQuoteChar, line);
+    }
+
+    const pos = line.indexOf(IXCDV_ROOT_NAME_SUFFIX);
+    if (pos >= 0) {
+        line = line.substring(0, pos);
+    }
+    return line;
+}
+
+/**
+ * @param {string} projectName 
+ * @param {string} version 
+ */
+export function toUniqueSettingsRootProjectName(projectName, version) {
+    version = removePrefix('v', version.trim());
+    return projectName + IXCDV_ROOT_NAME_SUFFIX + version;
+}
+
+/**
  * @param {!string} dir 
  * @param {!string[] | !string} settingsDotGradleLines
  * @param {types.Strict=} options
  */
-export function parseSettingsDotGradle(dir, settingsDotGradleLines, options = { strict: false }) {
+function parseSettingsDotGradle(dir, settingsDotGradleLines, options = { strict: false }) {
     let linesArray = settingsDotGradleLines;
     if (typeof settingsDotGradleLines === 'string') {
         linesArray = settingsDotGradleLines.split('\n');
@@ -146,6 +194,7 @@ export function parseSettingsDotGradle(dir, settingsDotGradleLines, options = { 
 
     const settings = {
         rootProjectName: '',
+        uniqueRootProjectName: '',
         version: '',
         directory: dir,
         dependencies: new Array()
@@ -153,22 +202,16 @@ export function parseSettingsDotGradle(dir, settingsDotGradleLines, options = { 
 
     for (let i = 0; i < linesArray.length; ++i) {
         if (linesArray[i].startsWith('rootProject.name')) {
-            let name = linesArray[i].substring(16).trim();
-            assert(name.startsWith('='));
-            name = name.substring(1).trim();
-
-            name = removePrefix("'", name);
-            name = removeSuffix("'", name);
-
-            name = removePrefix('"', name);
-            name = removeSuffix('"', name);
+            let name = parseSettingsRootProjectName(linesArray[i]);
+            assert(name);
+            assert(name.length > 0);
             settings.rootProjectName = name;
             continue;
         }
         if (!linesArray[i].startsWith("includeBuild ")) {
             continue;
         }
-        let d = linesArray[i].substring(13).trim();
+        let d = linesArray[i].substring("includeBuild ".length).trim();
         d = d.substring(1, d.length - 1);
         const depDir = toAbsolutePath(dir, d);
         settings.dependencies.push(depDir);
@@ -177,6 +220,11 @@ export function parseSettingsDotGradle(dir, settingsDotGradleLines, options = { 
     if (dirExists(dir) && !isNullishOrEmptyString(settings.rootProjectName)) {
         const versions = parseGradleDotPropertiesFile(settings.rootProjectName, dir, options);
         settings.version = versions?.version ?? '';
+    }
+
+    if (settings.version.length > 0) {
+        const v = removePrefix('v', settings.version.trim()).trim();
+        settings.uniqueRootProjectName = toUniqueSettingsRootProjectName(settings.rootProjectName, v);
     }
 
     return settings;

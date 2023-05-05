@@ -1,3 +1,6 @@
+// Dependencies
+// ../common
+import * as types from "../common/common-types.js";
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import { CodeError } from '../common/error.js';
@@ -35,7 +38,7 @@ import { NULL_BYTES32 } from '../common/ethers.js';
 export const TaskConstructorGuard = { value: false };
 
 /** 
- * @param {cTypes.bytes32string} taskid 
+ * @param {types.bytes32string} taskid 
  * @param {cTypes.Task} task 
  */
 function newTask(taskid, task) {
@@ -76,7 +79,7 @@ function toTaskStatusEnum(taskStatusInt) {
 }
 
 /**
- * @param {cTypes.bytes32string} taskid 
+ * @param {types.bytes32string} taskid 
  * @param {cTypes.TaskRpc} taskRpc 
  */
 export function newTaskFromRPC(taskid, taskRpc) {
@@ -103,14 +106,14 @@ export function newTaskFromRPC(taskid, taskRpc) {
 
 export class Task {
 
-    /** @type {cTypes.bytes32string} */
+    /** @type {types.bytes32string} */
     #id;
 
     /** @type {cTypes.Task} */
     #properties;
 
     /**
-     * @param {cTypes.bytes32string} taskid 
+     * @param {types.bytes32string} taskid 
      * @param {cTypes.Task} task 
      */
     constructor(taskid, task) {

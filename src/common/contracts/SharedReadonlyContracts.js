@@ -1,26 +1,10 @@
 import assert from "assert";
 import path from "path";
 import { Contract, providers, Signer } from 'ethers';
-import { ContractRef } from "../common/contractref.js";
-import { importJsonModule } from "../common/import.cjs";
-import { SharedJsonRpcProviders } from "../common/shared-json-rpc-providers.js";
-import { CodeError } from "../common/error.js";
-
-/**
- * @param {ContractRef} contractRef 
- * @param {string} contractName
- * @param {string} contractDir
- * @param {Signer | providers.Provider} signerOrProvider 
- */
-export function newContract(contractRef, contractName, contractDir, signerOrProvider) {
-    assert(signerOrProvider);
-    assert(contractRef.address);
-
-    const modulePath = path.join(contractDir, contractName + '.json');
-    const contractModule = importJsonModule(modulePath);
-
-    return new Contract(contractRef.address, contractModule.abi, signerOrProvider);
-}
+import { ContractRef } from "../contractref.js";
+import { importJsonModule } from "../import.cjs";
+import { SharedJsonRpcProviders } from "../shared-json-rpc-providers.js";
+import { CodeError } from "../error.js";
 
 export class SharedReadonlyContracts {
 
@@ -36,15 +20,19 @@ export class SharedReadonlyContracts {
      * @param {ContractRef} ref 
      * @param {string} contractName 
      * @param {string} contractDir 
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static get(ref, contractName, contractDir) {
+    static get(ref, contractName, contractDir, { ensAddress, networkName }) {
         if (!ref || !ref.hasURL || !ref.hasAddress) {
             throw new CodeError('Invalid ContractRef argument');
         }
         assert(ref.address);
         const key = ref.baseKey + '/' + contractName;
 
-        const provider = SharedJsonRpcProviders.fromContractRef(ref);
+        const provider = SharedJsonRpcProviders.fromContractRef(ref, { ensAddress, networkName });
 
         let contracts = SharedReadonlyContracts.#map.get(provider);
         if (contracts) {
@@ -76,7 +64,7 @@ export class SharedReadonlyContracts {
      */
     static isShared(contract) {
         const p = contract.provider;
-        
+
         if (p instanceof providers.JsonRpcProvider) {
             const contracts = SharedReadonlyContracts.#map.get(p);
             if (contracts) {

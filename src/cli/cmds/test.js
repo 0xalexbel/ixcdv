@@ -75,7 +75,8 @@ export default class TestCmd extends Cmd {
                 trust: 1,
                 args: "'do stuff' do stuff \"do stuff\"",
                 inputFiles: [
-                    "https://gist.githubusercontent.com/prabansal/115387/raw/0e5911c791c03f2ffb9708d98cac70dd2c1bf0ba/HelloWorld.txt"
+                    // A secret gist referencing a trivial 'HelloWorld.txt' file containing 1 line : 'Hello World!'
+                    "https://gist.githubusercontent.com/0xalexbel/e45c442a044d5c56669936e33f344a79/raw/18b97677eea153671e7f81a33155a4a233a749db/helloworld.txt"
                 ],
                 appDir,
                 appName,

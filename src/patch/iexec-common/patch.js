@@ -2,6 +2,9 @@ import * as types from '../../common/common-types.js';
 import * as pkgTypes from '../../pkgmgr/pkgmgr-types.js';
 import * as ERROR_CODES from '../../common/error-codes.js'
 import { CodeError, fail } from '../../common/error.js';
+import { patchSettingsDotGradle } from '../patcher.js';
+import { commitAll } from '../../git/git-api.js';
+import { PROD_NAME } from '../../common/consts.js';
 
 /**
  * @param {types.Strict=} strict
@@ -23,15 +26,18 @@ export async function patch(dir, setup, options = { strict: false }) {
     const gitHubRepo = setup.directories[dir].pkgArg.gitHubRepoName;
     console.log(`Patch ${gitHubRepo} !!! at=` + dir);
 
-    // const isMain = (dir === setup.mainDir);
-    // if (!isMain) {
-    //     // Replace project root name if not main project
-    //     // rootProject.name = <dep-name> by rootProject.name = <dep-name>-<main-name>
-    //     // Ex: rootProject.name = 'iexec-sms' by rootProject.name = 'iexec-sms-core'
-    //     // Ex: rootProject.name = 'iexec-common' by rootProject.name = 'iexec-common-sms'
-    //     let ok = await patchSettingsDotGradle(dir, setup);
-    //     assert(ok);
-    // }
+    let ok;
+
+    try {
+        ok = await patchSettingsDotGradle(dir, setup);
+        if (!ok) {
+            throw null;
+        }
+
+        await commitAll(dir, `${PROD_NAME} install patch commit`, { strict: true });
+    } catch (err) {
+        return patchFail(options);
+    }
 
     return { ok: true };
 }

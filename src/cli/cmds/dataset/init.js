@@ -7,7 +7,7 @@ import { Inventory } from '../../../services/Inventory.js';
 import { dirExists, errorDirDoesNotExist, errorFileDoesNotExist, fileExists, mkDirP, readObjectFromJSONFile, resolveAbsolutePath, saveToFile } from '../../../common/fs.js';
 import { isDeepStrictEqual } from 'util';
 import { computeIpfsChecksumAndMultiaddr } from '../../../contracts/dataset-generator.js';
-import { PoCoHubRef } from '../../../common/contractref.js';
+import { PoCoContractRef, PoCoHubRef } from '../../../common/contractref.js';
 import { Hub } from '../../../contracts/Hub.js';
 
 export default class DatasetInitCmd extends Cmd {
@@ -81,7 +81,16 @@ export default class DatasetInitCmd extends Cmd {
                 multiaddr: datasetMC.multiaddr
             }
 
-            const hubContract = Hub.sharedReadOnly(hubRef, g.contractsMinDir);
+            const chainName = inventory._inv.hubAliasToChainName(hubAlias);
+
+            const ensRef = g.resolve(hubAlias, 'ENSRegistry');
+            assert(ensRef);
+            assert(ensRef.address);
+            assert(ensRef instanceof PoCoContractRef);
+
+            const providerOpts = { ensAddress: ensRef.address, networkName: chainName ?? 'unknown' };
+
+            const hubContract = Hub.sharedReadOnly(hubRef, g.contractsMinDir, providerOpts);
             const datasetRegistry = await hubContract.datasetRegistry();
             const datasetEntry = await datasetRegistry.getEntry(iExecDatasetEntry);
 

@@ -51,9 +51,10 @@ export default class VSCodeCmd extends Cmd {
             const inventory = await Inventory.fromConfigFile(configDir);
 
             if (subcmd === 'install') {
-                let vscodeDir = options.out ?? path.join(configDir, 'vscode');
+                let vscodeDir = options.out ?? path.join(process.cwd());
                 if (!path.isAbsolute(vscodeDir)) {
-                    vscodeDir = toAbsolutePath(configDir, vscodeDir);
+                    //vscodeDir = toAbsolutePath(configDir, vscodeDir);
+                    vscodeDir = toAbsolutePath(process.cwd(), vscodeDir);
                 }
                 await generateAllChainsVSCodeWorkspaces(inventory, vscodeDir, true, options.force);
                 return;

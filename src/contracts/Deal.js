@@ -1,3 +1,6 @@
+// Dependencies
+// ../common
+import * as types from "../common/common-types.js";
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import { BigNumber } from "ethers";
@@ -40,7 +43,7 @@ struct Deal
 export const DealConstructorGuard = { value: false };
 
 /** 
- * @param {cTypes.bytes32string} dealid 
+ * @param {types.bytes32string} dealid 
  * @param {cTypes.Deal} deal 
  */
 function newDeal(dealid, deal) {
@@ -58,7 +61,7 @@ function newDeal(dealid, deal) {
 }
 
 /**
- * @param {cTypes.bytes32string} dealid 
+ * @param {types.bytes32string} dealid 
  * @param {cTypes.DealRpc} dealRpc 
  */
 export function newDealFromRPC(dealid, dealRpc) {
@@ -97,7 +100,7 @@ export function newDealFromRPC(dealid, dealRpc) {
 
 export class Deal {
 
-    /** @type {cTypes.bytes32string} */
+    /** @type {types.bytes32string} */
     #id;
 
     /** @type {cTypes.Deal} */
@@ -133,7 +136,7 @@ export class Deal {
     };
 
     /**
-     * @param {cTypes.bytes32string} dealid 
+     * @param {types.bytes32string} dealid 
      * @param {cTypes.Deal} deal 
      */
     constructor(dealid, deal) {
@@ -179,8 +182,8 @@ export class Deal {
     get schedulerRewardRatio() { return this.#properties.schedulerRewardRatio; }
       
     /**
-     * @param {cTypes.bytes32string} dealid 
-     * @param {cTypes.uint256} taskidx 
+     * @param {types.bytes32string} dealid 
+     * @param {types.uint256} taskidx 
      */
     static #computeTaskId(dealid, taskidx) {
         if (!isBytes32String(dealid)) {
@@ -195,7 +198,7 @@ export class Deal {
 
     /**
      * taskidx >= 0 && taskidx < botSize
-     * @param {cTypes.uint256like} taskidx 
+     * @param {types.uint256like} taskidx 
      */
     computeTaskId(taskidx) {
         const idxBN = toUint256(taskidx);

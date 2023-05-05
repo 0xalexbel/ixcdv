@@ -1,4 +1,6 @@
-import * as cTypes from './contracts-types-internal.js';
+// Dependencies
+// ../common
+import * as types from '../common/common-types.js';
 import assert from 'assert';
 import { CodeError } from '../common/error.js';
 import { isNullishOrEmptyString, removeSuffix } from '../common/string.js';
@@ -98,14 +100,14 @@ export class RequestParams {
     }
 
     /**
-     * @param {cTypes.positiveInteger} index 
+     * @param {types.positiveInteger} index 
      */
     getSecret(index) {
         return this.#secrets?.[index];
     }
 
     /**
-     * @param {cTypes.positiveInteger} index 
+     * @param {types.positiveInteger} index 
      */
     getInputFile(index) {
         return this.#inputFiles?.[index];

@@ -1,7 +1,7 @@
 import assert from 'assert';
 import path from 'path';
 import { CodeError } from '../common/error.js';
-import { fileExistsInDir, resolveAbsolutePath } from '../common/fs.js';
+import { dirExists, errorDirDoesNotExist, fileExists, fileExistsInDir, resolveAbsolutePath } from '../common/fs.js';
 import { isNullishOrEmptyString } from '../common/string.js';
 import { ConfigFile } from '../services/ConfigFile.js';
 import { Inventory } from '../services/Inventory.js';
@@ -27,25 +27,38 @@ export class Cmd {
     }
 
     /**
-     * @param {string} dir 
+     * @param {string} pathToFileOrDir 
      */
-    resolveConfigDir(dir) {
-        let d = resolveAbsolutePath(dir);
+    resolveConfigDir(pathToFileOrDir) {
+        const configBasename = ConfigFile.basename();
+        if (fileExists(pathToFileOrDir)) {
+            const dn = path.dirname(pathToFileOrDir);
+            const bn = path.basename(pathToFileOrDir);
+            if (bn !== configBasename) {
+                throw new CodeError(`File '${pathToFileOrDir}' is not a valid ixcdv config file.`);
+            }
+            pathToFileOrDir = dn;
+        } else {
+            if (!dirExists(pathToFileOrDir)) {
+                throw new CodeError(`File or directory '${pathToFileOrDir}' does not exist.`);
+            }
+        }
+        let d = resolveAbsolutePath(pathToFileOrDir);
         while (true) {
-            if (fileExistsInDir(d, ConfigFile.basename())) {
+            if (fileExistsInDir(d, configBasename)) {
                 return d;
             }
             try {
                 const parent = path.dirname(d);
                 if (parent === d) {
-                    throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${dir}' or any of its parent directories.`);
+                    throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${path}' or any of its parent directories.`);
                 }
                 d = parent;
             } catch (err) {
-                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${dir}' or any of its parent directories.`);
+                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${path}' or any of its parent directories.`);
             }
             if (isNullishOrEmptyString(d)) {
-                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${dir}' or any of its parent directories.`);
+                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${path}' or any of its parent directories.`);
             }
         }
     }

@@ -302,6 +302,32 @@ export function fileExists(path, options = { strict: false }) {
 }
 
 /**
+ * - If `strict = false` : 
+ *      - returns `true` if `path` is an existing symbolic link
+ *      - returns `false` otherwise. Never throws an error
+ * - If `strict = true` : 
+ *      - returns `true` if `path` is an existing symbolic link
+ *      - always throws an error otherwise
+ * @param {!string} path 
+ * @param {types.Strict} options
+ */
+export function isSymLinkSync(path, options = { strict: false }) {
+    try {
+        if (isNullishOrEmptyString(path)) {
+            throw null;
+        }
+        let file = pathlib.resolve(path);
+        let s = fs.lstatSync(file);
+        if (!s.isSymbolicLink()) {
+            throw null;
+        }
+        return true;
+    } catch (err) {
+        return falseOrThrow(errorFileDoesNotExist(path), options);
+    }
+}
+
+/**
  * Checks if a file defined by its relative pathname exists
  * in a specified directory.
  * - If `strict = false` : 
@@ -998,6 +1024,25 @@ export async function shasum256(file) {
         assert(s.length === 64);
         return s;
     }
+}
+
+/**
+ * @param {string} sourceFile 
+ * @param {string} linkName 
+ */
+export async function lns(sourceFile, linkName) {
+    if (exists(linkName)) {
+        throw new CodeError(`Destination already exists ${linkName}`);
+    }
+    if (fileExists(sourceFile)) {
+        await fsPromises.symlink(sourceFile, linkName, 'file');
+        return;
+    }
+    if (dirExists(sourceFile)) {
+        await fsPromises.symlink(sourceFile, linkName, 'dir');
+        return;
+    }
+    throw new CodeError(`Unsupported source file type ${sourceFile} (not a file, not a directory)`);
 }
 
 export function getTmpDir() {

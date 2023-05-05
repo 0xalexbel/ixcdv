@@ -1,7 +1,9 @@
-import * as cTypes from './contracts-types-internal.js';
+// Dependencies
+// ../common
+import * as types from "../common/common-types.js";
 import assert from "assert";
 import { Contract } from "ethers";
-import { ContractBaseConstructorGuard, ContractBase } from "./ContractBase.js";
+import { ContractBaseConstructorGuard, ContractBase } from "../common/contracts/ContractBase.js";
 import { toEthAddress, toEthersArg_uint256 } from './utils.js';
 import { toChecksumAddress, toUint256 } from '../common/ethers.js';
 import { ContractRef } from '../common/contractref.js';
@@ -19,7 +21,7 @@ export const RegistryConstructorGuard = { value: false };
 /**
  * @template T
  * @param {IRegisty<T>} registry
- * @param {cTypes.uint256 | number} index
+ * @param {types.uint256 | number} index
  */
 export async function registryEntryAtIndex(registry, index) {
     const index_uint256 = toEthersArg_uint256(index);
@@ -35,8 +37,8 @@ export async function registryEntryAtIndex(registry, index) {
 /**
  * @template T
  * @param {IRegisty<T>} registry
- * @param {cTypes.checksumaddress} owner
- * @param {cTypes.uint256 | number} index
+ * @param {types.checksumaddress} owner
+ * @param {types.uint256 | number} index
  */
 export async function registryEntryOfOwnerAtIndex(registry, owner, index) {
     const ownerAddr = toChecksumAddress(owner);
@@ -72,7 +74,7 @@ export class Registry extends ContractBase {
      * API:
      * - Returns the total number of Apps, Datasets or Workerpools stored
      *   in the registry
-     * @return {Promise<cTypes.uint256>}
+     * @return {Promise<types.uint256>}
      */
     async countEntries() {
         return this.contract['totalSupply']();
@@ -83,7 +85,7 @@ export class Registry extends ContractBase {
      * - Returns the number of Apps, Datasets or Workerpools owned by `owner`
      * - Since Apps, Datasets and Workerpools are stored as NFTs, 
      *   this number is exactly the underlying ERC721 `balanceOf(owner)`
-     * @param {cTypes.checksumaddress} owner
+     * @param {types.checksumaddress} owner
      */
     async countEntriesByOwner(owner) {
         const ownerAddr = toChecksumAddress(owner);

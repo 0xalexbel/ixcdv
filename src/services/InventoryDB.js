@@ -511,7 +511,7 @@ export class InventoryDB {
      * @param {'ganache' | 'sms' | 'blockchainadapter' | 'resultproxy' | 'core' | 'market'} type 
      * @param {string | PoCoHubRef} hubAliasOrHubRef 
      */
-    getConfigFromHub(type, hubAliasOrHubRef) {
+    getConfigNameFromHub(type, hubAliasOrHubRef) {
         assert(hubAliasOrHubRef);
         let hubAlias;
         if (typeof hubAliasOrHubRef === 'string') {
@@ -530,6 +530,18 @@ export class InventoryDB {
         const name = hubData[type];
         assert(typeof name === 'string');
 
+        return name;
+    }
+
+    /**
+     * @param {'ganache' | 'sms' | 'blockchainadapter' | 'resultproxy' | 'core' | 'market'} type 
+     * @param {string | PoCoHubRef} hubAliasOrHubRef 
+     */
+    getConfigFromHub(type, hubAliasOrHubRef) {
+        const name = this.getConfigNameFromHub(type, hubAliasOrHubRef);
+        if (!name) {
+            return undefined;
+        }
         return this.getConfig(name);
     }
 
@@ -1671,26 +1683,49 @@ export class InventoryDB {
 
     /**
      * @param {'ganache' | 'sms' | 'blockchainadapter' | 'resultproxy' | 'core' | 'market'} type 
-     * @param {string | PoCoHubRef} hub 
+     * @param {string | PoCoHubRef} hubAliasOrHubRef 
      */
-    getHubServiceURL(type, hub) {
-        const urlStr = this.getHubServiceUrl(type, hub);
+    getHubServiceURL(type, hubAliasOrHubRef) {
+        const urlStr = this.getHubServiceUrl(type, hubAliasOrHubRef);
         return new URL(urlStr);
     }
 
     /**
      * @param {'ganache' | 'sms' | 'blockchainadapter' | 'resultproxy' | 'core' | 'market'} type 
-     * @param {string | PoCoHubRef} hub 
+     * @param {string | PoCoHubRef} hubAliasOrHubRef 
      */
-    getHubServiceUrl(type, hub) {
-        const conf = this.getConfigFromHub(type, hub)?.resolved;
-        assert(conf);
+    getHubServiceUrl(type, hubAliasOrHubRef) {
+        const conf = this.getConfigFromHub(type, hubAliasOrHubRef)?.resolved;
+        if (!conf) {
+            throw new CodeError('Unknown hub alias or hub ref');
+        }
         assert(conf.type === type);
         if (conf.type === 'market') {
             return "http://" + (conf.api.hostname ?? 'localhost') + ":" + conf.api.port.toString();
         }
         return "http://" + (conf.hostname ?? 'localhost') + ":" + conf.port.toString();
     }
+
+    /**
+     * @param {string} configName 
+     */
+    getHubServiceUrlFromConfigName(configName) {
+        const conf = this.getConfig(configName)?.resolved;
+        if (!conf) {
+            throw new CodeError(`Unknown config name ${configName}`);
+        }
+        if (conf.type === 'ipfs' ||
+            conf.type === 'docker' ||
+            conf.type === 'mongo' ||
+            conf.type === 'redis') {
+            return;
+        }
+        if (conf.type === 'market') {
+            return "http://" + (conf.api.hostname ?? 'localhost') + ":" + conf.api.port.toString();
+        }
+        return "http://" + (conf.hostname ?? 'localhost') + ":" + conf.port.toString();
+    }
+
     /**
      * @param {string} hubAlias 
      */

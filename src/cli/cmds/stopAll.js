@@ -1,7 +1,9 @@
+import * as srvTypes from '../../services/services-types-internal.js';
 import { Cmd } from "../Cmd.js";
 import cliProgress from 'cli-progress';
 import { CodeError } from "../../common/error.js";
 import { Inventory } from "../../services/Inventory.js";
+import { asServiceType } from '../../services/base-internal.js';
 
 export default class StopAllCmd extends Cmd {
 
@@ -15,12 +17,25 @@ export default class StopAllCmd extends Cmd {
 
     /**
      * @param {string} cliDir 
+     * @param {string} type 
      * @param {boolean} kill 
      * @param {*} options 
      */
-    async cliExec(cliDir, kill, options) {
+    async cliExec(cliDir, type, kill, options) {
         try {
-            await this.#execOnce(kill, options);
+            /** @type {srvTypes.ServiceType | 'all'} */
+            const t = (type === 'all') ? type : asServiceType(type);
+            await this.#execOnce(t, kill, options);
+
+            /**
+             * @todo To be removed
+             * - ixcdv start core
+             * - ixcdv stop all -> freezes 30s (wait until internal nodejs timeout is reached)
+             * - The problem does not occur with ixcdv kill all
+             * Probably due to nodejs services like 'market'
+             * runs process.exit(0)
+             */
+            process.exit(0);
         } catch (err) {
             this.exit(options, err);
         }
@@ -32,14 +47,15 @@ export default class StopAllCmd extends Cmd {
      */
     static async exec(kill, options) {
         const cmd = new StopAllCmd();
-        return cmd.#execOnce(kill, options);
+        return cmd.#execOnce('all', kill, options);
     }
 
     /**
+     * @param {srvTypes.ServiceType | 'all'} type 
      * @param {boolean} kill
      * @param {*} options 
      */
-    async #execOnce(kill, options) {
+    async #execOnce(type, kill, options) {
         // The current implementation does not support multiple calls.
         if (StopAllCmd.#calledOnce) {
             throw new CodeError('Internal error (stop all can only be called once)');
@@ -51,7 +67,7 @@ export default class StopAllCmd extends Cmd {
             await Inventory.killAny({ progressCb: stopProgress });
         } else {
             // stop any other running services (zombie)
-            await Inventory.stopAny({ progressCb: stopProgress, reset: false });
+            await Inventory.stopAny(type, { progressCb: stopProgress, reset: false });
         }
 
         endProgress('all services stopped');
@@ -78,16 +94,14 @@ function stopProgress({ count, total, value }) {
     const name = value?.context?.name;
     const type = value?.type;
 
-    if (count === 0 && total > 1) {
-        if (!StopAllCmd.progressBar) {
-            StopAllCmd.progressBar = new cliProgress.SingleBar({
-                hideCursor: true,
-                clearOnComplete: true,
-                autopadding: true,
-                synchronousUpdate: true,
-                format: ' {bar} | {percentage}% | {msg}',
-            }, cliProgress.Presets.shades_classic);
-        }
+    if (!StopAllCmd.progressBar) {
+        StopAllCmd.progressBar = new cliProgress.SingleBar({
+            hideCursor: true,
+            clearOnComplete: true,
+            autopadding: true,
+            synchronousUpdate: true,
+            format: ' {bar} | {percentage}% | {msg}',
+        }, cliProgress.Presets.shades_classic);
         StopAllCmd.progressBar.start(total, 0);
     }
 

@@ -34,16 +34,6 @@ export async function patch(dir, setup, options = { strict: false }) {
             throw null;
         }
 
-        // // Add project name suffixes
-        // ok = await patchBuildDotGradle('build.gradle', dir, setup);
-        // if (!ok) {
-        //     throw null;
-        // }
-        // ok = await patchBuildDotGradle('iexec-blockchain-adapter-api-library/build.gradle', dir, setup);
-        // if (!ok) {
-        //     throw null;
-        // }
-
         await patchBuildInfoIfNeeded(dir, setup, 'src/main/java/com/iexec/blockchain/version/VersionService.java');
 
         await commitAll(dir, `${PROD_NAME} install patch commit`, { strict: true });

@@ -1,7 +1,10 @@
+// Dependencies
+// ../common
+import * as types from "../common/common-types.js";
 import * as cTypes from './contracts-types-internal.js';
 import assert from "assert";
 import { Contract } from "ethers";
-import { ContractBaseConstructorGuard, ContractBase } from "./ContractBase.js";
+import { ContractBaseConstructorGuard, ContractBase } from "../common/contracts/ContractBase.js";
 import { ContractRef } from '../common/contractref.js';
 import { CodeError } from '../common/error.js';
 
@@ -9,9 +12,9 @@ export const RegistryEntryConstructorGuard = { value: false };
 
 export class RegistryEntry extends ContractBase {
 
-    /** @type {cTypes.checksumaddress=} */
+    /** @type {types.checksumaddress=} */
     #registryAddr;
-    /** @type {cTypes.checksumaddress=} */
+    /** @type {types.checksumaddress=} */
     #ownerAddr;
 
     /**

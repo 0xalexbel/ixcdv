@@ -1,7 +1,13 @@
+// Dependencies
+// ../common
+// ../docker
+// ../ipfs
+import * as types from "../common/common-types.js";
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
+import path from 'path';
 import { Contract, BigNumber, Wallet } from "ethers";
-import { ContractBase, ContractBaseConstructorGuard } from './ContractBase.js';
+import { ContractBase, ContractBaseConstructorGuard } from '../common/contracts/ContractBase.js';
 import { AppRegistry } from './AppRegistry.js';
 import { WorkerpoolRegistry } from './WorkerpoolRegistry.js';
 import { DatasetRegistry } from './DatasetRegistry.js';
@@ -15,30 +21,28 @@ import { WorkerpoolRegistryEntry } from './WorkerpoolRegistryEntry.js';
 import { DatasetOrder, newDatasetOrder, newEmptyDatasetOrder } from './DatasetOrder.js';
 import { newWorkerpoolOrder, WorkerpoolOrder } from './WorkerpoolOrder.js';
 import { newRequestOrder, RequestOrder } from './RequestOrder.js';
-import { newContract } from './SharedReadonlyContracts.js';
 import { Category, newCategory } from './Category.js';
-import { toTxArgs } from './utils.js';
 import { Deal, newDealFromRPC } from './Deal.js';
 import { newTaskFromRPC } from './Task.js';
-import { ContractRef, PoCoContractRef } from '../common/contractref.js';
+import { ContractRef, PoCoContractRef, newContract } from '../common/contractref.js';
 import { CodeError, pureVirtualError } from '../common/error.js';
-import { isBytes32String, NULL_ADDRESS, NULL_BYTES32, toChecksumAddress } from '../common/ethers.js';
-import { throwIfNullishOrEmptyString } from '../common/string.js';
+import { isBytes32String, NULL_ADDRESS, NULL_BYTES32, toChecksumAddress, toTxArgs } from '../common/ethers.js';
+import { isNullishOrEmptyString, throwIfNullishOrEmptyString } from '../common/string.js';
 
 export const HubBaseConstructorGuard = { value: false };
 export const ORDER_VOLUME_INFINITE = 1000000;
 
 export class HubBase extends ContractBase {
 
-    /** @type {cTypes.checksumaddress=} */
+    /** @type {types.checksumaddress=} */
     #appRegistryAddr;
-    /** @type {cTypes.checksumaddress=} */
+    /** @type {types.checksumaddress=} */
     #datasetRegistryAddr;
-    /** @type {cTypes.checksumaddress=} */
+    /** @type {types.checksumaddress=} */
     #workerpoolRegistryAddr;
     /** @type {string=} */
     #symbol;
-    /** @type {cTypes.checksumaddress=} */
+    /** @type {types.checksumaddress=} */
     #token;
     /** @type {EIP712Domain=} */
     #domain;
@@ -118,7 +122,7 @@ export class HubBase extends ContractBase {
 
     /**
      * @param {Order} order 
-     * @param {cTypes.bytes32string} salt 
+     * @param {types.bytes32string} salt 
      */
     async viewConsumed(order, salt) {
         const d = await this.domain();
@@ -404,8 +408,34 @@ export class HubBase extends ContractBase {
         }
 
         if (args.params?.iexec_input_files) {
-            ro.params.iexec_input_files = [...args.params?.iexec_input_files];
+            const inputFiles = [...args.params.iexec_input_files];
+            for (let i = 0; i < inputFiles.length; ++i) {
+                if (isNullishOrEmptyString(inputFiles[i])) {
+                    throw new CodeError( `inputFile[${i}] parameter is invalid. Expecting a non empty string` );
+                }
+
+                // ./src/main/java/com/iexec/common/utils/IexecEnvUtils.java
+                // public static Map<String, String> getComputeStageEnvMap(TaskDescription taskDescription) {
+                //   ...                     
+                //   map.put(IEXEC_INPUT_FILE_NAME_PREFIX + index, FilenameUtils.getName(inputFileUrl));
+                //   ...                     
+                // }
+                // org.apache.commons.io.FilenameUtils.indexOfLastSeparator(final String filename)
+                // org.apache.commons.io.FilenameUtils.getName(final String filename)
+
+                // Prevent from passing invalid inputFiles as parameters
+                const inputFile = inputFiles[i];
+                const posPosix = inputFile.lastIndexOf(path.posix.sep);
+                const posWin = inputFile.lastIndexOf(path.win32.sep);
+                const pos = (posWin > posPosix) ? posWin : posPosix;
+                const basename = inputFile.substring(pos);
+                if (basename.trim().length === 0) {
+                    throw new CodeError( `inputFile[${i}] parameter is invalid. Basename is empty (='${basename}')` );
+                }
+            }
+            ro.params.iexec_input_files = [...args.params.iexec_input_files];
         }
+
 
         return newRequestOrder(ro);
     }
@@ -570,7 +600,7 @@ export class HubBase extends ContractBase {
     }
 
     /**
-     * @param {cTypes.checksumaddress} addr 
+     * @param {types.checksumaddress} addr 
      */
     async viewAccount(addr) {
         addr = toChecksumAddress(addr);
@@ -665,7 +695,7 @@ export class HubBase extends ContractBase {
      * @param {Wallet} workerpoolOrderSigner 
      * @param {RequestOrder} requestOrder 
      * @param {string} requestOrderSalt 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async #check(
         appOrder,
@@ -941,7 +971,7 @@ export class HubBase extends ContractBase {
      *      requestOrder: RequestOrder
      *      requestOrderSalt: string
      * }} args 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async matchOrders(
         {
@@ -1028,7 +1058,7 @@ export class HubBase extends ContractBase {
     }
 
     /**
-     * @param {cTypes.bytes32string} dealid 
+     * @param {types.bytes32string} dealid 
      */
     async viewDeal(dealid) {
         if (!isBytes32String(dealid)) {
@@ -1040,8 +1070,8 @@ export class HubBase extends ContractBase {
 
     /**
      * @param {RequestOrder} requestOrder 
-     * @param {cTypes.bytes32string} salt 
-     * @param {cTypes.uint256like} idx 
+     * @param {types.bytes32string} salt 
+     * @param {types.uint256like} idx 
      */
     async viewRequestOrderDeal(requestOrder, salt, idx) {
         if (!isBytes32String(salt)) {
@@ -1053,7 +1083,7 @@ export class HubBase extends ContractBase {
     }
 
     /**
-     * @param {cTypes.bytes32string} taskid 
+     * @param {types.bytes32string} taskid 
      */
     async viewTask(taskid) {
         if (!isBytes32String(taskid)) {
@@ -1065,8 +1095,8 @@ export class HubBase extends ContractBase {
 
     /**
      * taskidx >= 0 && taskidx < botSize
-     * @param {cTypes.bytes32string | Deal} dealidOrDeal 
-     * @param {cTypes.uint256like} taskidx 
+     * @param {types.bytes32string | Deal} dealidOrDeal 
+     * @param {types.uint256like} taskidx 
      */
     async viewTaskAt(dealidOrDeal, taskidx) {
         /** @type {Deal} */
@@ -1086,7 +1116,7 @@ export class HubBase extends ContractBase {
 
     /**
      * Eth Call
-     * @return {Promise<cTypes.uint256>}
+     * @return {Promise<types.uint256>}
      */
     async countCategory() {
         return await this.contract.countCategory();
@@ -1094,7 +1124,7 @@ export class HubBase extends ContractBase {
 
     /**
      * EVM error if catId >= count
-     * @param {number | cTypes.uint256} catIdx 
+     * @param {number | types.uint256} catIdx 
      * @returns {Promise<Category | null>}
      */
     async viewCategory(catIdx) {
@@ -1147,8 +1177,8 @@ export class HubBase extends ContractBase {
     /**
      * @param {string} name 
      * @param {string} description 
-     * @param {cTypes.uint256} workClockTimeRef 
-     * @param {cTypes.TxArgsOrWallet} txArgsOrWallet 
+     * @param {types.uint256} workClockTimeRef 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async createCategory(name, description, workClockTimeRef, txArgsOrWallet) {
         throwIfNullishOrEmptyString(name);

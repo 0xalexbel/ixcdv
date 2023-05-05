@@ -6,7 +6,7 @@ import { Inventory } from "./Inventory.js";
 import { SmsService } from './Sms.js';
 import { ResultProxyService } from './ResultProxy.js';
 import { Wallet } from 'ethers';
-import { DevContractRef, PoCoHubRef } from '../common/contractref.js';
+import { DevContractRef, PoCoContractRef, PoCoHubRef } from '../common/contractref.js';
 import { CodeError } from '../common/error.js';
 import { SharedJsonRpcProviders } from '../common/shared-json-rpc-providers.js';
 import { isNullishOrEmptyString } from '../common/string.js';
@@ -70,19 +70,28 @@ export async function runIexecApp(inventory, args) {
     assert(hubRef.address);
     assert(hubRef instanceof PoCoHubRef);
 
+    const chainName = inventory._inv.hubAliasToChainName(hubAlias);
+
+    const ensRef = g.resolve(hubAlias, 'ENSRegistry');
+    assert(ensRef);
+    assert(ensRef.address);
+    assert(ensRef instanceof PoCoContractRef);
+
+    const providerOpts = { ensAddress: ensRef.address, networkName: chainName ?? 'unknown' };
+
     const requesterWallet =
         args.requesterWallet ??
-        g.newWalletAtIndex(inventory.getDefaultWalletIndex('requester'));
+        g.newWalletAtIndex(inventory.getDefaultWalletIndex('requester'), providerOpts);
 
     const appWallet =
         args.appWallet ??
-        g.newWalletAtIndex(inventory.getDefaultWalletIndex('app'));
+        g.newWalletAtIndex(inventory.getDefaultWalletIndex('app'), providerOpts);
 
     let datasetWallet = null;
     if (datasetFile) {
         datasetWallet =
             args.datasetWallet ??
-            g.newWalletAtIndex(inventory.getDefaultWalletIndex('dataset'));
+            g.newWalletAtIndex(inventory.getDefaultWalletIndex('dataset'), providerOpts);
     }
 
     let workerpoolWallet = args.workerpoolWallet;
@@ -99,7 +108,7 @@ export async function runIexecApp(inventory, args) {
         if (!workerpoolWallet) {
             workerpoolWallet = new Wallet(
                 g.walletKeysAtIndex(workerpool.accountIndex).privateKey,
-                SharedJsonRpcProviders.fromContractRef(hubRef));
+                SharedJsonRpcProviders.fromContractRef(hubRef, providerOpts));
         }
     }
 
@@ -136,7 +145,7 @@ export async function runIexecApp(inventory, args) {
         assert(isPushed);
     }
 
-    const hubContract = Hub.sharedReadOnly(hubRef, g.contractsMinDir);
+    const hubContract = Hub.sharedReadOnly(hubRef, g.contractsMinDir, providerOpts);
 
     const appRegistry = await hubContract.appRegistry();
     const newApp = await appRegistry.newEntryFromDockerfile(

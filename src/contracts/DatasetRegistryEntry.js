@@ -1,11 +1,13 @@
+// Dependencies
+// ../common
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import { Contract } from "ethers";
-import { newContract, SharedReadonlyContracts } from './SharedReadonlyContracts.js';
+import { SharedReadonlyContracts } from '../common/contracts/SharedReadonlyContracts.js';
 import { RegistryEntry, RegistryEntryConstructorGuard } from './RegistryEntry.js';
-import { ContractBase } from './ContractBase.js';
+import { ContractBase } from '../common/contracts/ContractBase.js';
 import { MultiaddrEx } from './MultiaddrEx.js';
-import { ContractRef } from '../common/contractref.js';
+import { ContractRef, newContract } from '../common/contractref.js';
 import { isValidAddress, NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
 import { isNullishOrEmptyString } from '../common/string.js';
 import { CodeError } from '../common/error.js';
@@ -53,9 +55,13 @@ export class DatasetRegistryEntry extends RegistryEntry {
     /**
      * @param {ContractRef} contractRef 
      * @param {string} contractDir
+     * @param {{
+     *      ensAddress: string
+     *      networkName: string
+     * }} options 
      */
-    static sharedReadOnly(contractRef, contractDir) {
-        const c = SharedReadonlyContracts.get(contractRef, 'Dataset', contractDir);
+    static sharedReadOnly(contractRef, contractDir, options) {
+        const c = SharedReadonlyContracts.get(contractRef, 'Dataset', contractDir, options);
         return DatasetRegistryEntry.#newDatasetRegistryEntry(c, contractRef, contractDir);
     }
 
@@ -74,7 +80,10 @@ export class DatasetRegistryEntry extends RegistryEntry {
         });
 
         if (baseContract.isSharedReadOnly) {
-            return DatasetRegistryEntry.sharedReadOnly(contractRef, baseContract.contractDir);
+            return DatasetRegistryEntry.sharedReadOnly(
+                contractRef, 
+                baseContract.contractDir,
+                baseContract.network);
         }
 
         const newC = newContract(

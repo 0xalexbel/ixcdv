@@ -1,3 +1,5 @@
+// Dependencies
+// ../common
 import * as types from "../common/common-types.js";
 
 /**
@@ -6,98 +8,63 @@ import * as types from "../common/common-types.js";
 */
 
 /**
-@typedef {import('ethers').BigNumber} uint256
-@typedef { number | number[] | Uint8Array | types.DataHexString | types.Hexable } uint256like
-
-@typedef {string} bytes
-@typedef {string} signature
-@typedef {string} checksumaddress
-@typedef {number} positiveInteger
-@typedef {number} strictlyPositiveInteger
-*/
-
-/**
- MUST be of length 32
- - '0x123' is not a bytes32 (but can be converted to a bytes32)
- - ethers always calls arrayify(bytes32_arg) during the function call process
- - bytes32 are case-insensitive. ('0xff' == '0xFF')
- @typedef {string} bytes32string
- @typedef {string | Uint8Array | number[]} bytes32like
- */
-
-/**
 @typedef {{
-    wallet: import('ethers').Wallet,
-    txOverrides?: {
-        gasPrice?: uint256,
-    }
-    txConfirms?: positiveInteger,
-}} TxArgs
-*/
-
-/**
-@typedef { TxArgs | import('ethers').Wallet } TxArgsOrWallet
-*/
-
-
-/**
-@typedef {{
-    app: checksumaddress,
-    appprice: uint256,
-    volume: uint256,
+    app: types.checksumaddress,
+    appprice: types.uint256,
+    volume: types.uint256,
     tag: tag,
-    datasetrestrict: checksumaddress,
-    workerpoolrestrict: checksumaddress,
-    requesterrestrict: checksumaddress,
+    datasetrestrict: types.checksumaddress,
+    workerpoolrestrict: types.checksumaddress,
+    requesterrestrict: types.checksumaddress,
 }} AppOrder
 */
 
 /**
 @typedef {{
-    app: import('./AppRegistryEntry.js').AppRegistryEntry | checksumaddress,
-    appprice?: string | number | uint256,
-    volume?: string | number | uint256,
+    app: import('./AppRegistryEntry.js').AppRegistryEntry | types.checksumaddress,
+    appprice?: string | number | types.uint256,
+    volume?: string | number | types.uint256,
     tag?: string | tag,
-    datasetrestrict?: checksumaddress,
-    workerpoolrestrict?: checksumaddress,
-    requesterrestrict?: checksumaddress,
+    datasetrestrict?: types.checksumaddress,
+    workerpoolrestrict?: types.checksumaddress,
+    requesterrestrict?: types.checksumaddress,
 }} AppOrderLike
 */
 
 /**
 @typedef {{
-    app: checksumaddress,
-    appmaxprice: uint256,
-    dataset: checksumaddress,
-    datasetmaxprice: uint256,
-    workerpool: checksumaddress,
-    workerpoolmaxprice: uint256,
-    requester: checksumaddress,
-    volume: uint256,
+    app: types.checksumaddress,
+    appmaxprice: types.uint256,
+    dataset: types.checksumaddress,
+    datasetmaxprice: types.uint256,
+    workerpool: types.checksumaddress,
+    workerpoolmaxprice: types.uint256,
+    requester: types.checksumaddress,
+    volume: types.uint256,
     tag: tag,
-    category: positiveInteger,
-    trust: positiveInteger,
-    beneficiary: checksumaddress,
-    callback: checksumaddress,
+    category: types.positiveInteger,
+    trust: types.positiveInteger,
+    beneficiary: types.checksumaddress,
+    callback: types.checksumaddress,
     params: RequestParams,
 }} RequestOrder
 */
 
 /**
 @typedef {{
-    app: import('./AppRegistryEntry.js').AppRegistryEntry | checksumaddress,
-    appmaxprice?: string | number | uint256,
-    dataset?: import('./DatasetRegistryEntry.js').DatasetRegistryEntry | checksumaddress,
-    datasetmaxprice?: string | number | uint256,
-    workerpool: import('./WorkerpoolRegistryEntry.js').WorkerpoolRegistryEntry | checksumaddress,
-    workerpoolmaxprice?: string | number | uint256,
-    requester: checksumaddress,
-    volume?: string | number | uint256,
+    app: import('./AppRegistryEntry.js').AppRegistryEntry | types.checksumaddress,
+    appmaxprice?: string | number | types.uint256,
+    dataset?: import('./DatasetRegistryEntry.js').DatasetRegistryEntry | types.checksumaddress,
+    datasetmaxprice?: string | number | types.uint256,
+    workerpool: import('./WorkerpoolRegistryEntry.js').WorkerpoolRegistryEntry | types.checksumaddress,
+    workerpoolmaxprice?: string | number | types.uint256,
+    requester: types.checksumaddress,
+    volume?: string | number | types.uint256,
     tag?: tag,
-    category?: positiveInteger,
-    trust?: positiveInteger,
-    beneficiary?: checksumaddress,
-    callback?: checksumaddress,
+    category?: types.positiveInteger,
+    trust?: types.positiveInteger,
+    beneficiary?: types.checksumaddress,
+    callback?: types.checksumaddress,
     params?: RequestParams,
 }} RequestOrderLike
 */
@@ -109,7 +76,7 @@ import * as types from "../common/common-types.js";
 @typedef {{
     iexec_args?: string,
     iexec_input_files?: string[],
-    iexec_secrets?: Object.<strictlyPositiveInteger,string>,
+    iexec_secrets?: Object.<types.strictlyPositiveInteger,string>,
     iexec_result_encryption?: boolean,
     iexec_result_storage_provider?: 'ipfs' | 'dropbox', 
     iexec_result_storage_proxy?: string
@@ -118,53 +85,53 @@ import * as types from "../common/common-types.js";
 
 /**
 @typedef {{
-    workerpool: checksumaddress,
-    workerpoolprice: uint256,
-    volume: uint256,
+    workerpool: types.checksumaddress,
+    workerpoolprice: types.uint256,
+    volume: types.uint256,
     tag: tag,
-    category: positiveInteger,
-    trust: positiveInteger,
-    apprestrict: checksumaddress,
-    datasetrestrict: checksumaddress,
-    requesterrestrict: checksumaddress,
+    category: types.positiveInteger,
+    trust: types.positiveInteger,
+    apprestrict: types.checksumaddress,
+    datasetrestrict: types.checksumaddress,
+    requesterrestrict: types.checksumaddress,
 }} WorkerpoolOrder
 */
 
 /**
 @typedef {{
-    workerpool: import('./WorkerpoolRegistryEntry.js').WorkerpoolRegistryEntry | checksumaddress,
-    workerpoolprice?: string | number | uint256,
-    volume?: string | number | uint256,
+    workerpool: import('./WorkerpoolRegistryEntry.js').WorkerpoolRegistryEntry | types.checksumaddress,
+    workerpoolprice?: string | number | types.uint256,
+    volume?: string | number | types.uint256,
     tag?: string | tag,
-    category?: positiveInteger,
-    trust?: positiveInteger,
-    apprestrict?: checksumaddress,
-    datasetrestrict?: checksumaddress,
-    requesterrestrict?: checksumaddress,
+    category?: types.positiveInteger,
+    trust?: types.positiveInteger,
+    apprestrict?: types.checksumaddress,
+    datasetrestrict?: types.checksumaddress,
+    requesterrestrict?: types.checksumaddress,
 }} WorkerpoolOrderLike
 */
 
 /**
 @typedef {{
-    dataset: checksumaddress,
-    datasetprice: uint256,
-    volume: uint256,
+    dataset: types.checksumaddress,
+    datasetprice: types.uint256,
+    volume: types.uint256,
     tag: tag,
-    apprestrict: checksumaddress,
-    workerpoolrestrict: checksumaddress,
-    requesterrestrict: checksumaddress,
+    apprestrict: types.checksumaddress,
+    workerpoolrestrict: types.checksumaddress,
+    requesterrestrict: types.checksumaddress,
 }} DatasetOrder
 */
 
 /**
 @typedef {{
-    dataset:  import('./DatasetRegistryEntry.js').DatasetRegistryEntry | checksumaddress,
-    datasetprice?: string | number | uint256,
-    volume?: string | number | uint256,
+    dataset:  import('./DatasetRegistryEntry.js').DatasetRegistryEntry | types.checksumaddress,
+    datasetprice?: string | number | types.uint256,
+    volume?: string | number | types.uint256,
     tag?: string | tag,
-    apprestrict?: checksumaddress,
-    workerpoolrestrict?: checksumaddress,
-    requesterrestrict?: checksumaddress,
+    apprestrict?: types.checksumaddress,
+    workerpoolrestrict?: types.checksumaddress,
+    requesterrestrict?: types.checksumaddress,
 }} DatasetOrderLike
 */
 
@@ -188,8 +155,8 @@ PoCo/contracts/libs/IexecLibOrders_v5.sol
 @typedef {{ 
     name: string,
     version: string,
-    chainId: uint256,
-    verifyingContract: checksumaddress
+    chainId: types.uint256,
+    verifyingContract: types.checksumaddress
 }} EIP712DomainStruct
 
 */
@@ -197,37 +164,37 @@ PoCo/contracts/libs/IexecLibOrders_v5.sol
 /**
 @typedef Category
 @type {object}
-    @property {checksumaddress} hub
-    @property {uint256} id
+    @property {types.checksumaddress} hub
+    @property {types.uint256} id
     @property {string} name
     @property {string} description
-    @property {uint256} workClockTimeRef
+    @property {types.uint256} workClockTimeRef
 */
 
 /**
 @typedef App
 @type {object}
-    @property {checksumaddress} owner
+    @property {types.checksumaddress} owner
     @property {string} name
     @property {'DOCKER'} type
     @property {string} multiaddr
-    @property {bytes32string} checksum
+    @property {types.bytes32string} checksum
     @property {MREnclave=} mrenclave
 */
 
 /**
 @typedef Dataset
 @type {object}
-    @property {checksumaddress} owner
+    @property {types.checksumaddress} owner
     @property {string} name
     @property {string} multiaddr
-    @property {bytes32string} checksum
+    @property {types.bytes32string} checksum
 */
 
 /** 
 @typedef Workerpool
 @type {object}
-    @property {checksumaddress} owner
+    @property {types.checksumaddress} owner
     @property {string} description
 */
 
@@ -250,7 +217,7 @@ PoCo/contracts/libs/IexecLibOrders_v5.sol
     @property {string} provider
     @property {string} version
     @property {string} entrypoint
-    @property {positiveInteger} heapSize
+    @property {types.positiveInteger} heapSize
     @property {string} fingerprint
  */
 
@@ -288,9 +255,9 @@ struct Deal
 
 /**
 @typedef {{
-    pointer: checksumaddress,
-    owner: checksumaddress,
-    price: uint256,
+    pointer: types.checksumaddress,
+    owner: types.checksumaddress,
+    price: types.uint256,
 }} Resource
 */
 
@@ -299,18 +266,18 @@ struct Deal
     app: Resource,
     dataset: Resource,
     workerpool: Resource,
-    trust: uint256,
-    category: uint256,
+    trust: types.uint256,
+    category: types.uint256,
     tag: tag,
-    requester: checksumaddress,
-    beneficiary: checksumaddress,
-    callback: checksumaddress,
+    requester: types.checksumaddress,
+    beneficiary: types.checksumaddress,
+    callback: types.checksumaddress,
     params: import('./RequestParams.js').RequestParams,
-    startTime: uint256,
-    botFirst: uint256,
-    botSize: uint256,
-    workerStake: uint256,
-    schedulerRewardRatio: uint256,
+    startTime: types.uint256,
+    botFirst: types.uint256,
+    botSize: types.uint256,
+    workerStake: types.uint256,
+    schedulerRewardRatio: types.uint256,
 }} Deal
 */
 
@@ -350,19 +317,19 @@ struct Deal
 /**
 @typedef {{
     status: TaskStatusEnum,
-    dealid: bytes32string,
-    idx: uint256,
-    timeref: uint256,
-    contributionDeadline: uint256,
-    revealDeadline: uint256,
-    finalDeadline: uint256,
-    consensusValue: bytes32string,
-    revealCounter: uint256;
-    winnerCounter: uint256;
-    contributors: checksumaddress[];
-    resultDigest: bytes32string;
+    dealid: types.bytes32string,
+    idx: types.uint256,
+    timeref: types.uint256,
+    contributionDeadline: types.uint256,
+    revealDeadline: types.uint256,
+    finalDeadline: types.uint256,
+    consensusValue: types.bytes32string,
+    revealCounter: types.uint256;
+    winnerCounter: types.uint256;
+    contributors: types.checksumaddress[];
+    resultDigest: types.bytes32string;
     results: any;
-    resultsTimestamp: uint256;
+    resultsTimestamp: types.uint256;
     resultsCallback: any
 }} Task
 */

@@ -8,15 +8,16 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 
 - Each iExec microservice is open-source and published on github (https://github.com/iExecBlockchainComputing). However, it can be tricky to install and configure this whole machinery on your Mac. iExec services have been primarily developped to run on Linux systems and must be individually configured.
 
-- In order to deeply understand the iExec stack inner mechanisms and subtleties, it is much more convenient to be able to locally install the full set of [iExec](https://github.com/iExecBlockchainComputing) services and run them within your favorite IDE. By doing so, you are free to place breakpoints here and there and better figure out how the whole thing works.
+- In order to deeply understand the iExec stack inner mechanisms and subtleties, it is much more convenient to be able to locally install the full [iExec](https://github.com/iExecBlockchainComputing) stack and run it within your favorite IDE. By doing so, you are free to place breakpoints here and there and better figure out how the whole thing works.
 
 - Here comes **ixcdv**, a software tool that allows you to install, run and manipulate a **local** instance of the full iExec cloud computing stack. **ixcdv** will do all the dirty work for you, so you can focus on testing your dapp and understand the inner mechanisms of the iExec platform.  
 
 ## How it works ?
-- Install ixcdv
+
+- Install `ixcdv`
 - Create a new folder somewhere
 - Use ixcdv to **install and configure** a full iExec stack inside that folder
-- start your new local iExec stack
+- start your new **local** iExec stack
 - run an app Dockerfile within your new **local** iExec stack
 - when you are done, stop the stack
 - delete the folder
@@ -25,9 +26,11 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 
 - Runs on **Mac** (macOs BigSur or higher).
 - Install/Run/Debug the Full **[iExec stack](https://github.com/iExecBlockchainComputing)** with any number of workers. 
+    - install multiple stacks
+    - configure each stack individually
 - Full **VSCode** support. 
     - You can run and debug every single iExec piece of software directly withing VSCode.
-- Fully local. 
+- Fully **local**. 
     - **ixcdv** does not rely on any external online services (with the unique exception of Docker which has to access https://docker.io when images are built for the first time).
 - Native execution. 
     - Every iExec service is running natively on your Mac, outside of any container.
@@ -36,7 +39,7 @@ ixcdv (=*iexecdev*) is a macOS tool for creating, running and debugging a **loca
 - Full [iExec CLI/SDK](https://github.com/iExecBlockchainComputing/iexec-sdk) support.
     - **ixcdv** also supports the official [iExec CLI](https://github.com/iExecBlockchainComputing/iexec-sdk). You can run any **iexec-sdk** command against your local testing environment. 
 - Clean uninstall
-    - every **ixcdv** workspaces are trivial to uninstall and nothing is left behind on your Mac.
+    - every **ixcdv** workspace is trivial to uninstall and nothing is left behind on your Mac.
 
 ## Limitations
 
@@ -114,7 +117,7 @@ ixcdv test
 
 Let's stay in our playground interestingly named 'my-workspace'. From there, you can run the traditionnal hello-world example. To do so, we will use the little nodejs program provided by iExec. 
 
-First we must download the hello-world test app available at: https://github.com/iExecBlockchainComputing/nodejs-hello-world.
+First, we must download the hello-world test app available at: https://github.com/iExecBlockchainComputing/nodejs-hello-world.
 
 ```sh
 # let's install the hello world example
@@ -178,6 +181,7 @@ ixcdv app init ../apps/nodejs-hello-world/cloud-computing --name nodejs-hello-wo
 
 # Now let's run the iexec sdk
 # Deploy app
+# By convention, wallet #2 is assigned to the app owner
 iexec app deploy --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet2.json --password whatever --chain 1337.standard
 
 # View deployed app
@@ -205,39 +209,27 @@ iexec order init --workerpool --chain 1337.standard
 # Sign the newly created workerpool order using the workerpool's wallet (index=1)
 # Here, the workerpool's owner gives anybody the right to use its 
 # network of computers (usually refered as 'workers') only 1 single time
+# By convention, wallet #1 is assigned to the workerpool owner (workerpool == the core scheduler)
 iexec order sign --workerpool --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet1.json --password whatever --chain 1337.standard
 
 # setup requester storage token for provider "ipfs"
+# By convention, wallet #4 is assigned to a 'symbolic' user 
 iexec storage init --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet4.json --password whatever --chain 1337.standard --force-update
 
 # At this point, we have:
-# 1. an app owner who granted anybody the right to run its app 
-# 2. a workpool owner who granted anybody the right to run anything 
+# 1. an app owner who granted anybody the right to run its app (wallet #2)
+# 2. a workpool owner who granted anybody the right to run anything (wallet #1)
 #    on its computer network. 
 # Here comes a third user refered to as the 'requester'
 # and identified by wallet #4 (index=4).
+# Note: wallet #3 is assigned to a 'dataset' owner (not in the current example)
 iexec order fill --keystoredir ../shared/db/ganache.1337/wallets --wallet-file wallet4.json --password whatever --chain 1337.standard --force
 ```
 
-## Make it work from VSCode 
+## [Debug inside VSCode](./VSCODE.md)
 
-**ixcdv** CLI comes with a handy command that generates for you a group of VSCode workspace files as well as a few helpers to make life easier when it comes to running and debugging the various iExec services.
+Checkout [VSCODE.md](./VSCODE.md) for a detailed tutorial explaining how to debug the iExec stack inside VSCode.
 
-```sh
-# again, from our favorite workspace folder
-cd ./my-workspace
-
-# Let's generate the necessary '.code-workspace' files
-ixcdv vscode install
-
-# iExec services are grouped into so-called 'chains' 
-# Each one of these chains is governed by a unique iExec Hub,
-# which is actually a particular Ethereum contract instance deployed on a given chainId.
-# Chain names are formatted like this :
-# <chainId>.<'standard'|'enterprise'|'native'>
-# Each chain folder contains a VSCode workspace file, see below:
-ls -l ./vscode/chains/1337.standard/
-```
 ## Take a look at all the running services
 
 To inspect the running processes, type:
@@ -277,11 +269,21 @@ rm -rf ./my-workspace
 
 # That's it!
 ```
+## Wallets
+
+Each time you install a new iExec dev stack, **ixcdv** automatically generates a set of predefined wallets. 
+- `wallet0.json` : The admin user (owner of all iExec hub contracts deployed on the test chain) 
+- `wallet1.json` : The workerpool user, owner of the `core` scheduler. The workerpool is in charge of dispatching the computing requests among the various `workers`.
+- `wallet2.json` : The app owner. By default, all apps are deployed using `wallet2.json`.
+- `wallet3.json` : The dataset owner. By default, all datasets are deployed using `wallet3.json`.
+- `wallet4.json` : The requester (or request owner). By default, all computing requests are ordered using `wallet4.json`.
+- `wallet5.json` and abover are reserved to the `workers`. Each worker uses one given wallet (ex: worker #0 uses `wallet.5.json`, worker#1 uses `wallet6.json` etc.)
+
+By default, all the wallets have the same password : `whatever`
 
 ## What does 'ixcdv' stand for ?
 
 iexecdev - e = ixcvd
-
 
 ## About iExec
 

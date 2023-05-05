@@ -8,7 +8,7 @@ import { dirExists, errorDirDoesNotExist, errorFileDoesNotExist, fileExists, mkD
 import { stringIsPOSIXPortable } from '../../../common/string.js';
 import { computeDockerChecksumAndMultiaddr } from '../../../contracts/app-generator.js';
 import { isDeepStrictEqual } from 'util';
-import { PoCoHubRef } from '../../../common/contractref.js';
+import { PoCoContractRef, PoCoHubRef } from '../../../common/contractref.js';
 import { Hub } from '../../../contracts/Hub.js';
 import { dockerAppName } from '../../../common/consts.js';
 
@@ -93,7 +93,16 @@ export default class AppInitCmd extends Cmd {
                 //mrenclave:undefined
             }
 
-            const hubContract = Hub.sharedReadOnly(hubRef, g.contractsMinDir);
+            const chainName = inventory._inv.hubAliasToChainName(hubAlias);
+
+            const ensRef = g.resolve(hubAlias, 'ENSRegistry');
+            assert(ensRef);
+            assert(ensRef.address);
+            assert(ensRef instanceof PoCoContractRef);
+
+            const providerOpts = { ensAddress: ensRef.address, networkName: chainName ?? 'unknown' };
+
+            const hubContract = Hub.sharedReadOnly(hubRef, g.contractsMinDir, providerOpts);
             const appRegistry = await hubContract.appRegistry();
             const appEntry = await appRegistry.getEntry(iExecAppEntry);
 

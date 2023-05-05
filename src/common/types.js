@@ -86,6 +86,24 @@ import { PoCoHubRef } from './contractref.js';
 /** @typedef {number} positiveInteger */
 
 /**
+@typedef {import('ethers').BigNumber} uint256
+@typedef { number | number[] | Uint8Array | DataHexString | Hexable } uint256like
+
+@typedef {string} bytes
+@typedef {string} signature
+@typedef {number} strictlyPositiveInteger
+*/
+
+/**
+ MUST be of length 32
+ - '0x123' is not a bytes32 (but can be converted to a bytes32)
+ - ethers always calls arrayify(bytes32_arg) during the function call process
+ - bytes32 are case-insensitive. ('0xff' == '0xFF')
+ @typedef {string} bytes32string
+ @typedef {string | Uint8Array | number[]} bytes32like
+ */
+
+/**
 An `Address` is a `DataHexString` of 20 bytes (40 nibbles),
 with optional mixed case.
 
@@ -323,6 +341,31 @@ representation of binary data as a string.
      @property {(string | null)=} commitish 
      @property {!Object<string, (string | Package)>=} dependencies
  */
+
+/**
+@typedef {{
+    wallet: import('ethers').Wallet,
+    txOverrides?: {
+        gasPrice?: uint256,
+        from?: checksumaddress,
+    }
+    txConfirms?: positiveInteger,
+}} TxArgs
+*/
+
+/**
+@typedef {{
+    txOverrides?: {
+        gasPrice?: uint256,
+        from?: checksumaddress,
+    }
+    txConfirms?: positiveInteger,
+}} TxParams
+*/
+
+/**
+@typedef { TxArgs | import('ethers').Wallet } TxArgsOrWallet
+*/
 
 // Does nothing but required for TypeScript to import this file.
 export { }

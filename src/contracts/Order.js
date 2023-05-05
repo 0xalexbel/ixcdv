@@ -1,3 +1,6 @@
+// Dependencies
+// ../common
+import * as types from "../common/common-types.js";
 import * as cTypes from './contracts-types-internal.js';
 import assert from 'assert';
 import { BigNumber, Wallet, utils as ethersutils } from 'ethers';
@@ -65,7 +68,7 @@ export class Order {
 
     /**
      * @param {EIP712Domain} domain 
-     * @param {cTypes.bytes32string} salt 
+     * @param {types.bytes32string} salt 
      * @param {import("@ethersproject/abstract-signer").TypedDataSigner | null} signer 
      */
     async computeMatchOrderArgs(domain, salt, signer) {
@@ -113,7 +116,7 @@ export class Order {
 
     /**
      * @param {EIP712Domain} domain 
-     * @param {cTypes.bytes32string} salt 
+     * @param {types.bytes32string} salt 
      * @param {import("@ethersproject/abstract-signer").TypedDataSigner | null} signer 
      * @return {Promise<cTypes.RawSignature65>}
      */
@@ -240,8 +243,8 @@ saltedOrder
 
     /**
      * @param {EIP712Domain} domain 
-     * @param {cTypes.bytes32string} salt 
-     * @return {cTypes.bytes32string}
+     * @param {types.bytes32string} salt 
+     * @return {types.bytes32string}
      */
     hash(domain, salt) {
         assert(domain);
@@ -294,11 +297,11 @@ saltedOrder
 
     /**
      * @param {EIP712Domain} domain 
-     * @param {cTypes.bytes32string} salt 
+     * @param {types.bytes32string} salt 
      * @param {object} options 
      * @param {cTypes.RawSignature65?} options.signature 
      * @param {import("@ethersproject/abstract-signer").TypedDataSigner?} options.signer 
-     * @param {cTypes.bytes32string?} options.orderhash 
+     * @param {types.bytes32string?} options.orderhash 
      */
     async verify(domain, salt, { signature = null, signer = null, orderhash = null }) {
         if (!isBytes32String(salt)) {
@@ -381,7 +384,7 @@ saltedOrder
 
 
     /** 
-     * @param {string | cTypes.strictlyPositiveInteger | BigNumber} price 
+     * @param {string | types.strictlyPositiveInteger | BigNumber} price 
      * @param {'RLC' | 'nRLC'} rlcUnit 
      */
     static validatePrice(price, rlcUnit) {
@@ -430,7 +433,7 @@ saltedOrder
         throw new TypeError(`Invalid price=${price}`);
     }
 
-    /** @param {string | cTypes.strictlyPositiveInteger | BigNumber} volume */
+    /** @param {string | types.strictlyPositiveInteger | BigNumber} volume */
     static validateVolume(volume) {
         if (volume === null || volume === undefined) {
             throw new TypeError(`Invalid volume=${volume}`);

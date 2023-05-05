@@ -1,3 +1,5 @@
+// Dependencies
+// ../common
 import * as types from '../common/types.js';
 import * as docker from './docker.js';
 import assert from 'assert';
@@ -8,11 +10,11 @@ import { isNullishOrEmptyString, removeSuffix, stringToPositiveInteger, throwIfN
 import { httpGETHeader, httpGETStatusCode } from '../common/http.js';
 import { CodeError } from '../common/error.js';
 import * as ERROR_CODES from "../common/error-codes.js";
+import { PROD_PRIVATE_LOCAL_DOCKER_REGISTRY_NAME } from '../common/consts.js';
+import { psGrepPID } from '../common/ps.js';
 
 import * as nodeUtil from 'util';
 import { exec as childProcessExec } from 'child_process';
-import { PROD_PRIVATE_LOCAL_DOCKER_REGISTRY_NAME } from '../common/consts.js';
-import { psGrepPID } from '../common/ps.js';
 const exec_promise = nodeUtil.promisify(childProcessExec);
 
 const OFFICIAL_DOCKER_REGISTRY_IMAGE_NAME = "registry:2";

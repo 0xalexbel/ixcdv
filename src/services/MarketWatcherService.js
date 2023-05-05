@@ -1,6 +1,4 @@
 import * as types from '../common/common-types.js';
-import * as srvTypes from './services-types-internal.js';
-import * as ERROR_CODES from "../common/error-codes.js";
 import path from 'path';
 import assert from 'assert';
 import { PoCoHubRef } from '../common/contractref.js';
@@ -9,7 +7,7 @@ import { hostnamePortToString, isNullishOrEmptyString, stringToPositiveInteger, 
 import { getPIDCWD, psGetEnv, psGrepPIDAndEnv, pspWithArgsAndEnv } from '../common/ps.js';
 import { CodeError } from '../common/error.js';
 import { resolveAbsolutePath, saveToFile, throwIfDirDoesNotExist, throwIfParentDirDoesNotExist } from '../common/fs.js';
-import { genNohupBashScript, genSetMBashScript } from '../common/bash.js';
+import { genSetMBashScript } from '../common/bash.js';
 import { envVarName } from '../common/consts.js';
 
 const ENTRY = "./src/index.js";
@@ -359,7 +357,7 @@ export class MarketWatcherService extends Service {
      * @param {number} pid 
      */
     getSuccessORANDPatterns(pid) {
-        return [['iexec-watcher:app ', 'WATCHER SUCCESSFULLY STARTED']];
+        return [['WATCHER SUCCESSFULLY STARTED']];
     }
 
     /**
@@ -368,7 +366,7 @@ export class MarketWatcherService extends Service {
      * @param {number} pid 
      */
     getFailureORANDPatterns(pid) {
-        return [['iexec-watcher:error'], ['A critical error has occured - Stopping process to recover on next sartup'], ['throw Error'], ['Error:']];
+        return [['iexec-watcher:error'], ['A critical error has occured'], ['throw Error'], ['Error:']];
     }
 
     /**

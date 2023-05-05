@@ -5,6 +5,8 @@ import { isNullishOrEmptyString, stringToPositiveInteger, throwIfNotJsVarString,
 import { CodeError, pureVirtualError, throwIfNullish } from './error.js';
 import { toChecksumAddress } from './ethers.js';
 import { throwIfNotStrictlyPositiveInteger } from './number.js';
+import { Contract, Signer, providers } from 'ethers';
+import { importJsonModule } from './import.cjs';
 
 const EQUAL = 1;
 const NOT_EQUAL = 0;
@@ -19,7 +21,7 @@ export const POCO_CONTRACT_NAMES = [
     'WorkerpoolRegistry',
     'ERC1538Proxy',
     'ENSRegistry',
-    'PublicResolver',
+    'PublicResolver'
 ];
 Object.freeze(POCO_CONTRACT_NAMES);
 
@@ -769,6 +771,7 @@ export class PoCoContractRef extends DevContractRef {
             name === 'DatasetRegistry' ||
             name === 'WorkerpoolRegistry' ||
             name === 'PublicResolver' ||
+            name === 'FIFSRegistrar' ||
             name === 'ENSRegistry');
     }
 
@@ -994,4 +997,27 @@ export class PoCoHubRef extends PoCoContractRef {
         if (objRef.uniswap !== this.#uniswap) { return false; }
         return true;
     }
+}
+
+/**
+ * @param {ContractRef | string} contractRefOrAddress 
+ * @param {string} contractName
+ * @param {string} contractDir
+ * @param {Signer | providers.Provider} signerOrProvider 
+ */
+export function newContract(contractRefOrAddress, contractName, contractDir, signerOrProvider) {
+    assert(signerOrProvider);
+    /** @type {string} */
+    let addr;
+    if (typeof contractRefOrAddress === 'string') {
+        addr = contractRefOrAddress;
+    } else {
+        addr = contractRefOrAddress.address ?? '';
+    }
+    addr = toChecksumAddress(addr);
+
+    const modulePath = path.join(contractDir, contractName + '.json');
+    const contractModule = importJsonModule(modulePath);
+
+    return new Contract(addr, contractModule.abi, signerOrProvider);
 }
