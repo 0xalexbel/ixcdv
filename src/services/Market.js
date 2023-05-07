@@ -485,6 +485,7 @@ export class Market extends AbstractService {
      * @param {{
      *      repository?: (string | types.Package),
      *      version?: string, 
+     *      branch?: string, 
      *      directory?: string, 
      *      mongo?: { directory?: string },
      *      redis?: { directory?: string },
@@ -493,6 +494,7 @@ export class Market extends AbstractService {
     static async install({
         repository,
         version,
+        branch,
         directory,
         mongo,
         redis
@@ -523,7 +525,7 @@ export class Market extends AbstractService {
         assert(redisDirectory);
 
         // Throws exception if failed
-        await installServiceClassPackage(this, { repository, version });
+        await installServiceClassPackage(this, { repository, version, branch });
 
         // Throws an exception if failed
         await MongoService.install({ directory: mongoDirectory });

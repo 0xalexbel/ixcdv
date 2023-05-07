@@ -91,7 +91,7 @@ The saved config file can be manually edited. Once ready, type '${PROD_BIN} inst
     .argument('[directory]', `Folder where the newly created '${PROD_CONFIG_BASENAME}' file should be saved. The command will fail if <directory> does not exist. If unspecified, use the current working directory.`)
     .option('--force', `Overrides any existing '${PROD_CONFIG_BASENAME}' file.`)
     .option('--first-chainId <id>', 'id of the first chain (id of the second chain = <id> + 1 etc.).', "1337")
-    .option('--count-chainIds <num>', 'Number of independent chains. By default, 2 individual chainids (1337 & 1338) will be configured.')
+    .option('--count-chainIds <num>', 'Number of independent chains. By default 1 chainid (1337) will be configured.', "1")
     .option("-m, --mnemonic <mnemonic|new...>", `Specifies a list of mnemonics used to generate all wallets.
 If a single mnemonic is specified (or a new random one using the 'new' keyword), it will be shared among all chainIds.
 Otherwise, the command is expecting one mnemonic per chainId.
@@ -105,6 +105,7 @@ By default all the chainids are sharing the same following mnemonic: "${DEFAULT_
 
 installCmd.description(`Installs a new ${PROD_NAME} workspace in the current working directory (or in the folder specified using the global '--config' option). The command will fail if the install directory does contain a valid '${PROD_CONFIG_BASENAME}' file. Use the '${PROD_BIN} init' command to generate a new config file.`)
     .summary(`Installs a new ${PROD_NAME} workspace.`)
+    .option('--type <type>', 'Only installs configs with a specific type <"all"|"iexecsdk">')
     .action((options) => {
         execCmd('install', options);
     });

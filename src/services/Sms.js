@@ -238,15 +238,17 @@ export class SmsService extends SpringHubServerService {
       * @param {{
       *      repository: (string | types.Package),
       *      version?: string
+      *      branch?: string
       *      dbDirectory: string,
       * }} params
       */
     static async install({
         repository,
         version,
+        branch,
         dbDirectory,
     }) {
-        await installServiceClassPackage(this, { repository, version });
+        await installServiceClassPackage(this, { repository, version, branch });
 
         const exists = dirExists(dbDirectory);
 

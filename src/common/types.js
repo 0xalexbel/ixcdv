@@ -337,8 +337,10 @@ representation of binary data as a string.
      @property {!('never' | 'ifmissing')=} clone
      @property {!string=} cloneRepo
      @property {!boolean=} patch
+     @property {!boolean=} autoCheckout
      @property {!string=} gitHubRepoName
      @property {(string | null)=} commitish 
+     @property {(string | null)=} branch 
      @property {!Object<string, (string | Package)>=} dependencies
  */
 

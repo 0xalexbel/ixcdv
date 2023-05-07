@@ -155,6 +155,7 @@ export class PoCoDeployer {
                 directory: PoCoDir,
                 clone: "ifmissing",
                 commitish: version,
+                branch: undefined,
                 gitHubRepoName: 'PoCo'
             };
         } else {

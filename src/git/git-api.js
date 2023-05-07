@@ -1024,11 +1024,12 @@ export async function getRepoFileAt(file, repoDir, commitish = null, options = {
 
 /**
  * @param {!string} repoDir 
+ * @param {string | null} branch
  * @param {string | Date | null} commitish 
  * @param {types.Strict=} options 
  * @returns {gitTypes.PromiseResultOrGitError<gitTypes.GitCommitInfo>}
  */
-export async function resolveCommitish(repoDir, commitish, options = { strict: false }) {
+export async function resolveCommitish(repoDir, branch, commitish, options = { strict: false }) {
     if (isNullishOrEmptyString(repoDir)) {
         return gitFail({ message: `repoDir argument is invalid` }, options);
     }
@@ -1036,6 +1037,9 @@ export async function resolveCommitish(repoDir, commitish, options = { strict: f
         return gitFail({ message: `dir=${repoDir} does not exist` }, options);
     }
 
+    if (isNullishOrEmptyString(branch)) {
+        branch = null;
+    }
     if (commitish === 'latest') {
         commitish = null;
     }
@@ -1051,6 +1055,8 @@ export async function resolveCommitish(repoDir, commitish, options = { strict: f
     let date;
 
     if (commitish instanceof Date) {
+        // branch not yet supported (see below)
+        assert(branch === null);
         const h = await firstHashInFirstParentBranchBefore(repoDir, 'origin/HEAD', commitish);
         if (!h) {
             return gitFail({ message: `Could not find any hash prior to '${commitish.toString()}' (dir=${repoDir})` }, options);
@@ -1087,8 +1093,12 @@ export async function resolveCommitish(repoDir, commitish, options = { strict: f
         assert(hash);
         assert(ref);
     } else if (isNullishOrEmptyString(commitish)) {
-        // commitish is 'origin/HEAD'
-        ref = 'origin/HEAD';
+        if (branch) {
+            assert(branch !== 'latest');
+            ref = `origin/${branch}`;
+        } else {
+            ref = 'origin/HEAD';
+        }
     } else {
         // commitish is a git ref object, 
         // Ex: 'af33b2dd319cf00e0f7ffa49e642ab93a27c17be', 'tags/myTag', 'heads/my-branch'  

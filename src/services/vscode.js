@@ -39,6 +39,7 @@ export async function generateAllChainsVSCodeWorkspaces(inventory, destDir, save
 
     for (let i = 0; i < chains.length; ++i) {
         const destDirname = path.join(destDir, chains[i].name);
+
         let skip = false;
         /** @type {string | undefined} */
         let saveToBasename = undefined;
@@ -59,7 +60,11 @@ export async function generateAllChainsVSCodeWorkspaces(inventory, destDir, save
                 chains[i].name,
                 chains[i].chain.hubAlias,
                 allFlags,
-                saveToBasename);
+                saveToBasename).then((v) => {
+                    //console.log('OK');
+                }, (reason) => {
+                    //console.log('FAILED all');
+                });
             promises.push(p);
         }
 
@@ -80,7 +85,12 @@ export async function generateAllChainsVSCodeWorkspaces(inventory, destDir, save
                 chains[i].name,
                 chains[i].chain.hubAlias,
                 { [allFlagsKeys[j]]: true },
-                saveToBasename);
+                saveToBasename).then((v) => {
+                    //console.log('OK');
+                }, (reason) => {
+                    //console.log('FAILED ' + allFlagsKeys[j]);
+                    //console.log(reason);
+                });
 
             promises.push(p);
         }

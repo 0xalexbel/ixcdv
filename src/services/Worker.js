@@ -346,16 +346,18 @@ export class WorkerService extends SpringServerService {
      * @param {{
      *      repository: (string | types.Package)
      *      version?: string
+     *      branch?: string
      *      directory?: string,
      * }} params
      */
     static async install({
         repository,
         version,
+        branch,
         directory
     }) {
         // Throws exception if failed
-        await installServiceClassPackage(this, { repository, version });
+        await installServiceClassPackage(this, { repository, version, branch });
     }
 
 
