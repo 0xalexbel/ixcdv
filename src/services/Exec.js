@@ -29,6 +29,7 @@ import { Deal } from '../contracts/Deal.js';
         appOrderSalt?: string,
         datasetWallet?: Wallet,
         datasetFile?: string,
+        datasetName?: string,
         datasetOrderSalt?: string,
         workerpoolWallet?: Wallet,
         workerpoolAddress?: string,
@@ -57,6 +58,7 @@ export async function runIexecApp(inventory, args) {
 
     const datasetFile = args.datasetFile;
     const datasetSalt = (args.datasetFile) ? (args.datasetOrderSalt ?? salt1) : null;
+    const datasetName = args.datasetName;
 
     // Retrieve the ganache service
     const g = await inventory._inv.newGanacheInstanceFromHubAlias(hubAlias);
@@ -177,6 +179,7 @@ export async function runIexecApp(inventory, args) {
         const datasetRegistry = await hubContract.datasetRegistry();
         const newDataset = await datasetRegistry.newEntryFromFile(
             {
+                name: datasetName,
                 file: datasetFile,
                 ipfs
             },
@@ -274,7 +277,7 @@ export async function runIexecApp(inventory, args) {
 
 /**
  * @param {HubBase} hubContract 
- * @param {cTypes.bytes32string | Deal} dealidOrDeal 
+ * @param {types.bytes32string | Deal} dealidOrDeal 
  * @param {number} taskidx 
  * @param {types.progressCallback} progressCb
  */

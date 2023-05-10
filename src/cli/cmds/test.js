@@ -12,6 +12,7 @@ import { CodeError } from '../../common/error.js';
 import { downloadAndUnzipZipFile } from '../../common/zip.js';
 import { Task } from '../../contracts/Task.js';
 import { dockerAppName } from '../../common/consts.js';
+import { isNullishOrEmptyString } from '../../common/string.js';
 
 export default class TestCmd extends Cmd {
 
@@ -43,9 +44,18 @@ export default class TestCmd extends Cmd {
             const appDir = path.join(getTmpDir(), "/test/app");
             await generateTmpTestApp(appDir);
 
-            // Generate temporary test dataset
-            const datasetFile = path.join(getTmpDir(), "/test/dataset/hello.txt");
-            await generateTmpHelloDataset(datasetFile);
+            let datasetFile;
+            if (!isNullishOrEmptyString(options.datasetFile)) {
+                if (path.isAbsolute(options.datasetFile)) {
+                    datasetFile = options.datasetFile;
+                } else {
+                    datasetFile = path.join(process.cwd(), options.datasetFile);
+                }
+            } else {
+                // Generate temporary test dataset
+                datasetFile = path.join(getTmpDir(), "/test/dataset/hello.txt");
+                await generateTmpHelloDataset(datasetFile);
+            }
 
             // hubAlias = <chainid>.<deployConfigName>
             const hubAlias = inventory._inv.guessHubAlias(options);
@@ -64,6 +74,20 @@ export default class TestCmd extends Cmd {
             // Start 1 worker + all the default chain
             await StartCmd.exec(inventory, 'worker', { count: 1, hub: hubAlias });
 
+            let inputFiles = [
+                "https://gist.githubusercontent.com/0xalexbel/e45c442a044d5c56669936e33f344a79/raw/18b97677eea153671e7f81a33155a4a233a749db/helloworld.txt"
+            ];
+            // let inputFiles = [
+            //     "https://gist.githubusercontent.com/0xalexbel/e45c442a044d5c56669936e33f344a79/raw/?ok=true"
+            // ];
+            if (options.inputFile) {
+                if (Array.isArray(options.inputFile)) {
+                    inputFiles = options.inputFile;
+                } else {
+                    inputFiles = [];
+                }
+            }
+
             /* -------------------------------------------------------------- */
             /*                                                                */
             /*            STEP 2: Run app in the iexec environment            */
@@ -74,12 +98,10 @@ export default class TestCmd extends Cmd {
                 hub: hubAlias,
                 trust: 1,
                 args: "'do stuff' do stuff \"do stuff\"",
-                inputFiles: [
-                    // A secret gist referencing a trivial 'HelloWorld.txt' file containing 1 line : 'Hello World!'
-                    "https://gist.githubusercontent.com/0xalexbel/e45c442a044d5c56669936e33f344a79/raw/18b97677eea153671e7f81a33155a4a233a749db/helloworld.txt"
-                ],
+                inputFiles,
                 appDir,
                 appName,
+                datasetName: options.datasetName,
                 datasetFile,
             });
 
@@ -210,7 +232,7 @@ if [ -f "\${IEXEC_INPUT_FILES_FOLDER}/\${IEXEC_INPUT_FILE_NAME_1}" ]; then
 fi
 `;
 
-const testDotSh = 'test.sh';
+    const testDotSh = 'test.sh';
 
     saveToFileSync(testDotShSrc, testDir, testDotSh);
 
@@ -232,7 +254,7 @@ async function generateTmpHelloDataset(helloFile) {
     const helloDir = path.dirname(helloFile);
     mkDirP(helloDir, { strict: true });
 
-    const helloStr = `Hello!`;
+    const helloStr = `Hello from dataset!`;
 
     saveToFileSync(helloStr, helloDir, path.basename(helloFile));
 }

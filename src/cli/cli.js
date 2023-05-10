@@ -125,6 +125,9 @@ addChainAndHubOptions(testCmd);
 testCmd.description('Runs a test app on the specified chain.')
     .option('--restart', "Restart all services before launching the test.")
     .option('--reset', "Reset before launching the test.")
+    .option('--dataset-file <file>', "Run the test using a custom dataset file.")
+    .option('--dataset-name <name>', "Run the test using a custom dataset name.")
+    .option('--input-file <urls...>', "Specify custom input file request parameter. (Variadic option)")
     .action((options) => {
         execCmd('test', options);
     });
