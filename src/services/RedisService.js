@@ -644,6 +644,10 @@ export class RedisService extends ServerService {
             const out = await getRedisConfigInfo(hostname, port, { strict: true });
             if (out.ok) {
                 const infos = out.result;
+                if (isNullishOrEmptyString(infos.dir)) {
+                    console.error(`Unable to retrieve redis-server directory (${hostname}:${port})`);
+                    return null;
+                }
 
                 /** @type {DBDirectory=} */
                 let dbDir;
