@@ -95,11 +95,9 @@ export class Market extends AbstractService {
         return this.#api;
     }
     get mongo() {
-        assert(this.#mongo);
         return this.#mongo;
     }
     get redis() {
-        assert(this.#redis);
         return this.#redis;
     }
 
