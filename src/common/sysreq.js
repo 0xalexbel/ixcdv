@@ -4,7 +4,11 @@ import { which } from "./fs.js";
 import * as nodeUtil from 'util';
 import { exec as childProcessExec } from 'child_process';
 import { isNullishOrEmptyString } from "./string.js";
+import { SemVer } from 'semver';
 const exec_promise = nodeUtil.promisify(childProcessExec);
+
+// We need a version of Ganache supporting 'london'
+export const MIN_GANACHE_VERSION = "v7.0.0";
 
 export class SystemRequirements {
 
@@ -260,10 +264,10 @@ export class SystemRequirements {
     }
 }
 
-    /**
-     * @param {types.progressCallback=} progressCb 
-     */
-    export async function getSysReq(progressCb) {
+/**
+ * @param {types.progressCallback=} progressCb 
+ */
+export async function getSysReq(progressCb) {
     const sr = new SystemRequirements();
     await sr.init(progressCb);
     return sr;
@@ -420,4 +424,21 @@ function parseGradleVersion(v) {
         return v.substring(i + prefix.length, v.indexOf('\n', i + prefix.length));
     }
     return '';
+}
+
+/**
+ * @param {string} minversion 
+ */
+export async function checkMinGanacheVersion(minversion) {
+    const v = await getGanacheVersion();
+    if (isNullishOrEmptyString(v)) {
+        return { ok: false, version: '', semver: null };
+    }
+    const pv = parseGanacheVersion(v);
+    if (isNullishOrEmptyString(pv)) {
+        return { ok: false, version: v, semver: null };
+    }
+    const sv = new SemVer(pv);
+    const ok = (sv.compare(minversion) >= 0);
+    return { ok, version: v, semver: sv };
 }

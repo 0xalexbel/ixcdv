@@ -1,11 +1,12 @@
 import { Cmd } from "../Cmd.js";
 import cliProgress from 'cli-progress';
 import StopAllCmd from "./stopAll.js";
-import { getSysReq } from "../../common/sysreq.js";
+import { MIN_GANACHE_VERSION, checkMinGanacheVersion, getSysReq } from "../../common/sysreq.js";
 import { sleep } from "../../common/utils.js";
 import { CodeError } from "../../common/error.js";
 import { Inventory } from "../../services/Inventory.js";
-import { PROD_BIN } from "../../common/consts.js";
+import { PROD_BIN, PROD_NAME } from "../../common/consts.js";
+import { isNullishOrEmptyString } from "../../common/string.js";
 
 export default class InstallCmd extends Cmd {
 
@@ -44,6 +45,19 @@ export default class InstallCmd extends Cmd {
                 }
             }
 
+            // This piece of code should also be included in 'show sysreq' command
+            const checkGanache = await checkMinGanacheVersion(MIN_GANACHE_VERSION);
+            if (!checkGanache.ok) {
+                if (checkGanache.semver) {
+                    throw new CodeError(`${PROD_NAME} requires Ganache version ${MIN_GANACHE_VERSION} or higher (current version=${checkGanache.semver.toString()}).`);
+                }
+                if (isNullishOrEmptyString(checkGanache.version)) {
+                    throw new CodeError(`${PROD_NAME} requires Ganache version ${MIN_GANACHE_VERSION} or higher.`);
+                }
+                // Version parsing failed. Should adjust function 'checkMinGanacheVersion'
+                throw new CodeError(`Unknown Ganache version : ${checkGanache.version}`);
+            }
+            
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir);
 
