@@ -143,6 +143,7 @@ export class PoCoDeployer {
         }
         assert(PoCoChainConfig.PoCo);
 
+        // PoCoChainConfig.PoCo refers to a directory
         if (typeof PoCoChainConfig.PoCo === 'string') {
             const version = "v5.3.0";
             let PoCoDir = placeholdersReplace(PoCoChainConfig.PoCo, {

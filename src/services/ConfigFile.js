@@ -611,7 +611,17 @@ export class ConfigFile {
         config.directory = (!config.directory) ? dbDir : toAbsolutePathWithPlaceholders(dir, config.directory);
         config.logFile = (!config.logFile) ? path.join(runDir, `${config.type}.log`) : toAbsolutePathWithPlaceholders(dir, config.logFile);
         config.pidFile = (!config.pidFile) ? path.join(runDir, `${config.type}.pid`) : toAbsolutePathWithPlaceholders(dir, config.pidFile);
-        config.config.PoCo = (!config.config.PoCo) ? computeSrcDir(dir) : toAbsolutePathWithPlaceholders(dir, config.config.PoCo);
+
+        assert(config.config);
+        if (!config.config.PoCo) {
+            config.config.PoCo = computeSrcDir(dir);
+        } else if (typeof config.config.PoCo === 'string') {
+            config.config.PoCo = toAbsolutePathWithPlaceholders(dir, config.config.PoCo);
+        } else {
+            assert(typeof config.config.PoCo === 'object');
+            assert(typeof config.config.PoCo.directory === 'string');
+            config.config.PoCo.directory = toAbsolutePathWithPlaceholders(dir, config.config.PoCo.directory);
+        }
 
         this.#addPort(allLocalhostPorts, config);
     }
