@@ -482,6 +482,10 @@ export class GanachePoCoService extends GanacheService {
         const configCopy = { ...config };
         configCopy.config = { ...config.config };
 
+        if (configCopy.config.PoCo) {
+            configCopy.config.PoCo = deepCopyPackage(configCopy.config.PoCo, relativeToDirectory);
+        }
+
         assert(configCopy.type === 'ganache');
 
         if (relativeToDirectory) {
@@ -494,8 +498,10 @@ export class GanachePoCoService extends GanacheService {
             if (configCopy.pidFile) {
                 configCopy.pidFile = toRelativePath(relativeToDirectory, configCopy.pidFile);
             }
+        }
+        if (resolvePlaceholders) {
             if (configCopy.config.PoCo) {
-                configCopy.config.PoCo = deepCopyPackage(configCopy.config.PoCo, relativeToDirectory);
+                configCopy.config.PoCo = PoCoDeployer.toPackage(configCopy.config.PoCo, relativeToDirectory);
             }
         }
 
