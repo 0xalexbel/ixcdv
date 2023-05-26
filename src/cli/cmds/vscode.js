@@ -71,10 +71,14 @@ export default class VSCodeCmd extends Cmd {
                 }
 
                 if (options.type === 'iexecsdk') {
-                    const chainsLoc = inventory._inv.getIExecSdkConfig().resolved.chainsJsonLocation;
-                    const chainsJson = await inventory._inv.getChainsJSON();
-                    mkDirP(chainsLoc);
-                    saveToFileSync(JSON.stringify(chainsJson, null, 2), chainsLoc, 'chain.json', { strict: true });
+                    /** @type {srvTypes.IExecSdkConfig=} */
+                    const iexecsdkConf = inventory._inv.getIExecSdkConfig()?.resolved
+                    if (iexecsdkConf) {
+                        const chainsLoc = iexecsdkConf.chainsJsonLocation;
+                        const chainsJson = await inventory._inv.getChainsJSON();
+                        mkDirP(chainsLoc);
+                        saveToFileSync(JSON.stringify(chainsJson, null, 2), chainsLoc, 'chain.json', { strict: true });
+                    }
                     return;
                 }
 

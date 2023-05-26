@@ -1468,10 +1468,6 @@ export class InventoryDB {
     }
 
     getIExecSdkConfig() {
-        if (!this.#iexecsdkConfig) {
-            let jj = 0;
-        }
-        assert(this.#iexecsdkConfig);
         return this.#iexecsdkConfig;
     }
 

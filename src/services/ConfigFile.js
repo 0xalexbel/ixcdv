@@ -319,15 +319,16 @@ export class ConfigFile {
         /* ---------------------------------- */
         /** @type {any} */
         const iexecsdkConf = configJson.iexecsdk;
+        if (iexecsdkConf) {
+            // turns iexecsdkConf.repository into a types.Package object
+            ConfigFile.#fillRepository(iexecsdkConf, theDir);
+            assert(typeof iexecsdkConf.repository === 'object');
+            iexecsdkConf.repository.gitHubRepoName = 'iexec-sdk';
+            iexecsdkConf.chainsJsonLocation =
+                computeSharedRunDir(theDir, iexecsdkConf.repository.gitHubRepoName);
 
-        // turns iexecsdkConf.repository into a types.Package object
-        ConfigFile.#fillRepository(iexecsdkConf, theDir);
-        assert(typeof iexecsdkConf.repository === 'object');
-        iexecsdkConf.repository.gitHubRepoName = 'iexec-sdk';
-        iexecsdkConf.chainsJsonLocation =
-            computeSharedRunDir(theDir, iexecsdkConf.repository.gitHubRepoName);
-
-        await inventoryDB.addIExecSdk({ config: iexecsdkConf })
+            await inventoryDB.addIExecSdk({ config: iexecsdkConf })
+        }
 
         const ipfsApiHost = inventoryDB.getIpfsApiHost();
         const ipfsHost = ipfsApiHost.hostname + ":" + ipfsApiHost.port.toString();
@@ -1322,18 +1323,20 @@ export async function inventoryToConfigFile(inventory, dir) {
     }
 
     const iexecsdkIConf = inventory.getIExecSdkConfig();
-    // keep unresolved
-    assert(iexecsdkIConf.type === 'iexecsdk');
-    assert(iexecsdkIConf.resolved);
-    assert(iexecsdkIConf.unsolved);
-    assert(iexecsdkIConf.unsolved.type === 'iexecsdk');
-    if (iexecsdkIConf.unsolved.chainsJsonLocation) {
-        iexecsdkIConf.unsolved.chainsJsonLocation =
-            toRelativePath(dir, iexecsdkIConf.unsolved.chainsJsonLocation);
-    }
-    conf.iexecsdk = {
-        ...iexecsdkIConf.unsolved,
-        repository: deepCopyPackage(iexecsdkIConf.unsolved.repository, dir)
+    if (iexecsdkIConf) {
+        // keep unresolved
+        assert(iexecsdkIConf.type === 'iexecsdk');
+        assert(iexecsdkIConf.resolved);
+        assert(iexecsdkIConf.unsolved);
+        assert(iexecsdkIConf.unsolved.type === 'iexecsdk');
+        if (iexecsdkIConf.unsolved.chainsJsonLocation) {
+            iexecsdkIConf.unsolved.chainsJsonLocation =
+                toRelativePath(dir, iexecsdkIConf.unsolved.chainsJsonLocation);
+        }
+        conf.iexecsdk = {
+            ...iexecsdkIConf.unsolved,
+            repository: deepCopyPackage(iexecsdkIConf.unsolved.repository, dir)
+        }
     }
 
     return conf;
