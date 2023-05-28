@@ -69,6 +69,18 @@ export async function add(dir, args, options) {
 }
 
 /**
+ * Apply a patch to files and/or to the index
+ * - `git apply ...args`
+ * @param {!string} dir 
+ * @param {!string[]} args
+ * @param {types.Strict=} options
+ * @returns {gitTypes.PromiseStringResultOrGitError}
+ */
+export async function apply(dir, args, options) {
+    return gitGet(dir, ["apply", ...args], options);
+}
+
+/**
  * List, create, or delete branches
  * - `git branch ...args`
  * @param {!string} dir 

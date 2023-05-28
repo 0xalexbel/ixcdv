@@ -738,7 +738,7 @@ export async function getLatestVersion(repository) {
  * @param {string | URL} defaultGitUrl
  * @param {string} defaultGitHubRepoName
  */
- export async function getGitHubRepo(overrides, defaultGitUrl, defaultGitHubRepoName) {
+export async function getGitHubRepo(overrides, defaultGitUrl, defaultGitHubRepoName) {
     const gitRepo = { cloneRepo: '', commitish: '', gitHubRepoName: '' };
     if (overrides.cloneRepo) {
         gitRepo.cloneRepo = overrides.cloneRepo;
@@ -1209,4 +1209,21 @@ export async function commitAll(dir, message, options = { strict: true }) {
     }
 
     return git.commit(dir, ["-am", message], options);
+}
+
+/**
+ * - `git apply <patchFile>`
+ * @param {!string} dir 
+ * @param {!string} patchAbsoluteFilename 
+ * @param {types.Strict=} options
+ * @returns {gitTypes.PromiseStringResultOrGitError}
+ */
+export async function applyPatch(dir, patchAbsoluteFilename, options = { strict: true }) {
+    if (!fileExists(patchAbsoluteFilename)) {
+        return gitFail({ message: `Missing patch file.` }, options);
+    }
+    if (!path.isAbsolute(patchAbsoluteFilename)) {
+        return gitFail({ message: `Patch file ${patchAbsoluteFilename} is not absolute.` }, options);
+    }
+    return await git.apply(dir, [patchAbsoluteFilename], { strict: false });
 }
