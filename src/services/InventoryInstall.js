@@ -76,6 +76,9 @@ export class InventoryInstall {
         // 4- compile dataset
         // 5- generate vscode
         const ic = this._inv.getIExecSdkConfig();
+        if (!ic) {
+            return;
+        }
         const conf = ic.resolved;
         assert(typeof conf.repository !== 'string');
         await installPackage(conf.repository);
