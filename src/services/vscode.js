@@ -514,9 +514,6 @@ async function addPoCo(inventory, vscodeWorkspace, vscodeWorkspaceDir, projectNa
         "type": "shell",
         "options": {
             "cwd": "${workspaceFolder:" + projectName + "}",
-            "env": {
-                "PATCH_SHANGHAI_FACTORY": "1"
-            }
         },
         "command": "node",
         "args": [
@@ -529,7 +526,6 @@ async function addPoCo(inventory, vscodeWorkspace, vscodeWorkspaceDir, projectNa
             "--miner.callGasLimit", GANACHE_MINER_CALLGASLIMIT,
             "--miner.defaultTransactionGasLimit", GANACHE_MINER_DEFAULTTRANSACTIONGASLIMIT,
             "--chain.asyncRequestProcessing", GANACHE_CHAIN_ASYNCREQUESTPROCESSING,
-            "--chain.hardfork", GANACHE_CHAIN_HARDFORK,
             "--chain.vmErrorsOnRPCResponse", "true", // make sure `truffle test` runs properly
             "--logging.debug", "true"
         ]

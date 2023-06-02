@@ -129,7 +129,7 @@ export class GanacheService extends ServerService {
             "--miner.callGasLimit", this.#minerCallGasLimit,
             "--miner.defaultTransactionGasLimit", this.#minerDefaultTransactionGasLimit,
             "--chain.asyncRequestProcessing", this.#chainAsyncRequestProcessing,
-            "--chain.hardfork", this.#chainHardfork,
+            //"--chain.hardfork", this.#chainHardfork,
             "--wallet.totalAccounts", this.#totalAccounts.toString(),
             "-m", this.#mnemonic,
             // Always specify '--chain.chainId' (grep getPID)
