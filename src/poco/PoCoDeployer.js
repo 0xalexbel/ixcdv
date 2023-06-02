@@ -143,7 +143,8 @@ export class PoCoDeployer {
                 clone: "ifmissing",
                 commitish: version,
                 branch: undefined,
-                gitHubRepoName: 'PoCo'
+                gitHubRepoName: 'PoCo',
+                patch: true
             };
         } else {
             /** @type {!Object.<string,string>} */

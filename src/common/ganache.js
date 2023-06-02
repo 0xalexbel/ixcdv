@@ -19,7 +19,7 @@ import { envVarName } from './consts.js';
 export const GANACHE_MINER_CALLGASLIMIT = "9007199254740991";
 export const GANACHE_MINER_DEFAULTTRANSACTIONGASLIMIT = "5000000";
 export const GANACHE_CHAIN_ASYNCREQUESTPROCESSING = "false";
-export const GANACHE_CHAIN_HARDFORK = "london"; //Ganache v7
+export const GANACHE_CHAIN_HARDFORK = "shanghai"; //Ganache v7.8.0
 export const GANACHE_WALLET_TOTALACCOUNTS = 20;
 
 /* ------------------------- Helpers ------------------------------- */

@@ -63,7 +63,10 @@ export async function trufflePoCoMigrate(
     throwIfFileDoesNotExist(truffleConfigFile);
 
     /** @type {any} */
-    let env = null;
+    let env = {
+        "PATCH_SHANGHAI_FACTORY": 1
+    };
+    
     if (PoCoConfig.asset === 'Token') {
         if (PoCoConfig.kyc === true) {
             env ??= {};

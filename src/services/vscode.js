@@ -510,19 +510,13 @@ async function addPoCo(inventory, vscodeWorkspace, vscodeWorkspaceDir, projectNa
     );
 
     vscodeWorkspace.tasks.tasks.push({
-        "label": `killGanacheModule`,
-        "type": "shell",
-        "options": {
-            "cwd": "${workspaceFolder:" + projectName + "}"
-        },
-        "command": "ps -ef | grep './node_modules/ganache/dist/node/cli.js'"
-    });
-
-    vscodeWorkspace.tasks.tasks.push({
         "label": `startGanacheModule`,
         "type": "shell",
         "options": {
-            "cwd": "${workspaceFolder:" + projectName + "}"
+            "cwd": "${workspaceFolder:" + projectName + "}",
+            "env": {
+                "PATCH_SHANGHAI_FACTORY": "1"
+            }
         },
         "command": "node",
         "args": [
@@ -534,8 +528,10 @@ async function addPoCo(inventory, vscodeWorkspace, vscodeWorkspaceDir, projectNa
             "--mnemonic", config.config.mnemonic,
             "--miner.callGasLimit", GANACHE_MINER_CALLGASLIMIT,
             "--miner.defaultTransactionGasLimit", GANACHE_MINER_DEFAULTTRANSACTIONGASLIMIT,
-            "--chain.asyncRequestProcessing", GANACHE_CHAIN_ASYNCREQUESTPROCESSING, 
-            "--chain.hardfork", GANACHE_CHAIN_HARDFORK
+            "--chain.asyncRequestProcessing", GANACHE_CHAIN_ASYNCREQUESTPROCESSING,
+            "--chain.hardfork", GANACHE_CHAIN_HARDFORK,
+            "--chain.vmErrorsOnRPCResponse", "true", // make sure `truffle test` runs properly
+            "--logging.debug", "true"
         ]
     });
 
