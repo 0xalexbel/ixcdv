@@ -907,17 +907,20 @@ export async function pidToSpringConstructorArgs(pid, parseEnvVarsFunc) {
  * - Fills missing `Package.cloneRepo`
  * - Fills missing `Package.gitHubRepoName`
  * - Fills missing `Package.commitish`
+ * - Fills missing `Package.branch`
  * - Does not resolve placeholders
  * - Throws an exception if failed.
  * @param {typeof AbstractService} abstractServiceClass
  * @param {{
  *      repository: (string | types.Package),
  *      version?: string
+ *      branch?: string
  * }} params
  */
 export async function helperAbstractServiceToPackage(abstractServiceClass, {
     repository,
-    version
+    version,
+    branch
 }) {
     let pkgCopy;
     if (typeof repository === 'string') {
@@ -929,9 +932,14 @@ export async function helperAbstractServiceToPackage(abstractServiceClass, {
     if (!path.isAbsolute(pkgCopy.directory)) {
         throw new CodeError(`Service package directory is not a valid absolute path, dir='${pkgCopy.directory}'`);
     }
+    /** @todo investigate, version+branch overrides should not be placed here ? */
     // Override commitish if needed
     if (version) {
         pkgCopy.commitish = version;
+    }
+    // Override branch if needed
+    if (branch) {
+        pkgCopy.branch = branch;
     }
     // compute the final github repo infos
     const gitRepo = await abstractServiceClass.getGitHubRepo(pkgCopy);
@@ -951,13 +959,15 @@ export async function helperAbstractServiceToPackage(abstractServiceClass, {
  * @param {{
  *      repository: (string | types.Package),
  *      version?: string
+ *      branch?: string
  * }} params
  */
 export async function installServiceClassPackage(abstractServiceClass, {
     repository,
-    version
+    version,
+    branch
 }) {
-    const pkg = await helperAbstractServiceToPackage(abstractServiceClass, { repository, version });
+    const pkg = await helperAbstractServiceToPackage(abstractServiceClass, { repository, version, branch });
     // If package is not installed : install it otherwise do nothing.
     // Nothing will happen if commitish is changed after a previous install
     await installPackage(pkg);

@@ -16,10 +16,11 @@ import { envVarName } from './consts.js';
 
 /* ---------------------- Ganache defaults ------------------------ */
 
-const GANACHE_MINER_CALLGASLIMIT = "9007199254740991";
-const GANACHE_MINER_DEFAULTTRANSACTIONGASLIMIT = "5000000";
-const GANACHE_CHAIN_ASYNCREQUESTPROCESSING = "false";
-const GANACHE_WALLET_TOTALACCOUNTS = 20;
+export const GANACHE_MINER_CALLGASLIMIT = "9007199254740991";
+export const GANACHE_MINER_DEFAULTTRANSACTIONGASLIMIT = "5000000";
+export const GANACHE_CHAIN_ASYNCREQUESTPROCESSING = "false";
+export const GANACHE_CHAIN_HARDFORK = "shanghai"; //Ganache v7.8.0
+export const GANACHE_WALLET_TOTALACCOUNTS = 20;
 
 /* ------------------------- Helpers ------------------------------- */
 
@@ -63,6 +64,9 @@ export class GanacheService extends ServerService {
     /** @type {string} */
     #chainAsyncRequestProcessing;
 
+    /** @type {string} */
+    #chainHardfork;
+
     /**
      * @param {types.GanacheServiceArgs} args
      */
@@ -87,6 +91,7 @@ export class GanacheService extends ServerService {
         this.#minerCallGasLimit = GANACHE_MINER_CALLGASLIMIT;
         this.#minerDefaultTransactionGasLimit = GANACHE_MINER_DEFAULTTRANSACTIONGASLIMIT;
         this.#chainAsyncRequestProcessing = GANACHE_CHAIN_ASYNCREQUESTPROCESSING;
+        this.#chainHardfork = GANACHE_CHAIN_HARDFORK;
         this.#totalAccounts = GANACHE_WALLET_TOTALACCOUNTS;
     }
 
@@ -124,6 +129,7 @@ export class GanacheService extends ServerService {
             "--miner.callGasLimit", this.#minerCallGasLimit,
             "--miner.defaultTransactionGasLimit", this.#minerDefaultTransactionGasLimit,
             "--chain.asyncRequestProcessing", this.#chainAsyncRequestProcessing,
+            "--chain.hardfork", this.#chainHardfork,
             "--wallet.totalAccounts", this.#totalAccounts.toString(),
             "-m", this.#mnemonic,
             // Always specify '--chain.chainId' (grep getPID)

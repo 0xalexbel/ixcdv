@@ -42,16 +42,6 @@ function computeHubAlias(chainId, flavour) {
  * @param {number} countChains 
  */
 function addMarket(shared, flavour, firstChainId, countChains) {
-    // ['market.' + STANDARD]: {
-    //     type: "market",
-    //     watchers: "all",
-    //     api: {
-    //         chains: [
-    //             `${(DEFAULT_CHAINID + 0)}.${STANDARD}`,
-    //             `${(DEFAULT_CHAINID + 1)}.${STANDARD}`
-    //         ]
-    //     }
-    // },
     const chains = [];
     for (let i = 0; i < countChains; ++i) {
         chains.push(computeHubAlias(firstChainId + i, flavour));
@@ -70,16 +60,6 @@ function addMarket(shared, flavour, firstChainId, countChains) {
  * @param {number} chainId 
  */
 function addChains(chains, chainId) {
-    // [(DEFAULT_CHAINID + 0) + '.' + STANDARD]: {
-    //     hub: (DEFAULT_CHAINID + 0) + '.' + STANDARD
-    // },
-    // [(DEFAULT_CHAINID + 0) + '.' + ENTERPRISE]: {
-    //     hub: (DEFAULT_CHAINID + 0) + '.' + ENTERPRISE
-    // },
-    // [(DEFAULT_CHAINID + 0) + '.' + NATIVE]: {
-    //     hub: (DEFAULT_CHAINID + 0) + '.' + NATIVE
-    // },
-
     const chainNameStd = computeChainName(chainId, STANDARD);
     const chainNameEnt = computeChainName(chainId, ENTERPRISE);
     const chainNameNat = computeChainName(chainId, NATIVE);
@@ -95,37 +75,6 @@ function addChains(chains, chainId) {
  * @param {number} chainId 
  */
 function addGanache(shared, mnemonic, chainId) {
-    // ['ganache.' + (DEFAULT_CHAINID + 0)]: {
-    //     type: 'ganache',
-    //     config: {
-    //         chainid: DEFAULT_CHAINID + 0,
-    //         mnemonic: m0,
-    //         deploySequence: [
-    //             {
-    //                 name: STANDARD,
-    //                 asset: "Token",
-    //                 salt: "0x0000000000000000000000000000000000000000000000000000000000000000",
-    //                 WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                 WorkerpoolDescription: "default standard workerpool"
-    //             },
-    //             {
-    //                 name: ENTERPRISE,
-    //                 asset: "Token",
-    //                 kyc: true,
-    //                 salt: "0x0000000000000000000000000000000000000000000000000000000000000001",
-    //                 WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                 WorkerpoolDescription: "default enterprise workerpool"
-    //             },
-    //             {
-    //                 name: NATIVE,
-    //                 asset: "Native",
-    //                 salt: "0x0000000000000000000000000000000000000000000000000000000000000002",
-    //                 WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                 WorkerpoolDescription: "default native workerpool"
-    //             },
-    //         ]
-    //     }
-    // },
     shared[`ganache.${chainId}`] = {
         type: "ganache",
         config: {
@@ -159,7 +108,11 @@ function addGanache(shared, mnemonic, chainId) {
     }
 }
 
-export const DEFAULT_CONFIG = (/** @type {number} */ firstChainId, /** @type {number} */ countChains, mnemonics = [DEFAULT_MNEMONIC, DEFAULT_MNEMONIC]) => {
+export const DEFAULT_CONFIG = (
+    /** @type {number} */ firstChainId,
+    /** @type {number} */ countChains,
+    mnemonics = [DEFAULT_MNEMONIC, DEFAULT_MNEMONIC]
+) => {
     if (firstChainId <= 0) {
         throw new TypeError("Invalid 'firstChainId' argument");
     }
@@ -170,13 +123,13 @@ export const DEFAULT_CONFIG = (/** @type {number} */ firstChainId, /** @type {nu
         throw new TypeError("Invalid 'mnemonics' argument");
     }
 
-    // const m0 = mnemonics?.[0] ?? DEFAULT_MNEMONIC;
-    // const m1 = mnemonics?.[1] ?? DEFAULT_MNEMONIC;
-
     const c = {
         shared: {},
         default: '',
-        chains: {}
+        chains: {},
+        iexecsdk: {
+            type: "iexecsdk"
+        }
     };
 
     addMarket(c.shared, STANDARD, firstChainId, countChains);
@@ -189,125 +142,6 @@ export const DEFAULT_CONFIG = (/** @type {number} */ firstChainId, /** @type {nu
         addGanache(c.shared, mnemonics?.[i] ?? DEFAULT_MNEMONIC, firstChainId + i);
         addChains(c.chains, firstChainId + i);
     }
-
-    // const c = {
-    //     shared: {
-    //         ['ganache.' + (DEFAULT_CHAINID + 0)]: {
-    //             type: 'ganache',
-    //             config: {
-    //                 chainid: DEFAULT_CHAINID + 0,
-    //                 mnemonic: m0,
-    //                 deploySequence: [
-    //                     {
-    //                         name: STANDARD,
-    //                         asset: "Token",
-    //                         salt: "0x0000000000000000000000000000000000000000000000000000000000000000",
-    //                         WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                         WorkerpoolDescription: "default standard workerpool"
-    //                     },
-    //                     {
-    //                         name: ENTERPRISE,
-    //                         asset: "Token",
-    //                         kyc: true,
-    //                         salt: "0x0000000000000000000000000000000000000000000000000000000000000001",
-    //                         WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                         WorkerpoolDescription: "default enterprise workerpool"
-    //                     },
-    //                     {
-    //                         name: NATIVE,
-    //                         asset: "Native",
-    //                         salt: "0x0000000000000000000000000000000000000000000000000000000000000002",
-    //                         WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                         WorkerpoolDescription: "default native workerpool"
-    //                     },
-    //                 ]
-    //             }
-    //         },
-    //         ['ganache.' + (DEFAULT_CHAINID + 1)]: {
-    //             type: 'ganache',
-    //             config: {
-    //                 chainid: DEFAULT_CHAINID + 1,
-    //                 mnemonic: m1,
-    //                 deploySequence: [
-    //                     {
-    //                         name: "standard",
-    //                         asset: "Token",
-    //                         salt: "0x0000000000000000000000000000000000000000000000000000000000000000",
-    //                         WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                         WorkerpoolDescription: "default standard workerpool"
-    //                     },
-    //                     {
-    //                         name: "enterprise",
-    //                         asset: "Token",
-    //                         kyc: true,
-    //                         salt: "0x0000000000000000000000000000000000000000000000000000000000000001",
-    //                         WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                         WorkerpoolDescription: "default enterprise workerpool"
-    //                     },
-    //                     {
-    //                         name: "native",
-    //                         asset: "Native",
-    //                         salt: "0x0000000000000000000000000000000000000000000000000000000000000002",
-    //                         WorkerpoolAccountIndex: DEFAULT_WALLET_INDEX['workerpool'],
-    //                         WorkerpoolDescription: "default native workerpool"
-    //                     },
-    //                 ]
-    //             }
-    //         },
-    //         ['market.' + STANDARD]: {
-    //             type: "market",
-    //             watchers: "all",
-    //             api: {
-    //                 chains: [
-    //                     `${(DEFAULT_CHAINID + 0)}.${STANDARD}`,
-    //                     `${(DEFAULT_CHAINID + 1)}.${STANDARD}`
-    //                 ]
-    //             }
-    //         },
-    //         ['market.' + ENTERPRISE]: {
-    //             type: "market",
-    //             watchers: "all",
-    //             api: {
-    //                 chains: [
-    //                     `${(DEFAULT_CHAINID + 0)}.${ENTERPRISE}`,
-    //                     `${(DEFAULT_CHAINID + 1)}.${ENTERPRISE}`
-    //                 ]
-    //             }
-    //         },
-    //         ['market.' + NATIVE]: {
-    //             type: "market",
-    //             watchers: "all",
-    //             api: {
-    //                 chains: [
-    //                     `${(DEFAULT_CHAINID + 0)}.${NATIVE}`,
-    //                     `${(DEFAULT_CHAINID + 1)}.${NATIVE}`
-    //                 ]
-    //             }
-    //         },
-    //     },
-    //     default: `${DEFAULT_CHAINID + 0}.${STANDARD}`,
-    //     chains: {
-    //         [(DEFAULT_CHAINID + 0) + '.' + STANDARD]: {
-    //             hub: (DEFAULT_CHAINID + 0) + '.' + STANDARD
-    //         },
-    //         [(DEFAULT_CHAINID + 0) + '.' + ENTERPRISE]: {
-    //             hub: (DEFAULT_CHAINID + 0) + '.' + ENTERPRISE
-    //         },
-    //         [(DEFAULT_CHAINID + 0) + '.' + NATIVE]: {
-    //             hub: (DEFAULT_CHAINID + 0) + '.' + NATIVE
-    //         },
-
-    //         [(DEFAULT_CHAINID + 1) + '.' + STANDARD]: {
-    //             hub: (DEFAULT_CHAINID + 1) + '.' + STANDARD
-    //         },
-    //         [(DEFAULT_CHAINID + 1) + '.' + ENTERPRISE]: {
-    //             hub: (DEFAULT_CHAINID + 1) + '.' + ENTERPRISE
-    //         },
-    //         [(DEFAULT_CHAINID + 1) + '.' + NATIVE]: {
-    //             hub: (DEFAULT_CHAINID + 1) + '.' + NATIVE
-    //         },
-    //     }
-    // }
 
     return c;
 };

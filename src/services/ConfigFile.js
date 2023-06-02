@@ -13,7 +13,7 @@ import { newInventory } from './Inventory.js';
 import { DockerService } from './DockerService.js';
 import { MongoService } from './MongoService.js';
 import { RedisService } from './RedisService.js';
-import { fileExists, readObjectFromJSONFile, resolveAbsolutePath, toAbsolutePathWithPlaceholders } from '../common/fs.js';
+import { fileExists, readObjectFromJSONFile, resolveAbsolutePath, toAbsolutePathWithPlaceholders, toRelativePath } from '../common/fs.js';
 import { CodeError } from '../common/error.js';
 import { isNullishOrEmptyString, stringToHostnamePort } from '../common/string.js';
 import { createRandomMnemonic, ethersIsValidMnemonic } from '../common/ethers.js';
@@ -21,6 +21,7 @@ import { IpfsService } from '../ipfs/IpfsService.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
 import { throwIfNotStrictlyPositiveInteger } from '../common/number.js';
 import { PROD_CONFIG_BASENAME } from '../common/consts.js';
+import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
 
 /**
  * @param {string} propertyName 
@@ -180,6 +181,10 @@ export class ConfigFile {
 
     /**
      * @param {{
+     *      iexecsdk: {
+     *          type: string
+     *          chainsJsonLocation?: string
+     *      }
      *      shared: any
      *      default: string
      *      chains: {
@@ -313,12 +318,17 @@ export class ConfigFile {
         // iexec-sdk
         /* ---------------------------------- */
         /** @type {any} */
-        const iexecsdkConf = {
-            type: 'iexecsdk',
-            chainsJsonLocation: computeSharedRunDir(theDir, InventoryDB.iexecSdkGitHubRepoName),
+        const iexecsdkConf = configJson.iexecsdk;
+        if (iexecsdkConf) {
+            // turns iexecsdkConf.repository into a types.Package object
+            ConfigFile.#fillRepository(iexecsdkConf, theDir);
+            assert(typeof iexecsdkConf.repository === 'object');
+            iexecsdkConf.repository.gitHubRepoName = 'iexec-sdk';
+            iexecsdkConf.chainsJsonLocation =
+                computeSharedRunDir(theDir, iexecsdkConf.repository.gitHubRepoName);
+
+            await inventoryDB.addIExecSdk({ config: iexecsdkConf })
         }
-        ConfigFile.#fillRepository(iexecsdkConf, theDir);
-        inventoryDB.addIExecSdk({ config: iexecsdkConf })
 
         const ipfsApiHost = inventoryDB.getIpfsApiHost();
         const ipfsHost = ipfsApiHost.hostname + ":" + ipfsApiHost.port.toString();
@@ -602,7 +612,17 @@ export class ConfigFile {
         config.directory = (!config.directory) ? dbDir : toAbsolutePathWithPlaceholders(dir, config.directory);
         config.logFile = (!config.logFile) ? path.join(runDir, `${config.type}.log`) : toAbsolutePathWithPlaceholders(dir, config.logFile);
         config.pidFile = (!config.pidFile) ? path.join(runDir, `${config.type}.pid`) : toAbsolutePathWithPlaceholders(dir, config.pidFile);
-        config.config.PoCo = (!config.config.PoCo) ? computeSrcDir(dir) : toAbsolutePathWithPlaceholders(dir, config.config.PoCo);
+
+        assert(config.config);
+        if (!config.config.PoCo) {
+            config.config.PoCo = computeSrcDir(dir);
+        } else if (typeof config.config.PoCo === 'string') {
+            config.config.PoCo = toAbsolutePathWithPlaceholders(dir, config.config.PoCo);
+        } else {
+            assert(typeof config.config.PoCo === 'object');
+            assert(typeof config.config.PoCo.directory === 'string');
+            config.config.PoCo.directory = toAbsolutePathWithPlaceholders(dir, config.config.PoCo.directory);
+        }
 
         this.#addPort(allLocalhostPorts, config);
     }
@@ -914,7 +934,7 @@ export class ConfigFile {
         assert(config.type !== 'docker');
         assert(config.type !== 'mongo');
         assert(config.type !== 'redis');
-        if (!config.repository) {
+        if (!config.repository || config.repository === '') {
             config.repository = {
                 directory: computeSrcDir(dir),
                 commitish: DEFAULT_VERSIONS[config.type],
@@ -935,7 +955,7 @@ export class ConfigFile {
                 } else {
                     pkg.directory = toAbsolutePathWithPlaceholders(dir, pkg.directory);
                 }
-                if (!pkg.commitish) {
+                if (!pkg.commitish && isNullishOrEmptyString(pkg.branch)) {
                     pkg.commitish = DEFAULT_VERSIONS[config.type];
                 }
                 if (typeof pkg.patch !== 'boolean') {
@@ -1193,12 +1213,14 @@ export async function inventoryToConfigFile(inventory, dir) {
      *      default:string, 
      *      shared: any, 
      *      chains: any
+     *      iexecsdk: any
      * }} 
      */
     const conf = {
         default: inventory.defaultChainName,
         shared: {},
-        chains: {}
+        chains: {},
+        iexecsdk: {}
     }
 
     const ipfsConf = inventory.getIpfsConfig();
@@ -1297,6 +1319,23 @@ export async function inventoryToConfigFile(inventory, dir) {
                         false /* keep unsolved */,
                         dir);
             }
+        }
+    }
+
+    const iexecsdkIConf = inventory.getIExecSdkConfig();
+    if (iexecsdkIConf) {
+        // keep unresolved
+        assert(iexecsdkIConf.type === 'iexecsdk');
+        assert(iexecsdkIConf.resolved);
+        assert(iexecsdkIConf.unsolved);
+        assert(iexecsdkIConf.unsolved.type === 'iexecsdk');
+        if (iexecsdkIConf.unsolved.chainsJsonLocation) {
+            iexecsdkIConf.unsolved.chainsJsonLocation =
+                toRelativePath(dir, iexecsdkIConf.unsolved.chainsJsonLocation);
+        }
+        conf.iexecsdk = {
+            ...iexecsdkIConf.unsolved,
+            repository: deepCopyPackage(iexecsdkIConf.unsolved.repository, dir)
         }
     }
 

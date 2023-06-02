@@ -3,6 +3,7 @@ import assert from 'assert';
 import * as path from 'path';
 import { dirExists, mkDirP, rmrf } from '../common/fs.js';
 import * as git from '../git/git.js';
+import { isNullishOrEmptyString } from '../common/string.js';
 
 /**
  * @param {'cloning' | 'cloned' | 'failed'} cloneStatus
@@ -90,13 +91,16 @@ export function cloneFailed(cloneDir, setup) {
 }
 
 /**
- * Throws an error if failed
+ * - Throws an error if failed
+ * - Executes: 
+ * `git clone <cloneRepo> <cloneDir> [--branch <cloneBranch>]`
  * @param {!string} gitHubRepo
  * @param {!string} cloneRepo
  * @param {!string} cloneDir
+ * @param {!string} cloneBranch
  * @param {pkgTypes.Setup} setup 
  */
-export async function clone(gitHubRepo, cloneRepo, cloneDir, setup) {
+export async function clone(gitHubRepo, cloneRepo, cloneDir, cloneBranch, setup) {
     // Performs the actual git clone
     const parentCloneDir = path.dirname(cloneDir);
     let rmParentCloneDirIfFailed = false;
@@ -107,9 +111,16 @@ export async function clone(gitHubRepo, cloneRepo, cloneDir, setup) {
         }
         setCloneStatus('cloning', cloneDir, setup);
 
-        console.error("cloning : " + cloneDir);
-        await git.clone(parentCloneDir, [cloneRepo, cloneDir], { strict: true });
-        console.error("cloned : " + cloneDir);
+        if (!isNullishOrEmptyString(cloneBranch)) {
+            console.error("cloning : " + cloneDir);
+            console.error(`git clone ${cloneRepo} ${cloneDir} --branch ${cloneBranch}`);
+            await git.clone(parentCloneDir, [cloneRepo, cloneDir, "--branch", cloneBranch], { strict: true });
+            console.error("cloned : " + cloneDir);
+        } else {
+            console.error("cloning : " + cloneDir);
+            await git.clone(parentCloneDir, [cloneRepo, cloneDir], { strict: true });
+            console.error("cloned : " + cloneDir);
+        }
 
         setCloneStatus('cloned', cloneDir, setup);
     } catch (err) {

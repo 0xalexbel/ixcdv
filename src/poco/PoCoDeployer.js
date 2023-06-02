@@ -7,7 +7,7 @@ import { PoCoChainDeployConfig } from './PoCoChainDeployConfig.js';
 import { genTruffleConfigJs, minifyContracts, trufflePoCo, isTruffleInstalled } from '../truffle/truffle-api.js';
 import { Wallet, Contract, BigNumber } from 'ethers';
 import { JsonRpcProvider } from '@ethersproject/providers';
-import { dirExists, generateTmpPathname, mkDirP, moveDirSync, parentDirExists, resolveAbsolutePath, rmrf, throwIfDirAlreadyExists, throwIfDirDoesNotExist } from '../common/fs.js';
+import { dirExists, generateTmpPathname, mkDirP, moveDirSync, parentDirExists, resolveAbsolutePath, rmrf, throwIfDirAlreadyExists, throwIfDirDoesNotExist, toRelativePath } from '../common/fs.js';
 import { installPackage, isPackageOrDirectory } from '../pkgmgr/pkg.js';
 import { CodeError } from '../common/error.js';
 import { placeholdersReplace, throwIfNullishOrEmptyString } from '../common/string.js';
@@ -18,6 +18,7 @@ import { keysAtIndex } from '../common/wallet.js';
 import { PROD_NAME } from '../common/consts.js';
 import { PoCoContractRef } from '../common/contractref.js';
 import { ENSRegistry } from '../common/contracts/ENSRegistry.js';
+import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
 
 export const CONTRACTS_MIN_BASENAME = 'contracts-min';
 export const WALLETS_BASENAME = 'wallets';
@@ -121,6 +122,51 @@ export class PoCoDeployer {
     }
 
     /**
+     * @param {string | types.Package} PoCo 
+     * @param {string=} relativeToDirectory
+     */
+    static toPackage(PoCo, relativeToDirectory) {
+        /** @type {types.Package} */
+        let PoCoPkg;
+        // PoCoChainConfig.PoCo refers to a directory
+        if (typeof PoCo === 'string') {
+            const version = "v5.3.0";
+            let PoCoDir = placeholdersReplace(PoCo, {
+                "${repoName}": 'PoCo',
+                "${version}": version
+            });
+            PoCoDir = resolveAbsolutePath(PoCoDir);
+            PoCoDir = (relativeToDirectory) ? toRelativePath(relativeToDirectory, PoCoDir) : PoCoDir;
+            PoCoPkg = {
+                cloneRepo: `https://github.com/iExecBlockchainComputing/PoCo.git`,
+                directory: PoCoDir,
+                clone: "ifmissing",
+                commitish: version,
+                branch: undefined,
+                gitHubRepoName: 'PoCo',
+                patch: true
+            };
+        } else {
+            /** @type {!Object.<string,string>} */
+            let placeholders = {
+                "${repoName}": PoCo.gitHubRepoName ?? 'PoCo'
+            };
+            if (PoCo.commitish) {
+                placeholders["${version}"] = PoCo.commitish;
+            }
+            const PoCoDir = placeholdersReplace(PoCo.directory, placeholders);
+            // Help compiler
+            const PoCoPkgCopy = deepCopyPackage(PoCo, relativeToDirectory);
+            assert(PoCoPkgCopy);
+            assert(typeof PoCoPkgCopy === 'object');
+            PoCoPkg = PoCoPkgCopy;
+            PoCoPkg.directory = resolveAbsolutePath(PoCoDir);
+        }
+
+        return PoCoPkg;
+    }
+
+    /**
      * Generates a new ganache db initialized with the PoCo contracts
      * specified in the `PoCoChainConfig` argument.
      * - If succeeded :
@@ -142,24 +188,7 @@ export class PoCoDeployer {
             throw new CodeError('Missing PoCo package or directory', ERROR_CODES.POCO_ERROR);
         }
         assert(PoCoChainConfig.PoCo);
-
-        if (typeof PoCoChainConfig.PoCo === 'string') {
-            const version = "v5.3.0";
-            let PoCoDir = placeholdersReplace(PoCoChainConfig.PoCo, {
-                "${repoName}": 'PoCo',
-                "${version}": version
-            });
-            PoCoDir = resolveAbsolutePath(PoCoDir);
-            this.#PoCoPkg = {
-                cloneRepo: `https://github.com/iExecBlockchainComputing/PoCo.git`,
-                directory: PoCoDir,
-                clone: "ifmissing",
-                commitish: version,
-                gitHubRepoName: 'PoCo'
-            };
-        } else {
-            this.#PoCoPkg = PoCoChainConfig.PoCo;
-        }
+        this.#PoCoPkg = PoCoDeployer.toPackage(PoCoChainConfig.PoCo);
 
         // - starts a temporary ganache server on a dummy port
         // - the ganache server points to a fresh new empty DB 

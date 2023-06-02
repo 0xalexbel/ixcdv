@@ -17,6 +17,7 @@ import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress, toTxArgs } fro
 import { CodeError } from '../common/error.js';
 import { IpfsService } from '../ipfs/IpfsService.js';
 import { errorFileDoesNotExist, fileExists } from '../common/fs.js';
+import { isNullishOrEmptyString } from "../common/string.js";
 
 export const DatasetRegistryConstructorGuard = { value: false };
 
@@ -244,11 +245,12 @@ export class DatasetRegistry extends Registry {
 
     /**
      * @param {{
-    *     file: string
-    *     ipfs: IpfsService
-    * }} args 
-    * @param {types.TxArgsOrWallet} txArgsOrWallet 
-    */
+     *     file: string
+     *     name?: string
+     *     ipfs: IpfsService
+     * }} args 
+     * @param {types.TxArgsOrWallet} txArgsOrWallet 
+     */
     async newEntryFromFile(args, txArgsOrWallet) {
         const txArgs = toTxArgs(txArgsOrWallet);
 
@@ -277,7 +279,7 @@ export class DatasetRegistry extends Registry {
         /** @type {cTypes.Dataset} */
         const dataset = {
             owner: txArgs.wallet.address,
-            name: path.basename(args.file),
+            name: (!args.name || isNullishOrEmptyString(args.name)) ? path.basename(args.file) : args.name,
             checksum: datasetMC.checksum,
             multiaddr: datasetMC.multiaddr
         }

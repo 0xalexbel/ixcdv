@@ -26,11 +26,11 @@ export class InventoryInstall {
             callbackfn?.(ic.name, ic.type, (i + 1), nInstalls);
             await this.install(ic.name);
         }
-        callbackfn?.('', 'worker', nInstalls, nInstalls);
+        callbackfn?.('', 'worker', ics.length + 1, nInstalls);
         await this.installWorkers();
 
-        callbackfn?.('', 'iexecsdk', nInstalls, nInstalls);
-        await this.installIExecSdk();
+        callbackfn?.('', 'iexecsdk', ics.length + 2, nInstalls);
+        await this.#installIExecSdk();
     }
 
     /**
@@ -43,6 +43,14 @@ export class InventoryInstall {
 
     async installWorkers() {
         return this.#installWorkers();
+    }
+
+    /**
+     * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installIExecSdk(callbackfn) {
+        callbackfn?.('', 'iexecsdk', 1, 1);
+        return this.#installIExecSdk();
     }
 
     /**
@@ -61,32 +69,17 @@ export class InventoryInstall {
         return fromServiceType['worker'].install({ repository });
     }
 
-    /** @param {srvTypes.NonWorkerServiceType} type */
-    async #seqInstallType(type) {
-        const names = this._inv.getConfigNamesFromType(type);
-        if (!names || names.length === 0) {
-            return;
-        }
-        // Sequential install
-        for (let i = 0; i < names.length; ++i) {
-            const name = names[i];
-            // Must use unsolved !
-            const ic = this._inv.getConfig(name);
-            assert(ic);
-            assert(ic.type === type);
-            // @ts-ignore
-            await this.#installInventoryConfig(ic);
-        }
-    }
-
-    async installIExecSdk() {
+    async #installIExecSdk() {
         // 1- install package
         // 2- install chain.json
         // 3- compile app
         // 4- compile dataset
         // 5- generate vscode
         const ic = this._inv.getIExecSdkConfig();
-        const conf = ic.resolved;       
+        if (!ic) {
+            return;
+        }
+        const conf = ic.resolved;
         assert(typeof conf.repository !== 'string');
         await installPackage(conf.repository);
     }

@@ -127,12 +127,12 @@ export default class PidCmd extends Cmd {
                     // - handle api service
                     // - handle watcher services
                     if (pi.service instanceof Market) {
-                        const marketpi = Market.toMarketPidInfo(pi);
+                        const marketpid = Market.toMarketPidInfo(pi);
                         const market = pi.service;
                         const api = market.api;
 
-                        const mongoPID = (await marketpi.service.mongo.getPID())?.toString() ?? UNKNOWN;
-                        const redisPID = (await marketpi.service.redis.getPID())?.toString() ?? UNKNOWN;
+                        const mongoPID = (await marketpid.service.mongo?.getPID())?.toString() ?? UNKNOWN;
+                        const redisPID = (await marketpid.service.redis?.getPID())?.toString() ?? UNKNOWN;
                         const shared = [];
                         if (mongoPID !== UNKNOWN) {
                             shared.push(mongoPID);
@@ -143,7 +143,7 @@ export default class PidCmd extends Cmd {
 
                         this.#pids.push({
                             type: 'market.api',
-                            pid: marketpi.api.pid?.toString() ?? UNKNOWN,
+                            pid: marketpid.api.pid?.toString() ?? UNKNOWN,
                             host: (api) ? (api.hostname + ':' + api.port) : UNKNOWN,
                             configFile: pi.configFile,
                             name: 'market.api',
@@ -151,8 +151,8 @@ export default class PidCmd extends Cmd {
                             shared: [...shared]
                         });
 
-                        for (let i = 0; i < marketpi.watchers.length; ++i) {
-                            const w = marketpi.watchers[i];
+                        for (let i = 0; i < marketpid.watchers.length; ++i) {
+                            const w = marketpid.watchers[i];
                             const ws = market.getWatcherFromHub(w.hub);
 
                             this.#pids.push({

@@ -222,8 +222,9 @@ async function installPkgDirCore(pkgDir, setup) {
     const dirArg = pkgDir.pkgArg.directory;
     // Always defined. either 'ifmissing' or 'never'
     const cloneArg = pkgDir.pkgArg.clone;
-    // Always defined. either 'ifmissing' or 'never'
     const cloneRepoArg = pkgDir.pkgArg.cloneRepo;
+    // set to empty string if null or undefined
+    const branchArg = pkgDir.pkgArg.branch ?? '';
     // Always defined.
     const gitHubRepoNameArg = pkgDir.pkgArg.gitHubRepoName;
     // Always defined. either 'true' or 'false'
@@ -325,7 +326,8 @@ async function installPkgDirCore(pkgDir, setup) {
 
     if (mustClone) {
         // Throws an error if failed
-        await clone(gitHubRepoNameArg, cloneRepoArg, cloneDir, setup);
+        // `git clone <cloneRepoArg> <cloneDir> [--branch <branchArg>]`
+        await clone(gitHubRepoNameArg, cloneRepoArg, cloneDir, branchArg, setup);
     }
 
     assert(dirExists(cloneDir));
@@ -360,6 +362,7 @@ async function installPkgDirCore(pkgDir, setup) {
     if (!pkgDir.pkgArgCommitInfo) {
         let out = await gitApi.resolveCommitish(
             cloneDir,
+            branchArg,
             commitishArg,
             { strict: true });
 
@@ -439,6 +442,8 @@ async function installPkgDirCore(pkgDir, setup) {
         let depClone;
         /** @type {string | null | undefined} */
         let depCommitish;
+        /** @type {string | null | undefined} */
+        let depBranch;
         /** @type {gitTypes.GitCommitInfo=} */
         let depCommitInfo;
         /** @type {pkgTypes.PkgDir=} */
@@ -454,11 +459,13 @@ async function installPkgDirCore(pkgDir, setup) {
                 depDir = depDirOrPkg;
                 depClone = 'never';
                 depPatch = false;
+                depBranch = undefined;
             } else {
                 depDir = depDirOrPkg.directory;
                 depClone = depDirOrPkg.clone ?? 'ifmissing';
                 depCommitish = depDirOrPkg.commitish;
                 depPatch = depDirOrPkg.patch ?? false;
+                depBranch = depDirOrPkg.branch;
             }
             assert(!isNullishOrEmptyString(depDir));
             assert(depClone);
@@ -471,6 +478,8 @@ async function installPkgDirCore(pkgDir, setup) {
             depClone = cloneArg;
             // inherit patch setting
             depPatch = patchArg;
+            // undefined branch
+            depBranch = undefined;
 
             /** @type {Object.<string,string>} */
             const depsDict = gradleVersions.dependencies;
@@ -519,6 +528,7 @@ async function installPkgDirCore(pkgDir, setup) {
                 pkgArg: {
                     directory: depDir,
                     commitish: depCommitish,
+                    branch: depBranch,
                     clone: depClone,
                     cloneRepo: depCloneRepo,
                     gitHubRepoName: depGitHubRepo,

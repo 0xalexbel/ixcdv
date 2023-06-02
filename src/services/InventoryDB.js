@@ -327,39 +327,59 @@ export class InventoryDB {
         // Dataset: 3
         // Requester: 4
         // Worker: 5
+        /** @type {srvTypes.WorkerConfig} */
+        const workerCfg = {
+            type: "worker",
+            port: hubData.workers.portRange.from + index,
+            hostname: 'localhost',
+            logFile: path.join(workersDir, workerName, workerName + '.log'),
+            pidFile: path.join(workersDir, workerName, workerName + '.pid'),
+            directory: path.join(workersDir, workerName, 'exec'),
+            coreUrl,
+            dockerHost,
+            name: workerName,
+            springConfigLocation: path.join(workersDir, workerName),
+            repository: '',
+            walletIndex: FIRST_WORKER_WALLET_INDEX + index,
+            ymlConfig: {}
+        }
         return {
             type: 'worker',
             index,
             hub: hubStr,
             unsolved: {
-                type: "worker",
-                port: hubData.workers.portRange.from + index,
-                hostname: 'localhost',
-                logFile: path.join(workersDir, workerName, workerName + '.log'),
-                pidFile: path.join(workersDir, workerName, workerName + '.pid'),
-                directory: path.join(workersDir, workerName, 'exec'),
-                coreUrl,
-                dockerHost,
-                name: workerName,
-                springConfigLocation: path.join(workersDir, workerName),
-                repository: this.#workersRepository.unsolved,
-                walletIndex: FIRST_WORKER_WALLET_INDEX + index,
-                ymlConfig: {}
+                ...workerCfg,
+                repository: this.#workersRepository.unsolved
+                // type: "worker",
+                // port: hubData.workers.portRange.from + index,
+                // hostname: 'localhost',
+                // logFile: path.join(workersDir, workerName, workerName + '.log'),
+                // pidFile: path.join(workersDir, workerName, workerName + '.pid'),
+                // directory: path.join(workersDir, workerName, 'exec'),
+                // coreUrl,
+                // dockerHost,
+                // name: workerName,
+                // springConfigLocation: path.join(workersDir, workerName),
+                // repository: this.#workersRepository.unsolved,
+                // walletIndex: FIRST_WORKER_WALLET_INDEX + index,
+                // ymlConfig: {}
             },
             resolved: {
-                type: "worker",
-                port: hubData.workers.portRange.from + index,
-                hostname: 'localhost',
-                logFile: path.join(workersDir, workerName, workerName + '.log'),
-                pidFile: path.join(workersDir, workerName, workerName + '.pid'),
-                directory: path.join(workersDir, workerName, 'exec'),
-                coreUrl,
-                dockerHost,
-                name: workerName,
-                springConfigLocation: path.join(workersDir, workerName),
-                repository: this.#workersRepository.resolved,
-                walletIndex: FIRST_WORKER_WALLET_INDEX + index,
-                ymlConfig: {}
+                ...workerCfg,
+                repository: this.#workersRepository.resolved
+                // type: "worker",
+                // port: hubData.workers.portRange.from + index,
+                // hostname: 'localhost',
+                // logFile: path.join(workersDir, workerName, workerName + '.log'),
+                // pidFile: path.join(workersDir, workerName, workerName + '.pid'),
+                // directory: path.join(workersDir, workerName, 'exec'),
+                // coreUrl,
+                // dockerHost,
+                // name: workerName,
+                // springConfigLocation: path.join(workersDir, workerName),
+                // repository: this.#workersRepository.resolved,
+                // walletIndex: FIRST_WORKER_WALLET_INDEX + index,
+                // ymlConfig: {}
             },
         };
     }
@@ -1410,6 +1430,8 @@ export class InventoryDB {
         assert(config.repository);
         assert(config.type === 'iexecsdk');
 
+        const type = config.type;
+
         const unsolvedPkg = toPackage(config.repository, InventoryDB.iexecSdkDefaultGitUrl);
         if (!unsolvedPkg.gitHubRepoName) {
             unsolvedPkg.gitHubRepoName = InventoryDB.iexecSdkGitHubRepoName;
@@ -1428,6 +1450,7 @@ export class InventoryDB {
             resolvedPkg,
             InventoryDB.iexecSdkDefaultGitUrl,
             InventoryDB.iexecSdkGitHubRepoName);
+
         placeholdersPropertyReplace(
             resolvedPkg,
             'directory',
@@ -1438,14 +1461,13 @@ export class InventoryDB {
         );
 
         this.#iexecsdkConfig = {
-            type: 'iexecsdk',
-            unsolved: { type: 'iexecsdk', repository: unsolvedPkg, chainsJsonLocation: config.chainsJsonLocation },
-            resolved: { type: 'iexecsdk', repository: resolvedPkg, chainsJsonLocation: config.chainsJsonLocation },
+            type,
+            unsolved: { type, repository: unsolvedPkg, chainsJsonLocation: config.chainsJsonLocation },
+            resolved: { type, repository: resolvedPkg, chainsJsonLocation: config.chainsJsonLocation },
         }
     }
 
     getIExecSdkConfig() {
-        assert(this.#iexecsdkConfig);
         return this.#iexecsdkConfig;
     }
 

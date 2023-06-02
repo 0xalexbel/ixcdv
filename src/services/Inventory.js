@@ -146,6 +146,7 @@ export class Inventory {
       *      default: string   
       *      shared: any
       *      chains: any
+      *      iexecsdk: any
       * }} configJson
       * @param {?string=} dir 
       */
@@ -262,6 +263,13 @@ export class Inventory {
     async installAll(callbackfn) {
         const install = new InventoryInstall(this._inv);
         return install.installAll(callbackfn);
+    }
+    /**
+     * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installIExecSdk(callbackfn) {
+        const install = new InventoryInstall(this._inv);
+        return install.installIExecSdk(callbackfn);
     }
 
     /**

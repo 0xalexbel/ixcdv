@@ -1,6 +1,7 @@
 import assert from 'assert';
 import * as srvTypes from './services-types-internal.js';
 import * as types from '../common/common-types.js';
+import * as pocoTypes from '../poco/poco-types.js';
 import { Inventory } from './Inventory.js';
 import path from 'path';
 import { helperAbstractServiceToPackage } from './spring-serverservice.js';
@@ -14,6 +15,8 @@ import { toPackage } from '../pkgmgr/pkg.js';
 import { getGradleWrapperVersion } from '../common/gradlew.js';
 import { CodeError } from '../common/error.js';
 import { PROD_BIN, PROD_VAR_PREFIX } from '../common/consts.js';
+import { genTruffleConfigJs } from '../truffle/truffle-api.js';
+import { GANACHE_CHAIN_ASYNCREQUESTPROCESSING, GANACHE_CHAIN_HARDFORK, GANACHE_MINER_CALLGASLIMIT, GANACHE_MINER_DEFAULTTRANSACTIONGASLIMIT } from '../common/ganache.js';
 
 const MAIN_PROJECT_NAME = 'chain';
 
@@ -34,11 +37,13 @@ export async function generateAllChainsVSCodeWorkspaces(inventory, destDir, save
         'core': true,
         'worker': true,
         'iexecsdk': true,
+        'PoCo': false,
     };
     const allFlagsKeys = Object.keys(allFlags);
 
     for (let i = 0; i < chains.length; ++i) {
         const destDirname = path.join(destDir, chains[i].name);
+
         let skip = false;
         /** @type {string | undefined} */
         let saveToBasename = undefined;
@@ -59,7 +64,11 @@ export async function generateAllChainsVSCodeWorkspaces(inventory, destDir, save
                 chains[i].name,
                 chains[i].chain.hubAlias,
                 allFlags,
-                saveToBasename);
+                saveToBasename).then((v) => {
+                    //console.log('OK');
+                }, (reason) => {
+                    //console.log('FAILED all');
+                });
             promises.push(p);
         }
 
@@ -80,7 +89,12 @@ export async function generateAllChainsVSCodeWorkspaces(inventory, destDir, save
                 chains[i].name,
                 chains[i].chain.hubAlias,
                 { [allFlagsKeys[j]]: true },
-                saveToBasename);
+                saveToBasename).then((v) => {
+                    //console.log('OK');
+                }, (reason) => {
+                    //console.log('FAILED ' + allFlagsKeys[j]);
+                    //console.log(reason);
+                });
 
             promises.push(p);
         }
@@ -401,6 +415,143 @@ async function addIExecSdk(inventory, vscodeWorkspace, vscodeWorkspaceDir, proje
  * @param {Inventory} inventory 
  * @param {*} vscodeWorkspace 
  * @param {*} vscodeWorkspaceDir 
+ * @param {string} projectName 
+ * @param {string} chainName 
+ * @param {string} chainHub 
+ * @param {pocoTypes.GanachePoCoServiceConfig} config 
+ */
+async function addPoCo(inventory, vscodeWorkspace, vscodeWorkspaceDir, projectName, chainName, chainHub, config) {
+    assert(path.isAbsolute(vscodeWorkspaceDir));
+    assert(config.config.PoCo);
+    assert(typeof config.config.PoCo === 'object');
+
+    const host = config.hostname ?? 'localhost';
+    const port = config.port;
+
+    // Generate truffle-config.js in 'vscodeWorkspaceDir'
+    const truffleConfigFile = await genTruffleConfigJs(
+        host,
+        port,
+        vscodeWorkspaceDir,
+        { strict: true });
+    assert(truffleConfigFile);
+    assert(path.isAbsolute(truffleConfigFile));
+
+    const truffleConfigRelPath = toRelativePath(config.config.PoCo.directory, vscodeWorkspaceDir);
+    assert(truffleConfigRelPath);
+    assert(!truffleConfigRelPath.startsWith('/'));
+    assert(truffleConfigRelPath.startsWith('./') || truffleConfigRelPath.startsWith('../'));
+
+    const pkgJson = path.join(config.config.PoCo.directory, 'package.json');
+    assert(fileExists(pkgJson));
+    const pkgObj = await readObjectFromJSONFile(pkgJson, { strict: true });
+
+    // PoCo embedded truffle cli : node ./node_modules/truffle/build/cli.bundled.js
+    const launchCwd = "${workspaceFolder:" + projectName + "}";
+
+    vscodeWorkspace.launch.configurations.push(
+        {
+            "type": "node",
+            "name": "truffle compile",
+            "request": "launch",
+            "cwd": launchCwd,
+            "skipFiles": [
+                "<node_internals>/**",
+                "!**/node_modules/truffle/**"
+            ],
+            "console": "integratedTerminal",
+            "program": `${launchCwd}/node_modules/truffle/build/cli.bundled.js`,
+            "args": [
+                "compile",
+                "--config",
+                path.join(truffleConfigRelPath, path.basename(truffleConfigFile))
+            ]
+        }
+    );
+
+    vscodeWorkspace.launch.configurations.push(
+        {
+            "type": "node",
+            "name": "truffle migrate",
+            "request": "launch",
+            "cwd": launchCwd,
+            "skipFiles": [
+                "<node_internals>/**",
+                "!**/node_modules/truffle/**"
+            ],
+            "console": "integratedTerminal",
+            "program": `${launchCwd}/node_modules/truffle/build/cli.bundled.js`,
+            "args": [
+                "migrate",
+                "--config",
+                path.join(truffleConfigRelPath, path.basename(truffleConfigFile))
+            ]
+        }
+    );
+
+    vscodeWorkspace.launch.configurations.push(
+        {
+            "type": "node",
+            "name": "truffle test",
+            "request": "launch",
+            "cwd": launchCwd,
+            "skipFiles": [
+                "<node_internals>/**",
+                "!**/node_modules/truffle/**"
+            ],
+            "console": "integratedTerminal",
+            "program": `${launchCwd}/node_modules/truffle/build/cli.bundled.js`,
+            "args": [
+                "test",
+                "--config",
+                path.join(truffleConfigRelPath, path.basename(truffleConfigFile))
+            ]
+        }
+    );
+
+    vscodeWorkspace.tasks.tasks.push({
+        "label": `startGanacheModule`,
+        "type": "shell",
+        "options": {
+            "cwd": "${workspaceFolder:" + projectName + "}",
+            "env": {
+                "PATCH_SHANGHAI_FACTORY": "1"
+            }
+        },
+        "command": "node",
+        "args": [
+            "./node_modules/ganache/dist/node/cli.js",
+            "--chain.chainId", `${config.config.chainid}`,
+            "--chain.networkId", `${config.config.chainid}`,
+            "--server.host", host,
+            "--server.port", `${port}`,
+            "--mnemonic", config.config.mnemonic,
+            "--miner.callGasLimit", GANACHE_MINER_CALLGASLIMIT,
+            "--miner.defaultTransactionGasLimit", GANACHE_MINER_DEFAULTTRANSACTIONGASLIMIT,
+            "--chain.asyncRequestProcessing", GANACHE_CHAIN_ASYNCREQUESTPROCESSING,
+            "--chain.hardfork", GANACHE_CHAIN_HARDFORK,
+            "--chain.vmErrorsOnRPCResponse", "true", // make sure `truffle test` runs properly
+            "--logging.debug", "true"
+        ]
+    });
+
+    vscodeWorkspace.tasks.tasks.push({
+        "label": `clean`,
+        "type": "shell",
+        "options": {
+            "cwd": "${workspaceFolder:" + projectName + "}"
+        },
+        "command": "rm",
+        "args": [
+            "-rf", "./build",
+        ]
+    });
+}
+
+/**
+ * @param {Inventory} inventory 
+ * @param {*} vscodeWorkspace 
+ * @param {*} vscodeWorkspaceDir 
  * @param {string} chainName 
  * @param {string} chainHub 
  * @param {number} index 
@@ -472,6 +623,7 @@ function addWorkerService(inventory, vscodeWorkspace, vscodeWorkspaceDir, chainN
  *      'core'?: boolean
  *      'worker'?: boolean
  *      'iexecsdk'?: boolean
+ *      'PoCo'?: boolean
  * }} types 
  * @param {string=} saveToBasename 
  */
@@ -510,6 +662,7 @@ export async function generateChainVSCodeWorkspace(
     const hasWorker = (types['worker'] === true);
     const hasMarket = (types['market'] === true);
     const hasIExecSdk = (types['iexecsdk'] === true);
+    const hasPoCo = (types['PoCo'] === true);
     let hasGradle = false;
 
     const ganacheConf = inventory._inv.getConfigFromHub('ganache', chainHub)?.resolved;
@@ -654,27 +807,56 @@ export async function generateChainVSCodeWorkspace(
     // iexec-sdk
     if (hasIExecSdk) {
         const iexecsdkIConf = inventory._inv.getIExecSdkConfig();
-        const iexecsdkConf = iexecsdkIConf.resolved;
-        assert(iexecsdkIConf);
-        assert(iexecsdkConf);
-        assert(iexecsdkConf.type === 'iexecsdk');
-        const iexecsdkPkg = toPackage(iexecsdkConf.repository);
-        const iexecsdkProjetName = iexecsdkPkg.gitHubRepoName + "-" + iexecsdkPkg.commitish;
-        assert(iexecsdkProjetName);
-        const iexecsdkDir = toRepoDir(iexecsdkConf.repository);
+        if (iexecsdkIConf) {
+            const iexecsdkConf = iexecsdkIConf.resolved;
+            assert(iexecsdkIConf);
+            assert(iexecsdkConf);
+            assert(iexecsdkConf.type === 'iexecsdk');
+            const iexecsdkPkg = toPackage(iexecsdkConf.repository);
+            const iexecsdkProjetName = iexecsdkPkg.gitHubRepoName + "-" + iexecsdkPkg.commitish;
+            assert(iexecsdkProjetName);
+            const iexecsdkDir = toRepoDir(iexecsdkConf.repository);
+            srcDirs.push({
+                path: toRelativePath(destDirname, iexecsdkDir),
+                name: iexecsdkProjetName
+            });
+
+            await addIExecSdk(
+                inventory,
+                vscodeWorkspace,
+                destDirname,
+                iexecsdkProjetName,
+                chainName,
+                chainHub,
+                iexecsdkConf);
+        }
+    }
+
+    // PoCo
+    if (hasPoCo) {
+        assert(ganacheConf.config.PoCo);
+        // must be a Package
+        assert(typeof ganacheConf.config.PoCo === 'object');
+        const PoCoPkg = ganacheConf.config.PoCo;
+        let PoCoProjetName = PoCoPkg.gitHubRepoName;
+        if (PoCoPkg.commitish) {
+            PoCoProjetName += "-" + PoCoPkg.commitish;
+        }
+        assert(PoCoProjetName);
+        const PoCoDir = ganacheConf.config.PoCo.directory;
         srcDirs.push({
-            path: toRelativePath(destDirname, iexecsdkDir),
-            name: iexecsdkProjetName
+            path: toRelativePath(destDirname, PoCoDir),
+            name: PoCoProjetName
         });
 
-        await addIExecSdk(
+        await addPoCo(
             inventory,
             vscodeWorkspace,
             destDirname,
-            iexecsdkProjetName,
+            PoCoProjetName,
             chainName,
             chainHub,
-            iexecsdkConf);
+            ganacheConf);
     }
 
     /** @type {string | null} */

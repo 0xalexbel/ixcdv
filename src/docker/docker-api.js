@@ -44,10 +44,10 @@ export async function getDockerDesktopPids() {
 
 /**
  * @param {{
-*      abortSignal?: AbortSignal
-*      progressCb?: types.progressCallback
-* }=} options
-*/
+ *      abortSignal?: AbortSignal
+ *      progressCb?: types.progressCallback
+ * }=} options
+ */
 export async function startDockerDesktop(options) {
     // start Docker Desktop App
     try {
@@ -77,7 +77,7 @@ async function waitUntilDockerDesktopIsRunning(options) {
             progressMessage: "Starting Docker Desktop app, please wait ...",
             ... (options?.abortSignal && { abortSignal: options?.abortSignal }),
             ... (options?.progressCb && { progressCb: options?.progressCb }),
-    });
+        });
 
     if (!repeat.ok) {
         assert(repeat.error);
@@ -90,9 +90,12 @@ async function waitUntilDockerDesktopIsRunning(options) {
 
 /**
  * @param {string} url 
- * @param {AbortSignal=} abortSignal 
+ * @param {{
+ *      abortSignal?: AbortSignal
+ *      progressCb?: types.progressCallback
+ * }=} options
  */
-async function waitUntilDockerPrivateLocalRegistryIsRunning(url, abortSignal) {
+async function waitUntilDockerPrivateLocalRegistryIsRunning(url, options) {
     const repeat = await repeatCallUntil(
         isDockerPrivateLocalRegistryRunning,
         [url],
@@ -101,7 +104,8 @@ async function waitUntilDockerPrivateLocalRegistryIsRunning(url, abortSignal) {
             waitBetweenCallsMS: 100,
             maxCalls: 120,
             progressMessage: `Starting Docker private registry '${PROD_PRIVATE_LOCAL_DOCKER_REGISTRY_NAME}', please wait ...`,
-            ... (abortSignal && { abortSignal: abortSignal })
+            ... (options?.abortSignal && { abortSignal: options?.abortSignal }),
+            ... (options?.progressCb && { progressCb: options?.progressCb }),
         });
 
     if (!repeat.ok) {
@@ -345,13 +349,16 @@ async function getDockerPrivateLocalRegistryState() {
 
 /**
  * @param {string} url 
+ * @param {{
+ *      abortSignal?: AbortSignal
+ *      progressCb?: types.progressCallback
+ * }=} options
  */
-export async function dockerPrivateLocalRegistryStart(url) {
+export async function dockerPrivateLocalRegistryStart(url, options) {
     const u = new URL(url);
 
     if (! await isDockerDesktopRunning()) {
-        //throw new CodeError('Docker Desktop is not running.', ERROR_CODES.DOCKER_ERROR);
-        if (! await startDockerDesktop()) {
+        if (! await startDockerDesktop(options)) {
             throw new CodeError("Unable to start Docker Desktop for MacOS.", ERROR_CODES.DOCKER_ERROR);
         }
     }
@@ -368,7 +375,6 @@ export async function dockerPrivateLocalRegistryStart(url) {
         const out = await docker.start(process.cwd(),
             [PROD_PRIVATE_LOCAL_DOCKER_REGISTRY_NAME]);
         if (!out.ok) {
-            console.error(`docker run failed.`);
             return false;
         }
     } else {
@@ -383,22 +389,21 @@ export async function dockerPrivateLocalRegistryStart(url) {
 
         // registry runs on port kTHIS_DEFAULT_DOCKER_REGISTRY_PORT
         // Within the container, the registry listens on port 5000 by default.
-        const out = await docker.run(process.cwd(),
-            [
-                "-d",
-                "-e", "REGISTRY_STORAGE_DELETE_ENABLED=true",
-                "-p", `${u.port}:5000`,
-                "--restart=always",
-                "--name", PROD_PRIVATE_LOCAL_DOCKER_REGISTRY_NAME,
-                OFFICIAL_DOCKER_REGISTRY_IMAGE_NAME
-            ]);
+        const args = [
+            "-d",
+            "-e", "REGISTRY_STORAGE_DELETE_ENABLED=true",
+            "-p", `${u.port}:5000`,
+            "--restart=always",
+            "--name", PROD_PRIVATE_LOCAL_DOCKER_REGISTRY_NAME,
+            OFFICIAL_DOCKER_REGISTRY_IMAGE_NAME
+        ];
+        const out = await docker.runQuiet(process.cwd(), args);
         if (!out.ok) {
-            console.error(`docker run failed.`);
             return false;
         }
     }
 
-    const succeeded = await waitUntilDockerPrivateLocalRegistryIsRunning(u.toString());
+    const succeeded = await waitUntilDockerPrivateLocalRegistryIsRunning(u.toString(), options);
 
     return succeeded;
 }

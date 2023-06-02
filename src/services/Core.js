@@ -352,13 +352,15 @@ export class CoreService extends SpringMongoServerService {
      * @param {{
      *      repository: (string | types.Package),
      *      version?: string
+     *      branch?: string
      * }} params
      */
     static async install({
         repository,
-        version
+        version,
+        branch
     }) {
-        await installServiceClassPackage(this, { repository, version });
+        await installServiceClassPackage(this, { repository, version, branch });
     }
 
 

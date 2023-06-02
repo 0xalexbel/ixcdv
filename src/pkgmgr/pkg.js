@@ -82,7 +82,8 @@ export function toPackage(repository, gitUrl) {
             directory: repository,
             clone: "ifmissing",
             patch: true,
-            commitish
+            commitish,
+            branch: undefined //for readability
         };
     } else if (typeof repository === 'object') {
         if (!pathIsPOSIXPortableWithPlaceholders(repository.directory)) {
@@ -114,8 +115,6 @@ export function toPackageDirectory(repository) {
             ERROR_CODES.PKGMGR_ERROR);
     }
 
-    /** @type {types.Package} */
-    let pkg;
     if (typeof repository === 'string') {
         if (!pathIsPOSIXPortableWithPlaceholders(repository)) {
             throw new TypeError(`path is not POSIX portable with placeholders (path='${repository}')`);
@@ -169,9 +168,6 @@ export async function installPackage(pkg, defaultDirectoryDirname) {
         const out = await gradleBuildSetup(setup, { strict: true });
         assert(out?.ok);
     }
-
-    // const out = await generateVSCodeWorkspace(setup, { strict: true });
-    // assert(out?.ok);
 }
 
 /**
@@ -323,6 +319,9 @@ async function checkoutSetup(setup, options = { strict: false }) {
         // Packages with the 'clone' property equal to 'never'
         // are left as-is
         if (pkgDir.pkgArg.clone === 'never') {
+            continue;
+        }
+        if (pkgDir.pkgArg.autoCheckout === false) {
             continue;
         }
 

@@ -1,0 +1,1109 @@
+From 4aad78552384da0b7362216a83acd9100b1d676b Mon Sep 17 00:00:00 2001
+From: 0xalexbel <0xalexbel@users.noreply.github.com>
+Date: Fri, 26 May 2023 10:45:21 +0200
+Subject: [PATCH 1/4] Fix 'truffle migrate' error using truffle ^5.7.0 Since
+ truffle v5.7.0 the ABI resolve algorithm has changed - Before v5.7.0 :
+ artifacts.require(<contractName>) -> last  valid ABI json - After  v5.7.0 :
+ artifacts.require(<contractName>) -> first valid ABI json   Consequently,
+ 'truffle migrate' is throwing an error. - Add function
+ 'artifactsRequireFSThenNPM' to reproduce existing behaviour - Replace
+ 'artifacts.require(...)' statements when needed
+
+---
+ migrations/4_deploy_core.js  |  6 ++--
+ migrations/5_deploy_ens.js   |  9 ++++--
+ migrations/6_whitelisting.js | 10 ++++--
+ migrations/999_functions.js  |  6 ++--
+ utils/migrate-tools.js       | 62 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 83 insertions(+), 10 deletions(-)
+ create mode 100644 utils/migrate-tools.js
+
+diff --git a/migrations/4_deploy_core.js b/migrations/4_deploy_core.js
+index f89da70..302b05d 100644
+--- a/migrations/4_deploy_core.js
++++ b/migrations/4_deploy_core.js
+@@ -15,13 +15,15 @@
+  ******************************************************************************/
+ 
+ const assert = require('assert')
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools')
+ // CONFIG
+ const CONFIG = require('../config/config.json')
+ // FactoryDeployer
+ const { TruffleDeployer: Deployer } = require('../utils/FactoryDeployer')
+ // Token
+-var RLC                     = artifacts.require('rlc-faucet-contract/RLC')
+-var ERLCTokenSwap           = artifacts.require('@iexec/erlc/ERLCTokenSwap')
++// require ABIs previously generated at step 3
++var RLC                     = artifactsRequireFSThenNPM('rlc-faucet-contract/RLC')
++var ERLCTokenSwap           = artifactsRequireFSThenNPM('@iexec/erlc/ERLCTokenSwap')
+ // ERC1538 core & delegates
+ var ERC1538Proxy            = artifacts.require('@iexec/solidity/ERC1538Proxy')
+ var ERC1538Update           = artifacts.require('@iexec/solidity/ERC1538UpdateDelegate')
+diff --git a/migrations/5_deploy_ens.js b/migrations/5_deploy_ens.js
+index 15a64f2..28e6183 100644
+--- a/migrations/5_deploy_ens.js
++++ b/migrations/5_deploy_ens.js
+@@ -15,6 +15,7 @@
+  ******************************************************************************/
+ 
+ const assert = require('assert')
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools')
+ // CONFIG
+ const CONFIG = require('../config/config.json')
+ // ENS
+@@ -23,9 +24,11 @@ var FIFSRegistrar           = artifacts.require('@ensdomains/ens/FIFSRegistrar')
+ var ReverseRegistrar        = artifacts.require('@ensdomains/ens/ReverseRegistrar.sol')
+ var PublicResolver          = artifacts.require('@ensdomains/resolver/PublicResolver')
+ // Core
+-var RLC                     = artifacts.require('rlc-faucet-contract/RLC')
+-var ERLCTokenSwap           = artifacts.require('@iexec/erlc/ERLCTokenSwap')
+-var ERC1538Proxy            = artifacts.require('@iexec/solidity/ERC1538Proxy')
++// require ABIs previously generated at step 3
++var RLC                     = artifactsRequireFSThenNPM('rlc-faucet-contract/RLC')
++var ERLCTokenSwap           = artifactsRequireFSThenNPM('@iexec/erlc/ERLCTokenSwap')
++// require ABI previously generated at step 4
++var ERC1538Proxy            = artifactsRequireFSThenNPM('@iexec/solidity/ERC1538Proxy')
+ var IexecInterfaceNative    = artifacts.require('IexecInterfaceNative')
+ var IexecInterfaceToken     = artifacts.require('IexecInterfaceToken')
+ var AppRegistry             = artifacts.require('AppRegistry')
+diff --git a/migrations/6_whitelisting.js b/migrations/6_whitelisting.js
+index bd83c96..2d8a896 100644
+--- a/migrations/6_whitelisting.js
++++ b/migrations/6_whitelisting.js
+@@ -14,12 +14,16 @@
+  * limitations under the License.                                             *
+  ******************************************************************************/
+ 
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools')
+ // CONFIG
+ const CONFIG = require('../config/config.json')
+ // Token
+-var RLC           = artifacts.require('rlc-faucet-contract/RLC')
+-var ERLCTokenSwap = artifacts.require('@iexec/erlc/ERLCTokenSwap')
+-var ERC1538Proxy  = artifacts.require('@iexec/solidity/ERC1538Proxy')
++// require ABI previously generated at step 3
++var RLC           = artifactsRequireFSThenNPM('rlc-faucet-contract/RLC')
++var ERLCTokenSwap = artifactsRequireFSThenNPM('@iexec/erlc/ERLCTokenSwap')
++// Core
++// require ABI previously generated at step 4
++var ERC1538Proxy  = artifactsRequireFSThenNPM('@iexec/solidity/ERC1538Proxy')
+ 
+ /*****************************************************************************
+  *                                   Main                                    *
+diff --git a/migrations/999_functions.js b/migrations/999_functions.js
+index 1b41f8f..5ff8200 100644
+--- a/migrations/999_functions.js
++++ b/migrations/999_functions.js
+@@ -14,9 +14,11 @@
+  * limitations under the License.                                             *
+  ******************************************************************************/
+ 
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools')
+ // ERC1538 core & delegates
+-var ERC1538Proxy = artifacts.require('@iexec/solidity/ERC1538Proxy')
+-var ERC1538Query = artifacts.require('@iexec/solidity/ERC1538QueryDelegate')
++// require ABI previously generated at step 4
++var ERC1538Proxy = artifactsRequireFSThenNPM('@iexec/solidity/ERC1538Proxy')
++var ERC1538Query = artifactsRequireFSThenNPM('@iexec/solidity/ERC1538QueryDelegate')
+ 
+ /*****************************************************************************
+  *                                   Main                                    *
+diff --git a/utils/migrate-tools.js b/utils/migrate-tools.js
+new file mode 100644
+index 0000000..ea6eead
+--- /dev/null
++++ b/utils/migrate-tools.js
+@@ -0,0 +1,62 @@
++const { basename } = require('path');
++
++/*
++Since truffle v5.7.0, the ABI resolve algorithm has changed.
++- Before v5.7.0, the last valid ABI json file was selected
++- Since v5.7.0, the first valid ABI json file is selected 
++
++See changes here:
++Old version:
++https://github.com/trufflesuite/truffle/blob/28d00b8946b7e8d792f87bfe35c94af6cedc401b/packages/resolver/lib/resolver.ts#L64
++New version:
++https://github.com/trufflesuite/truffle/blob/c984fe37b740ee075ba93f2ebfd59b7cae4f0183/packages/resolver/lib/resolver.ts#L61
++
++Calling artifacts.require(<NPM path>) now throws an error when 
++deploying any new contract (RLC, ERLCTokenSwap, ERC1538Proxy etc.)
++
++Consequently, to keep the exact same behaviour and avoid any error thrown at migration time, 
++we must force truffle to select the last compiled ABI located in the truffle build directory
++instead of the NPM directory.
++ 
++For example, in the case of the RLC.json ABI:
++instead of executing : 
++    var RLC = artifacts.require('rlc-faucet-contract/RLC');
++ 
++first look for RLC.json in the build directory, then in the NPM directory : 
++    var RLC = artifacts.require('RLC');
++    if (!RLC) {
++        RLC = artifacts.require('rlc-faucet-contract/RLC');
++    }
++*/
++
++function artifactsRequireFSThenNPM(contractPath) 
++{
++    const name = basename(contractPath);
++    let contract;
++    try 
++    {
++        // ex: if contractPath == 'rlc-faucet-contract/RLC'
++        // executes: artifacts.require('RLC') to force the truffle 
++        // resolver to pick './build/contracts/RLC.json' instead of 
++        // './node_modules/rlc-faucet-contract/RLC.json'
++        contract = artifacts.require(name);
++    } 
++    catch (err) 
++    {
++        // ex: contractPath == 'RLC' : nothing else to do
++        if (name == contractPath) {
++            throw err;
++        }
++        // ex: if contractPath == 'rlc-faucet-contract/RLC'
++        // At this stage, the truffle resolver did not find the
++        // './build/contracts/RLC.json' ABI file, consequently
++        // we force the resolver to pick instead
++        // './node_modules/rlc-faucet-contract/RLC.json'
++        contract = artifacts.require(contractPath);
++    }
++    return contract;
++}
++
++module.exports = {
++    artifactsRequireFSThenNPM
++}
+\ No newline at end of file
+-- 
+2.32.0 (Apple Git-132)
+
+
+From 7e1d1d86708b4aaee37bfa96d6181c4ec046b320 Mon Sep 17 00:00:00 2001
+From: 0xalexbel <0xalexbel@users.noreply.github.com>
+Date: Fri, 26 May 2023 18:41:53 +0200
+Subject: [PATCH 2/4] Truffle v5.7.0 and higher : Fix 'truffle test' - Fix
+ artifacts.require(...) issue - Fix 'ERLCTokenSwap' typo
+
+---
+ test/000_fullchain-ABILegacy.js                     |  5 +++--
+ test/000_fullchain.js                               |  5 +++--
+ test/001_fullchain-1workers.js                      |  5 +++--
+ test/002_fullchain-2workers.js                      |  5 +++--
+ test/003_fullchain-3workers.js                      |  5 +++--
+ test/004_fullchain-4workers.js                      |  5 +++--
+ test/100_fullchain-5workers-1error.js               |  5 +++--
+ test/200_fullchain-bot.js                           |  5 +++--
+ test/201_fullchain-bot-dualPool.js                  |  5 +++--
+ test/300_fullchain-reopen.js                        |  5 +++--
+ test/400_contributeAndCallback.js                   |  5 +++--
+ test/ERC1154/callback.js                            |  5 +++--
+ test/ERC1154/resultFor.js                           |  5 +++--
+ test/byContract/ENSIntegration/ENSIntegration.js    | 13 +++++++------
+ test/byContract/IexecAccessors/IexecAccessors.js    |  5 +++--
+ .../IexecCategoryManager/IexecCategoryManager.js    |  5 +++--
+ test/byContract/IexecERC20/IexecERC20.js            |  5 +++--
+ test/byContract/IexecEscrow/IexecEscrowNative.js    |  5 +++--
+ test/byContract/IexecEscrow/IexecEscrowToken.js     |  5 +++--
+ test/byContract/IexecMaintenance/configure.js       |  5 +++--
+ test/byContract/IexecOrderManagement/close.js       |  5 +++--
+ test/byContract/IexecOrderManagement/invalid.js     |  5 +++--
+ test/byContract/IexecOrderManagement/sign.js        |  5 +++--
+ test/byContract/IexecPoco/00_matchorders.js         |  5 +++--
+ test/byContract/IexecPoco/01_initialize.js          |  5 +++--
+ test/byContract/IexecPoco/02_contribute-tag.js      |  5 +++--
+ test/byContract/IexecPoco/02_contribute.js          |  5 +++--
+ test/byContract/IexecPoco/03_reveal.js              |  5 +++--
+ test/byContract/IexecPoco/04_finalize.js            |  5 +++--
+ test/byContract/IexecPoco/05_reopen.js              |  5 +++--
+ test/byContract/IexecPoco/06_claim.js               |  5 +++--
+ test/byContract/IexecPoco/07_array.js               |  5 +++--
+ test/byContract/IexecPoco/08_kitty.js               |  5 +++--
+ test/byContract/IexecPoco/verify.js                 |  5 +++--
+ test/byContract/IexecRelay/IexecRelay.js            |  5 +++--
+ test/byContract/registries/registies.js             |  1 +
+ test/byContract/registries/resources.js             |  9 +++++----
+ 37 files changed, 115 insertions(+), 78 deletions(-)
+
+diff --git a/test/000_fullchain-ABILegacy.js b/test/000_fullchain-ABILegacy.js
+index aee7638..ca5c1f1 100644
+--- a/test/000_fullchain-ABILegacy.js
++++ b/test/000_fullchain-ABILegacy.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT              = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                     = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy            = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterfaceABILegacy = artifacts.require(`IexecInterface${DEPLOYMENT.asset}ABILegacy`);
+ var AppRegistry             = artifacts.require("AppRegistry");
+ var DatasetRegistry         = artifacts.require("DatasetRegistry");
+diff --git a/test/000_fullchain.js b/test/000_fullchain.js
+index 93b8e5f..1f8da70 100644
+--- a/test/000_fullchain.js
++++ b/test/000_fullchain.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/001_fullchain-1workers.js b/test/001_fullchain-1workers.js
+index 8503800..b1d89de 100644
+--- a/test/001_fullchain-1workers.js
++++ b/test/001_fullchain-1workers.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/002_fullchain-2workers.js b/test/002_fullchain-2workers.js
+index cfe4597..b33ec35 100644
+--- a/test/002_fullchain-2workers.js
++++ b/test/002_fullchain-2workers.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/003_fullchain-3workers.js b/test/003_fullchain-3workers.js
+index 03f24b7..06f505a 100644
+--- a/test/003_fullchain-3workers.js
++++ b/test/003_fullchain-3workers.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/004_fullchain-4workers.js b/test/004_fullchain-4workers.js
+index cefb4c0..1a3ab02 100644
+--- a/test/004_fullchain-4workers.js
++++ b/test/004_fullchain-4workers.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/100_fullchain-5workers-1error.js b/test/100_fullchain-5workers-1error.js
+index ddaabe7..9352eea 100644
+--- a/test/100_fullchain-5workers-1error.js
++++ b/test/100_fullchain-5workers-1error.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/200_fullchain-bot.js b/test/200_fullchain-bot.js
+index ed9cfef..5cacbb1 100644
+--- a/test/200_fullchain-bot.js
++++ b/test/200_fullchain-bot.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/201_fullchain-bot-dualPool.js b/test/201_fullchain-bot-dualPool.js
+index 223dbbb..58e70ff 100644
+--- a/test/201_fullchain-bot-dualPool.js
++++ b/test/201_fullchain-bot-dualPool.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/300_fullchain-reopen.js b/test/300_fullchain-reopen.js
+index 3041b14..f9c5726 100644
+--- a/test/300_fullchain-reopen.js
++++ b/test/300_fullchain-reopen.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/400_contributeAndCallback.js b/test/400_contributeAndCallback.js
+index 42f8eed..8d5fbd7 100644
+--- a/test/400_contributeAndCallback.js
++++ b/test/400_contributeAndCallback.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/ERC1154/callback.js b/test/ERC1154/callback.js
+index 5b40c56..319a01d 100644
+--- a/test/ERC1154/callback.js
++++ b/test/ERC1154/callback.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/ERC1154/resultFor.js b/test/ERC1154/resultFor.js
+index 711c2c0..cd9a1e3 100644
+--- a/test/ERC1154/resultFor.js
++++ b/test/ERC1154/resultFor.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/ENSIntegration/ENSIntegration.js b/test/byContract/ENSIntegration/ENSIntegration.js
+index b7f9a05..70d56c0 100644
+--- a/test/byContract/ENSIntegration/ENSIntegration.js
++++ b/test/byContract/ENSIntegration/ENSIntegration.js
+@@ -16,10 +16,11 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERLCSwap           = artifacts.require('@iexec/erlc/ERLCSwap');
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERLCTokenSwap      = artifactsRequireFSThenNPM('@iexec/erlc/ERLCTokenSwap')
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+@@ -27,7 +28,7 @@ var WorkerpoolRegistry = artifacts.require("WorkerpoolRegistry");
+ var App                = artifacts.require("App");
+ var Dataset            = artifacts.require("Dataset");
+ var Workerpool         = artifacts.require("Workerpool");
+-var ENSRegistry        = artifacts.require("@ensdomains/ens/ENSRegistry");
++var ENSRegistry        = artifactsRequireFSThenNPM("@ensdomains/ens/ENSRegistry");
+ 
+ const { BN, expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
+ const tools     = require("../../../utils/tools");
+@@ -57,7 +58,7 @@ contract('ENSIntegration', async (accounts) => {
+ 	var DatasetRegistryInstance    = null;
+ 	var WorkerpoolRegistryInstance = null;
+ 	var ENSInstance                = null;
+-
++    
+ 	var categories = [];
+ 
+ 	/***************************************************************************
+@@ -106,7 +107,7 @@ contract('ENSIntegration', async (accounts) => {
+ 				assert.equal(await enstools.resolve("rlc.iexec.eth"), (await RLC.deployed()).address);
+ 			}
+ 			if (DEPLOYMENT.asset == "Token" && !!process.env.KYC) {
+-				assert.equal(await enstools.resolve("erlc.iexec.eth"), (await ERLCSwap.deployed()).address);
++				assert.equal(await enstools.resolve("erlc.iexec.eth"), (await ERLCTokenSwap.deployed()).address);
+ 			}
+ 			assert.equal(await enstools.resolve("core.v5.iexec.eth"       ), IexecInstance.address             );
+ 			assert.equal(await enstools.resolve("apps.v5.iexec.eth"       ), AppRegistryInstance.address       );
+diff --git a/test/byContract/IexecAccessors/IexecAccessors.js b/test/byContract/IexecAccessors/IexecAccessors.js
+index 4448088..09b31a2 100644
+--- a/test/byContract/IexecAccessors/IexecAccessors.js
++++ b/test/byContract/IexecAccessors/IexecAccessors.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecCategoryManager/IexecCategoryManager.js b/test/byContract/IexecCategoryManager/IexecCategoryManager.js
+index cd997b2..d45656f 100644
+--- a/test/byContract/IexecCategoryManager/IexecCategoryManager.js
++++ b/test/byContract/IexecCategoryManager/IexecCategoryManager.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecERC20/IexecERC20.js b/test/byContract/IexecERC20/IexecERC20.js
+index a743974..930051e 100644
+--- a/test/byContract/IexecERC20/IexecERC20.js
++++ b/test/byContract/IexecERC20/IexecERC20.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecEscrow/IexecEscrowNative.js b/test/byContract/IexecEscrow/IexecEscrowNative.js
+index 25593b5..ef064b8 100644
+--- a/test/byContract/IexecEscrow/IexecEscrowNative.js
++++ b/test/byContract/IexecEscrow/IexecEscrowNative.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecEscrow/IexecEscrowToken.js b/test/byContract/IexecEscrow/IexecEscrowToken.js
+index 6ea8e9d..56fe99f 100644
+--- a/test/byContract/IexecEscrow/IexecEscrowToken.js
++++ b/test/byContract/IexecEscrow/IexecEscrowToken.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecMaintenance/configure.js b/test/byContract/IexecMaintenance/configure.js
+index 676b747..59c7534 100644
+--- a/test/byContract/IexecMaintenance/configure.js
++++ b/test/byContract/IexecMaintenance/configure.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecOrderManagement/close.js b/test/byContract/IexecOrderManagement/close.js
+index 8640669..3937949 100644
+--- a/test/byContract/IexecOrderManagement/close.js
++++ b/test/byContract/IexecOrderManagement/close.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecOrderManagement/invalid.js b/test/byContract/IexecOrderManagement/invalid.js
+index 9de053e..65e46ce 100644
+--- a/test/byContract/IexecOrderManagement/invalid.js
++++ b/test/byContract/IexecOrderManagement/invalid.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecOrderManagement/sign.js b/test/byContract/IexecOrderManagement/sign.js
+index 7a657c7..d6a8eac 100644
+--- a/test/byContract/IexecOrderManagement/sign.js
++++ b/test/byContract/IexecOrderManagement/sign.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/00_matchorders.js b/test/byContract/IexecPoco/00_matchorders.js
+index 25b8545..78222f6 100644
+--- a/test/byContract/IexecPoco/00_matchorders.js
++++ b/test/byContract/IexecPoco/00_matchorders.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/01_initialize.js b/test/byContract/IexecPoco/01_initialize.js
+index 2d6410c..408e2df 100644
+--- a/test/byContract/IexecPoco/01_initialize.js
++++ b/test/byContract/IexecPoco/01_initialize.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/02_contribute-tag.js b/test/byContract/IexecPoco/02_contribute-tag.js
+index 354b4c0..aa4493c 100644
+--- a/test/byContract/IexecPoco/02_contribute-tag.js
++++ b/test/byContract/IexecPoco/02_contribute-tag.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/02_contribute.js b/test/byContract/IexecPoco/02_contribute.js
+index e4e24ee..afb4904 100644
+--- a/test/byContract/IexecPoco/02_contribute.js
++++ b/test/byContract/IexecPoco/02_contribute.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/03_reveal.js b/test/byContract/IexecPoco/03_reveal.js
+index c016e0f..2e411a5 100644
+--- a/test/byContract/IexecPoco/03_reveal.js
++++ b/test/byContract/IexecPoco/03_reveal.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/04_finalize.js b/test/byContract/IexecPoco/04_finalize.js
+index b5ab3c9..ab8d628 100644
+--- a/test/byContract/IexecPoco/04_finalize.js
++++ b/test/byContract/IexecPoco/04_finalize.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/05_reopen.js b/test/byContract/IexecPoco/05_reopen.js
+index 36ebe21..f81d2b4 100644
+--- a/test/byContract/IexecPoco/05_reopen.js
++++ b/test/byContract/IexecPoco/05_reopen.js
+@@ -16,9 +16,10 @@
+ 
+ //.wallet Conf.addressig
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/06_claim.js b/test/byContract/IexecPoco/06_claim.js
+index f5665c3..a57b70c 100644
+--- a/test/byContract/IexecPoco/06_claim.js
++++ b/test/byContract/IexecPoco/06_claim.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/07_array.js b/test/byContract/IexecPoco/07_array.js
+index 293ab51..dfb6d7a 100644
+--- a/test/byContract/IexecPoco/07_array.js
++++ b/test/byContract/IexecPoco/07_array.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/08_kitty.js b/test/byContract/IexecPoco/08_kitty.js
+index 71f61ea..e2896ed 100644
+--- a/test/byContract/IexecPoco/08_kitty.js
++++ b/test/byContract/IexecPoco/08_kitty.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecPoco/verify.js b/test/byContract/IexecPoco/verify.js
+index 9c65a8c..75ccab5 100644
+--- a/test/byContract/IexecPoco/verify.js
++++ b/test/byContract/IexecPoco/verify.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/IexecRelay/IexecRelay.js b/test/byContract/IexecRelay/IexecRelay.js
+index 846484c..98b4893 100644
+--- a/test/byContract/IexecRelay/IexecRelay.js
++++ b/test/byContract/IexecRelay/IexecRelay.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+diff --git a/test/byContract/registries/registies.js b/test/byContract/registries/registies.js
+index 7a8287a..46e1360 100644
+--- a/test/byContract/registries/registies.js
++++ b/test/byContract/registries/registies.js
+@@ -16,6 +16,7 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools');
+ // Artefacts
+ var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+ var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
+diff --git a/test/byContract/registries/resources.js b/test/byContract/registries/resources.js
+index 425c0c0..5a501ad 100644
+--- a/test/byContract/registries/resources.js
++++ b/test/byContract/registries/resources.js
+@@ -16,9 +16,10 @@
+ 
+ // Config
+ var DEPLOYMENT         = require("../../../config/config.json").chains.default;
++const { artifactsRequireFSThenNPM } = require('../../../utils/migrate-tools')
+ // Artefacts
+-var RLC                = artifacts.require("rlc-faucet-contract/contracts/RLC");
+-var ERC1538Proxy       = artifacts.require("iexec-solidity/ERC1538Proxy");
++var RLC                = artifactsRequireFSThenNPM("rlc-faucet-contract/RLC");
++var ERC1538Proxy       = artifactsRequireFSThenNPM("@iexec/solidity/ERC1538Proxy");
+ var IexecInterface     = artifacts.require(`IexecInterface${DEPLOYMENT.asset}`);
+ var AppRegistry        = artifacts.require("AppRegistry");
+ var DatasetRegistry    = artifacts.require("DatasetRegistry");
+@@ -26,7 +27,7 @@ var WorkerpoolRegistry = artifacts.require("WorkerpoolRegistry");
+ var App                = artifacts.require("App");
+ var Dataset            = artifacts.require("Dataset");
+ var Workerpool         = artifacts.require("Workerpool");
+-var ENSRegistry        = artifacts.require("@ensdomains/ens/ENSRegistry");
++var ENSRegistry        = artifactsRequireFSThenNPM("@ensdomains/ens/ENSRegistry");
+ 
+ const { BN, expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
+ const tools     = require("../../../utils/tools");
+@@ -36,7 +37,7 @@ const constants = require("../../../utils/constants");
+ 
+ Object.extract = (obj, keys) => keys.map(key => obj[key]);
+ 
+-contract('Ressources', async (accounts) => {
++contract('Resources', async (accounts) => {
+ 
+ 	assert.isAtLeast(accounts.length, 10, "should have at least 10 accounts");
+ 	let iexecAdmin      = null;
+-- 
+2.32.0 (Apple Git-132)
+
+
+From 8e2f779c0d3bb20c002afcf711cf3fb14dd4a500 Mon Sep 17 00:00:00 2001
+From: 0xalexbel <0xalexbel@users.noreply.github.com>
+Date: Sun, 28 May 2023 23:06:12 +0200
+Subject: [PATCH 3/4] Fix tests: truffle v5.7.0 and higher. Add 'evm_mine' to
+ force evm time increase
+
+---
+ test/300_fullchain-reopen.js             | 2 ++
+ test/byContract/IexecPoco/04_finalize.js | 2 ++
+ test/byContract/IexecPoco/05_reopen.js   | 2 ++
+ test/byContract/IexecPoco/08_kitty.js    | 2 ++
+ 4 files changed, 8 insertions(+)
+
+diff --git a/test/300_fullchain-reopen.js b/test/300_fullchain-reopen.js
+index f9c5726..607f06e 100644
+--- a/test/300_fullchain-reopen.js
++++ b/test/300_fullchain-reopen.js
+@@ -431,6 +431,8 @@ contract('Fullchain', async (accounts) => {
+ 			it("clock fast forward", async () => {
+ 				target = Number((await IexecInstance.viewTask(taskid)).revealDeadline);
+ 				await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_increaseTime", params: [ target - (await web3.eth.getBlock("latest")).timestamp ], id: 0 }, () => {});
++                // Force block mine to make sure time increase is properly set
++				await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_mine", params: [], id: 0 }, () => {});
+ 			});
+ 		});
+ 
+diff --git a/test/byContract/IexecPoco/04_finalize.js b/test/byContract/IexecPoco/04_finalize.js
+index ab8d628..a608337 100644
+--- a/test/byContract/IexecPoco/04_finalize.js
++++ b/test/byContract/IexecPoco/04_finalize.js
+@@ -369,6 +369,8 @@ contract('Poco', async (accounts) => {
+ 		target = Number((await IexecInstance.viewTask(tasks[3])).revealDeadline);
+ 
+ 		await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_increaseTime", params: [ target - (await web3.eth.getBlock("latest")).timestamp ], id: 0 }, () => {});
++        // Force block mine to make sure time increase is properly set
++        await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_mine", params: [], id: 0 }, () => {});
+ 	});
+ 
+ 	it("[4.3] Finalize - Correct (partial - wait)", async () => {
+diff --git a/test/byContract/IexecPoco/05_reopen.js b/test/byContract/IexecPoco/05_reopen.js
+index f81d2b4..223c3e6 100644
+--- a/test/byContract/IexecPoco/05_reopen.js
++++ b/test/byContract/IexecPoco/05_reopen.js
+@@ -343,6 +343,8 @@ contract('Poco', async (accounts) => {
+ 		target = Number((await IexecInstance.viewTask(tasks[2])).revealDeadline);
+ 
+ 		await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_increaseTime", params: [ target - (await web3.eth.getBlock("latest")).timestamp ], id: 0 }, () => {});
++        // Force block mine to make sure time increase is properly set
++        await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_mine", params: [], id: 0 }, () => {});
+ 	});
+ 
+ 	it("[5.2] Reopen - Correct", async () => {
+diff --git a/test/byContract/IexecPoco/08_kitty.js b/test/byContract/IexecPoco/08_kitty.js
+index e2896ed..9ba9367 100644
+--- a/test/byContract/IexecPoco/08_kitty.js
++++ b/test/byContract/IexecPoco/08_kitty.js
+@@ -286,6 +286,8 @@ contract('Poco', async (accounts) => {
+ 		it("wait", async () => {
+ 			target = Number((await IexecInstance.viewTask(tasks[0])).finalDeadline);
+ 			await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_increaseTime", params: [ target - (await web3.eth.getBlock("latest")).timestamp ], id: 0 }, () => {});
++            // Force block mine to make sure time increase is properly set
++            await web3.currentProvider.send({ jsonrpc: "2.0", method: "evm_mine", params: [], id: 0 }, () => {});
+ 		});
+ 
+ 		it("[8.3a] claim", async () => {
+-- 
+2.32.0 (Apple Git-132)
+
+
+From 5cb6d3d80a7ec22685347932b8c31a4e056cfa4a Mon Sep 17 00:00:00 2001
+From: 0xalexbel <0xalexbel@users.noreply.github.com>
+Date: Thu, 1 Jun 2023 20:39:04 +0200
+Subject: [PATCH 4/4] Fix deploy factory contract OOG error evm-shanghai
+ Increase cost+gaslimit in readymade factory.json tx
+
+---
+ utils/FactoryDeployer.js |  2 +
+ utils/FactoryPatcher.js  | 94 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 96 insertions(+)
+ create mode 100644 utils/FactoryPatcher.js
+
+diff --git a/utils/FactoryDeployer.js b/utils/FactoryDeployer.js
+index 0850889..e7c1d67 100644
+--- a/utils/FactoryDeployer.js
++++ b/utils/FactoryDeployer.js
+@@ -15,6 +15,7 @@
+  ******************************************************************************/
+ 
+ const { ethers } = require('ethers');
++const { patchFACTORY } = require('./FactoryPatcher');
+ const FACTORY    = require('@iexec/solidity/deployment/factory.json')
+ 
+ async function waitTx(txPromise) { await (await txPromise).wait() }
+@@ -28,6 +29,7 @@ class EthersDeployer
+ 	{
+ 		this.options = options;
+ 		this.factoryAsPromise = new Promise(async (resolve, reject) => {
++            await patchFACTORY(FACTORY);
+ 			if (await wallet.provider.getCode(FACTORY.address) !== "0x")
+ 			{
+ 				console.debug(`→ Factory is available on this network`);
+diff --git a/utils/FactoryPatcher.js b/utils/FactoryPatcher.js
+new file mode 100644
+index 0000000..6433004
+--- /dev/null
++++ b/utils/FactoryPatcher.js
+@@ -0,0 +1,94 @@
++const CONFIG = require('../config/config.json')
++
++const { Wallet, BigNumber, ethers } = require('ethers');
++
++/**
++ * @param {string} factoryTx 
++ * @param {Wallet} signingWallet 
++ */
++async function _rebuildFactoryTx(factoryTx, signingWallet) {
++    /** @type {import('ethers').Transaction} */
++    const tx = ethers.utils.parseTransaction(factoryTx);
++    // Delete signature + hash
++    delete tx.r;
++    delete tx.s;
++    delete tx.v;
++    delete tx.hash;
++    tx.from = await signingWallet.getAddress(); 
++    // increase gasLimit (reason why Factory contract could not be deployed 
++    // on evm shanghai)
++    tx.gasLimit = tx.gasLimit.mul(2);
++    // @ts-ignore
++    return signingWallet.signTransaction(tx);
++}
++
++/**
++ * @param {string} owner 
++ * @param {number} nonce 
++ */
++function _contractAddress(owner, nonce) {
++    // Convert owner address to bytes
++    const owner_bytes = ethers.utils.arrayify(owner);
++    // Convert nonce integer to bytes
++    const nonce_bn = BigNumber.from(nonce);
++    const nonce_bytes = ethers.utils.stripZeros(ethers.utils.arrayify(nonce_bn.toHexString()));
++    // RLP encode the pair (owner,nonce)
++    const rlp = ethers.utils.RLP.encode([owner_bytes, nonce_bytes]);
++    // Keccak the whole stuff
++    const hash = ethers.utils.keccak256(rlp);
++    // Keep the last 40-nibbles 
++    const hash_40 = ethers.utils.hexDataSlice(hash, 12);
++    return ethers.utils.getAddress(hash_40);
++}
++
++/**
++ * @param {boolean} doShanghaiPatch 
++ */
++async function _loadFactory(doShanghaiPatch) {
++    const IEXEC_FACTORY = require('@iexec/solidity/deployment/factory.json');
++    if (!doShanghaiPatch) {
++        return IEXEC_FACTORY;
++    }
++
++    // Use a dummy public temporary wallet
++    const factorySigningWallet = new Wallet("0x687d5d883e69b288fca732f6230cf76b504a29998075350f86d64f5ca59f34c1");
++    const SHANGHAI_FACTORY = { ...IEXEC_FACTORY };
++    // skip for mainnet and testnet use
++    if (factorySigningWallet) {
++        SHANGHAI_FACTORY.deployer = await factorySigningWallet.getAddress();
++        SHANGHAI_FACTORY.address = _contractAddress(SHANGHAI_FACTORY.deployer, 0);
++        // @ts-ignore
++        SHANGHAI_FACTORY.cost = BigNumber.from(IEXEC_FACTORY.cost).mul(2);
++        SHANGHAI_FACTORY.tx = await _rebuildFactoryTx(IEXEC_FACTORY.tx, factorySigningWallet);
++    }
++    return SHANGHAI_FACTORY;
++}
++
++/**
++ * @param {*} FACTORY 
++ */
++async function patchFACTORY(FACTORY) {
++    const doShanghaiPatch = !!process.env.PATCH_SHANGHAI_FACTORY;
++    if (!doShanghaiPatch) {
++        return;
++    }
++
++    const SHANGHAI_FACTORY = await _loadFactory(true /* do shanghai patch */);
++
++    // Apply patch
++    FACTORY.address = SHANGHAI_FACTORY.address;
++    FACTORY.cost = SHANGHAI_FACTORY.cost;
++    FACTORY.tx = SHANGHAI_FACTORY.tx;
++    FACTORY.deployer = SHANGHAI_FACTORY.deployer;
++}
++
++async function loadFACTORY() {
++    const doShanghaiPatch = !!process.env.PATCH_SHANGHAI_FACTORY;
++    if (!doShanghaiPatch) {
++        return;
++    }
++    const FACTORY = await _loadFactory(doShanghaiPatch);
++    return FACTORY;
++}
++
++module.exports = { patchFACTORY, loadFACTORY }
+-- 
+2.32.0 (Apple Git-132)
+
