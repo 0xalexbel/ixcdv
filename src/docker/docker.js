@@ -34,6 +34,16 @@ export async function run(dir, args, options) {
 }
 
 /**
+ * - `docker run ...args`
+ * @param {!string} dir 
+ * @param {!string[]} args
+ * @param {types.Strict=} options
+ */
+export async function runQuiet(dir, args, options) {
+    return dockerGet(dir, ["run", ...args], options);
+}
+
+/**
  * - `docker start ...args`
  * @param {!string} dir 
  * @param {!string[]} args

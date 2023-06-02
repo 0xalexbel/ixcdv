@@ -1,8 +1,11 @@
+import assert from 'assert';
 import { CodeError } from '../common/error.js';
 import { AbstractService } from '../common/service.js';
 import * as types from '../common/common-types.js';
 import * as srvTypes from './services-types-internal.js';
-import { isDockerDesktopRunning, startDockerDesktop } from '../docker/docker-api.js';
+import { dockerPrivateLocalRegistryStart, isDockerDesktopRunning, isDockerPrivateLocalRegistryRunning, startDockerDesktop } from '../docker/docker-api.js';
+import { throwIfNotStrictlyPositiveInteger } from '../common/number.js';
+import { isNullishOrEmptyString } from '../common/string.js';
 
 export class DockerService extends AbstractService {
 
@@ -15,12 +18,27 @@ export class DockerService extends AbstractService {
     static typename() { return 'docker'; }
     typename() { return 'docker'; }
 
+    /** @type {string} */
+    #hostname;
+    /** @type {number} */
+    #port;
+
     /**
      * @param {*=} args 
      */
     constructor(args) {
+        throwIfNotStrictlyPositiveInteger(args.port);
+
+        const hostname = (isNullishOrEmptyString(args.hostname)) ? 'localhost' : args.hostname;
+        assert(hostname);
+
         super(args); //compiler
+
+        this.#port = args.port;
+        this.#hostname = hostname;
     }
+
+    get port() { return this.#port; }
 
     /** 
      * @param {srvTypes.DockerConfig} config 
@@ -52,8 +70,12 @@ export class DockerService extends AbstractService {
         return null;
     }
 
-    static async newInstance() {
-        return new DockerService();
+    /**
+     * @param {types.ServerServiceArgs} options 
+     * @param {srvTypes.InventoryLike=} inventory
+     */
+    static async newInstance(options, inventory) {
+        return new DockerService(options);
     }
 
     /**
@@ -90,6 +112,33 @@ export class DockerService extends AbstractService {
                 })
             })) {
                 return { ok: false, error: new CodeError('Unable to start Docker Desktop for MacOS.') };
+            }
+        }
+
+        const dockerRegistryUrl = `http://${this.#hostname}:${this.#port}`;
+
+        // Make sure Docker private registry is running
+        if (! await isDockerPrivateLocalRegistryRunning(dockerRegistryUrl)) {
+            if (! await dockerPrivateLocalRegistryStart(dockerRegistryUrl,{
+                ...options,
+                ... (options?.progressCb && {
+                    progressCb: (args) => {
+                        options.progressCb?.({
+                            ...args,
+                            value: {
+                                state: 'starting',
+                                type: typename,
+                                service: mySelf,
+                                context: options.context
+                            }
+                        });
+                    }
+                })
+            })) {
+                return { ok: false, error: new CodeError('Unable to start docker registry.') };
+            }
+            if (! await isDockerPrivateLocalRegistryRunning(dockerRegistryUrl)) {
+                return { ok: false, error: new CodeError('Unable to start docker registry.') };
             }
         }
 
