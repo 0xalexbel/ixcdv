@@ -61,8 +61,8 @@ export default class InstallCmd extends Cmd {
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir);
 
-            // First stop
-            await StopAllCmd.exec(false, null);
+            // First stop (gently)
+            await StopAllCmd.exec(false /* only gentle stop */, null);
 
             let installWallets = false;
 
