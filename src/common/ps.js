@@ -47,7 +47,10 @@ export async function psp(pid) {
 }
 
 /**
- * Executes `ps -E -o command= -p <pid>`
+ * - Mac BSD : `-E` = print env vars (does exist in ps Ubuntu)
+ * - Mac + Ubuntu : `ps e` (no dash) = print env vars 
+ * - v1 (macos only): Executes `ps -E -o command= -p <pid>`
+ * - v2 (macos + ubuntu): Executes `ps e -o command= -p <pid>`
  * @param {number} pid 
  */
 export async function pspWithArgsAndEnv(pid) {
@@ -55,7 +58,15 @@ export async function pspWithArgsAndEnv(pid) {
 
     try {
         // Will throw an error if pid does not exist
-        const { stdout, stderr } = await exec_promise("ps -E -o command= -p " + pid.toString());
+
+        // Version 1, using `-E` option, only works on MacOS
+        // `ps -E -o command= -p <pid>`
+        // const { stdout, stderr } = await exec_promise("ps -E -o command= -p " + pid.toString());
+
+        // Version 2, using `e` suffix, works on MacOS + Ubuntu
+        // `ps e -o command= -p <pid>`
+        const { stdout, stderr } = await exec_promise("ps e -o command= -p " + pid.toString());
+
         // Otherwise, stdout contains process info 
         const s = stdout.trim();
         if (isNullishOrEmptyString(s)) {
@@ -75,7 +86,7 @@ export async function psGrepPIDAndArgs(grepPattern) {
     assertNonEmptyString(grepPattern);
 
     try {
-        const { stdout, stderr } = await exec_promise(`ps -e -o pid= -o command= | grep -v grep | grep -E \'${grepPattern}\'`);
+        const { stdout, stderr } = await exec_promise(`ps -A -o pid= -o command= | grep -v grep | grep -E \'${grepPattern}\'`);
         if (isNullishOrEmptyString(stdout)) {
             return /* undefined */
         }
@@ -112,7 +123,7 @@ export async function psGrepPID(grepPattern) {
     assertNonEmptyString(grepPattern);
 
     try {
-        const { stdout, stderr } = await exec_promise(`ps -ef | grep -v grep | grep -E \'${grepPattern}\' | awk '{ print $2 }'`);
+        const { stdout, stderr } = await exec_promise(`ps -Af | grep -v grep | grep -E \'${grepPattern}\' | awk '{ print $2 }'`);
         if (isNullishOrEmptyString(stdout)) {
             return /* undefined */
         }
@@ -142,9 +153,14 @@ export async function psGrepPID(grepPattern) {
  */
 export async function psGrepPIDAndEnv(grepPattern) {
     assertNonEmptyString(grepPattern);
-    //ps -e -E -o pid= -o command=
+    // v1 (mac only): ps -A -E -o pid= -o command=
+    // v2 (mac+linux): ps e -A -o pid= -o command=
     try {
-        const { stdout, stderr } = await exec_promise(`ps -e -E -o pid= -o command= | grep -v grep | grep -E \'${grepPattern}\'`);
+        //Version 1 (mac only)
+        //const { stdout, stderr } = await exec_promise(`ps -A -E -o pid= -o command= | grep -v grep | grep -E \'${grepPattern}\'`);
+
+        //Version 2 (mac+Ubuntu)
+        const { stdout, stderr } = await exec_promise(`ps e -A -o pid= -o command= | grep -v grep | grep -E \'${grepPattern}\'`);
         if (isNullishOrEmptyString(stdout)) {
             return /* undefined */
         }
@@ -208,7 +224,10 @@ export async function psGetEnv(pid, envName) {
     throwIfNotStrictlyPositiveInteger(pid);
     throwIfNullishOrEmptyString(envName);
     try {
-        const { stdout, stderr } = await exec_promise(`ps -o command= -E -p ${pid.toString()} | grep -v grep | grep '${envName}='`);
+        //v1 (mac only) : `-E` option
+        //const { stdout, stderr } = await exec_promise(`ps -o command= -E -p ${pid.toString()} | grep -v grep | grep '${envName}='`);
+        //v2 (mac+Ubuntu) : `ps e`
+        const { stdout, stderr } = await exec_promise(`ps e -o command= -p ${pid.toString()} | grep -v grep | grep '${envName}='`);
         return parseSingleEnvVar(envName, stdout);
     } catch { }
     return; /* undefined */
