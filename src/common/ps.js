@@ -140,7 +140,7 @@ export async function psGrepPID(grepPattern) {
             return /* undefined */
         }
         return pids;
-    } catch (err) { 
+    } catch (err) {
         if (err instanceof Error) {
             console.log(err.stack);
         }
@@ -290,12 +290,12 @@ export async function killPIDAndWaitUntilFullyStopped(pid, options = {
     // Send the first kill signal (default = SIGTERM)
     if (options.killSignal == null) {
         // send SIGTERM
-        process.kill(pid);
+        processKill(pid, undefined);
     } else {
         if (options.killSignal === SIGABRT) {
             SIGABRT_sent = true;
         }
-        process.kill(pid, options.killSignal);
+        processKill(pid, options.killSignal);
     }
 
     // After having sent the first kill signal
@@ -373,10 +373,30 @@ export async function killPIDAndWaitUntilFullyStopped(pid, options = {
                 // - spring service is stuck
                 // - only ABORT can stop it.
                 SIGABRT_sent = true;
-                process.kill(pid, SIGABRT);
+                processKill(pid, SIGABRT);
             }
         }
     }
 
     throw new CodeError(`kill process ${pid} timeout`, 'TIMEOUT');
+}
+
+/**
+ * - Handle Error 'ESRCH'
+ * @param {number} pid 
+ * @param {string | number | undefined} signal 
+ */
+function processKill(pid, signal) {
+    try {
+        process.kill(pid, signal);
+    } catch (err) {
+        /** @type {any} */
+        const anyErr = err;
+        if (anyErr.code === 'ESRCH') {
+            // ignore 
+            // Man ESRCH : No process or process group can be found corresponding to that specified by pid.
+        } else {
+            throw err;
+        }
+    }
 }
