@@ -105,7 +105,7 @@ export function toAbsolutePath(from, to, options = {}) {
  */
 export function toAbsolutePathWithPlaceholders(from, to) {
     const d = pathlib.resolve(from, to);
-    return resolveAbsolutePath(d, { onlyPOSIXPortable : false });
+    return resolveAbsolutePath(d, { onlyPOSIXPortable: false });
 }
 
 /**
@@ -966,9 +966,51 @@ export function parsePathnameOrUrl(value) {
  * @param {string} str 
  * @param {string} replace 
  * @param {string} file 
+ */
+export async function replaceInFile(str, replace, file) {
+    if (isNullishOrEmptyString(str)) {
+        return true;
+    }
+
+    file = resolveAbsolutePath(file);
+    if (!fileExists(file)) {
+        return false;
+    }
+
+    let fileStr;
+    try {
+        fileStr = await fsPromises.readFile(file, { encoding: 'utf8' });
+    } catch (err) {
+        return false;
+    }
+
+    if (fileStr.indexOf(str) < 0) {
+        return true;
+    }
+
+    let fileStrReplaced;
+    try {
+        fileStrReplaced = fileStr.replaceAll(str, replace);
+    } catch (err) {
+        return false;
+    }
+
+    try {
+        await fsPromises.writeFile(file, fileStrReplaced, { encoding: 'utf8' });
+    } catch (err) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * @param {string} str 
+ * @param {string} replace 
+ * @param {string} file 
  * @param {string=} separator 
  */
-export async function replaceInFile(str, replace, file, separator) {
+export async function replaceInFileUsingSed(str, replace, file, separator) {
     if (isNullishOrEmptyString(str)) {
         return true;
     }
@@ -982,29 +1024,37 @@ export async function replaceInFile(str, replace, file, separator) {
     } else {
         separator = '/';
     }
+
     const bakext = `.${PROD_FILE_EXT}bak`;
+    const bakFile = file + bakext;
+
     let ok = true;
     try {
-        const { stdout, stderr } = await exec_promise(`sed -i '${bakext}' -e 's${separator}${str}${separator}${replace}${separator}g' ${file}`);
-    } catch {
+        // Do not use the '-i' option ! Not POSIX !
+        // Executes : `sed -e <pattern> <file> > <file.bak>`
+        const { stdout, stderr } = await exec_promise(`sed -e 's${separator}${str}${separator}${replace}${separator}g' ${file} > ${bakFile}`);
+    } catch (err) {
         ok = false;
     }
 
-    const bakFile = file + bakext;
     if (!ok) {
-        if (fileExists(bakFile)) {
-            if (!await rmFile(file)) {
-                return false;
-            }
-            if (!moveFileSync(bakFile, file)) {
-                return false;
-            }
-        }
-    } else {
+        // something went wrong, delete replaced-file
         await rmFile(bakFile);
+        return false;
     }
 
-    return ok;
+    if (fileExists(bakFile)) {
+        // delete existing file
+        if (!await rmFile(file)) {
+            return false;
+        }
+        // replace by new file
+        if (!moveFileSync(bakFile, file, { strict: false })) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**
