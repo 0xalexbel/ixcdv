@@ -283,40 +283,40 @@ export class Service extends AbstractService {
         throwPureVirtual('isBusyOverride');
     }
 
-    /**
-     * Helper
-     * @protected
-     * @param {!string} grepPattern 
-     * @param {string=} cwd 
-     */
-    async getPIDUsingPsefPipeGrep(grepPattern, cwd) {
-        assertNonEmptyString(grepPattern);
-        try {
-            if (!this.canStart) {
-                return; /* undefined */
-            }
-            const { stdout, stderr } = await exec_promise(`ps -ef | grep -v grep | grep -E \'${grepPattern}\' | awk '{ print $2 }'`);
-            /* pid  number or undefined */
-            const pid = stringToPositiveInteger(stdout);
-            if (pid) {
-                if (!isNullishOrEmptyString(cwd)) {
-                    // Check that we are dealing with the same storage directory
-                    // Grep the process cwd to identify the storage dir.
-                    const pidCwd = await getPIDCWD(pid);
-                    if (pidCwd !== cwd) {
-                        console.error(`Another instance of '${grepPattern}' is already running!`);
-                        throw new CodeError(`Another instance of '${grepPattern}' is already running!`);
-                    }
-                }
-                return pid;
-            }
-        } catch (err) {
-            if (err instanceof CodeError) {
-                throw err;
-            }
-        }
-        return; /* undefined */
-    }
+    // /**
+    //  * Helper
+    //  * @protected
+    //  * @param {!string} grepPattern 
+    //  * @param {string=} cwd 
+    //  */
+    // async getPIDUsingPsefPipeGrep(grepPattern, cwd) {
+    //     assertNonEmptyString(grepPattern);
+    //     try {
+    //         if (!this.canStart) {
+    //             return; /* undefined */
+    //         }
+    //         const { stdout, stderr } = await exec_promise(`ps -Af | grep -v grep | grep -E \'${grepPattern}\' | awk '{ print $2 }'`);
+    //         /* pid  number or undefined */
+    //         const pid = stringToPositiveInteger(stdout);
+    //         if (pid) {
+    //             if (!isNullishOrEmptyString(cwd)) {
+    //                 // Check that we are dealing with the same storage directory
+    //                 // Grep the process cwd to identify the storage dir.
+    //                 const pidCwd = await getPIDCWD(pid);
+    //                 if (pidCwd !== cwd) {
+    //                     console.error(`Another instance of '${grepPattern}' is already running!`);
+    //                     throw new CodeError(`Another instance of '${grepPattern}' is already running!`);
+    //                 }
+    //             }
+    //             return pid;
+    //         }
+    //     } catch (err) {
+    //         if (err instanceof CodeError) {
+    //             throw err;
+    //         }
+    //     }
+    //     return; /* undefined */
+    // }
 
     /* ------------------------------------------------------------------- */
     /*                                                                     */
