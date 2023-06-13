@@ -4,7 +4,7 @@ import * as pkgTypes from '../../pkgmgr/pkgmgr-types.js';
 import * as ERROR_CODES from '../../common/error-codes.js'
 import { commitAll } from '../../git/git-api.js';
 import { CodeError, fail } from '../../common/error.js';
-import { replaceInFile } from '../../common/fs.js';
+import { replaceInFile, replaceInFileUsingSed } from '../../common/fs.js';
 import { PROD_NAME } from '../../common/consts.js';
 
 /**
@@ -30,7 +30,7 @@ export async function patch(dir, setup, options = { strict: false }) {
     let ok;
 
     try {
-        ok = await replaceInFile(
+        ok = await replaceInFileUsingSed(
             '? `mongodb://${MONGO_HOST}:27017/`',
             '? `mongodb://${MONGO_HOST}/`',
             path.join(dir, 'api/src/config.js'),
@@ -39,7 +39,7 @@ export async function patch(dir, setup, options = { strict: false }) {
             throw null; 
         }
 
-        ok = await replaceInFile(
+        ok = await replaceInFileUsingSed(
             '? `mongodb://${MONGO_HOST}:27017/`',
             '? `mongodb://${MONGO_HOST}/`',
             path.join(dir, 'watcher/src/config.js'),
