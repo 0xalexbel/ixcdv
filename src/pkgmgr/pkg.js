@@ -11,7 +11,7 @@ import { CodeError, fail } from '../common/error.js';
 import { dirExists, fileExists, pathIsPOSIXPortableWithPlaceholders } from "../common/fs.js";
 import { parseGitUrl } from "../common/utils.js";
 import { patchRepo } from "../patch/patcher.js";
-import { gradlewBuildNoTest, gradlewClean } from "../common/gradlew.js";
+import { autoDetectJDK, gradlewBuildNoTest, gradlewClean } from "../common/gradlew.js";
 import * as gitApi from "../git/git-api.js";
 import * as git from "../git/git.js";
 
@@ -290,8 +290,19 @@ async function gradleBuildSetup(setup, options = { strict: false }) {
             return out_clean;
         }
 
+        // Try to determine the Java JDK path
+        let javaHome = "";
+        try {
+            javaHome = await autoDetectJDK(dir);
+        } catch (err) {
+            // Compiler
+            assert(err instanceof CodeError);
+            return fail(err, options);
+        }
+        const env = { "JAVA_HOME": javaHome };
+
         // Build project & dependencies
-        const out_build = await gradlewBuildNoTest(dir, { strict: false });
+        const out_build = await gradlewBuildNoTest(dir, env, { strict: false });
         if (!out_build.ok) {
             return out_build;
         }
