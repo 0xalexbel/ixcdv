@@ -3,7 +3,7 @@
 import * as types from '../common/common-types.js';
 import assert from "assert";
 import { BigNumber, Wallet, ethers } from "ethers";
-import BN from "BN.js";
+import BN from "bn.js";
 import { getAddress as etherUtilsGetAddress } from 'ethers/lib/utils.js';
 import { isBytes32String, isHexString40, NULL_ADDRESS } from '../common/ethers.js';
 import { CodeError } from '../common/error.js';
