@@ -46,14 +46,15 @@ export async function diff(dir, args, options) {
 
 /**
  * Record changes to the repository
- * - `git commit ...args`
+ * - `git ...preArgs commit ...args`
  * @param {!string} dir 
+ * @param {!string[]} preArgs
  * @param {!string[]} args
  * @param {types.Strict=} options
  * @returns {gitTypes.PromiseStringResultOrGitError}
  */
-export async function commit(dir, args, options) {
-    return gitGet(dir, ["commit", ...args], options);
+export async function commit(dir, preArgs, args, options) {
+    return gitGet(dir, [...preArgs, "commit", ...args], options);
 }
 
 /**

@@ -1208,7 +1208,22 @@ export async function commitAll(dir, message, options = { strict: true }) {
         return { ok: true, result: '' };
     }
 
-    return git.commit(dir, ["-am", message], options);
+    /** @type {string[]} */
+    const preArgs = [];
+
+    if (true) {
+        const userName = 'ixcdv';
+        const userEmail = 'ixcdv@ixcdv.org';
+
+        preArgs.push("-c");
+        preArgs.push(`user.name='${userName}'`);
+        preArgs.push("-c");
+        preArgs.push(`user.email='<${userEmail}'>`);
+    }
+
+    return git.commit(dir, 
+        preArgs,
+        ["-am", message], options);
 }
 
 /**
