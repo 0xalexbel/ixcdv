@@ -113,7 +113,7 @@ export class GanacheService extends ServerService {
 
     /**
      * Returns the full command line arguments as an array
-     * - Required when executing `ps -ef | grep ...`
+     * - Required when executing `ps -Af | grep ...`
      * - Required to generate the bash start script
      */
     #getGanacheCliArgs() {
@@ -468,9 +468,19 @@ export class GanacheService extends ServerService {
 
     /** @returns {Promise<number | undefined>} */
     async getPID() {
+        if (!this.canStart) {
+            return; /* undefined */
+        }
+
         const grepPattern = "node.*ganache.*" + this.#getGanacheCliArgs().join(' ');
-        // call `ps -ef | grep ...`
-        return this.getPIDUsingPsefPipeGrep(grepPattern);
+        const pids = await psGrepPID(grepPattern);
+        if (!pids || pids.length === 0) {
+            return; /* undefined */
+        }
+        if (pids.length > 1) {
+            throw new CodeError(`Multiple instances of '${grepPattern}' are running!`);
+        }
+        return pids[0];
     }
 
     /* ----------------------------- Ready ------------------------------- */
