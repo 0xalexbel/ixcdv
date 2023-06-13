@@ -35,12 +35,16 @@ Minimum vscode config:
 - For more info, see vscode java tools page : https://code.visualstudio.com/docs/languages/java
 
 
-## java
+## java on Mac
 
 - Eclipse Temurin : https://adoptium.net/en-GB/temurin/releases/
 - Operating System : macOS
 - Architecture : x64(Intel)/aarch64(Apple M1/M2)
-- Version : 17
+- Versions : 11 & 17
+
+## java on Linux
+- Eclipse Temurin : - https://adoptium.net/en-GB/installation/linux/
+- Versions : 11 & 17
 
 ## git
 
