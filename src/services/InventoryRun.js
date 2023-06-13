@@ -60,6 +60,13 @@ export class InventoryRun {
             progressCb: options?.progressCb
         });
 
+        if (startReturn === false) {
+            throw new CodeError(`Unable to start service ${name}`);
+        }
+        if (typeof startReturn === 'object' && !startReturn.ok) {
+            throw new CodeError(`Unable to start service ${name} : ${startReturn.error.message}`);
+        }
+
         if (instance instanceof GanachePoCoService) {
             await this.#ganachePostStart(instance, name, options?.chain ?? 'unknown');
         }
