@@ -18,6 +18,7 @@ import { PoCoHubRef } from '../common/contractref.js';
 import { springArgsParseSpringConfigLocation, springClassPathParseRepoDir } from '../common/spring.js';
 import { installPackage, toPackage } from '../pkgmgr/pkg.js';
 import { envVarName } from '../common/consts.js';
+import { autoDetectJDK } from '../common/gradlew.js';
 
 /* -------------------------- SpringServerService Class ------------------------------ */
 
@@ -451,10 +452,18 @@ export class SpringServerService extends ServerService {
         assert(envs[envVarName('APPLICATION_YML')] === savedAppYmlHash);
         assert(envs[envVarName('SPRING_CONFIG_LOC')] === springConfigLocation);
 
-        const jdk = '/Library/Java/JavaVirtualMachines/temurin-11.jdk/Contents/Home';
-        if (jdk) {
-            envs['JAVA_HOME'] = jdk;
-        }
+        /** @type {string=} */
+        let jdk;
+        if (this.#repoDir) {
+            // Ex MacOS + temurin 11 :
+            // '/Library/Java/JavaVirtualMachines/temurin-11.jdk/Contents/Home'
+
+            // Throws an error if failed
+            jdk = await autoDetectJDK(this.#repoDir);
+            if (jdk) {
+                envs['JAVA_HOME'] = jdk;
+            }
+        }        
 
         //const sep = "\\\'";
         const sep = "";
