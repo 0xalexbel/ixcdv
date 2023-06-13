@@ -20,13 +20,22 @@ const exec_promise = nodeUtil.promisify(childProcessExec);
 const OFFICIAL_DOCKER_REGISTRY_IMAGE_NAME = "registry:2";
 
 export async function isDockerDesktopRunning() {
-    if (!dirExists("/Applications/Docker.app")) {
-        return false;
+    // MacOS only : check if Docker.app is installed
+    if (process.platform === 'darwin') {
+        if (!dirExists("/Applications/Docker.app")) {
+            return false;
+        }
     }
     try {
         await exec_promise(`docker images`);
         return true;
     } catch (e) {
+        // Even if installed, `docker images` may fail.
+        // This usually happens when the user running docker does not have 
+        // enough privileges. 
+        // See issue below:
+        // https://stackoverflow.com/questions/47854463/docker-got-permission-denied-while-trying-to-connect-to-the-docker-daemon-socke
+        // Solution : `sudo usermod -a -G docker [user]`
         return false;
     }
 }
@@ -49,7 +58,11 @@ export async function getDockerDesktopPids() {
  * }=} options
  */
 export async function startDockerDesktop(options) {
-    // start Docker Desktop App
+    if (process.platform !== 'darwin') {
+        // returns always true when running on non-MacOS platforms
+        return true;
+    }
+    // start Docker Desktop App (MacOS only)
     try {
         await exec_promise(`open -a Docker`);
     } catch (e) {
