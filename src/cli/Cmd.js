@@ -51,14 +51,14 @@ export class Cmd {
             try {
                 const parent = path.dirname(d);
                 if (parent === d) {
-                    throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${path}' or any of its parent directories.`);
+                    throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${pathToFileOrDir}' or any of its parent directories.`);
                 }
                 d = parent;
             } catch (err) {
-                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${path}' or any of its parent directories.`);
+                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${pathToFileOrDir}' or any of its parent directories.`);
             }
             if (isNullishOrEmptyString(d)) {
-                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${path}' or any of its parent directories.`);
+                throw new CodeError(`Unable to locate config file '${ConfigFile.basename()}' in directory '${pathToFileOrDir}' or any of its parent directories.`);
             }
         }
     }
