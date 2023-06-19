@@ -13,6 +13,7 @@ import { dockerGetPrivateLocalImageChecksum, dockerImageBuild, dockerImageRemove
  * @param {string} dockerRepository 
  * @param {string} dockerTag 
  * @param {string} dockerRegistryUrl 
+ * @param {string[]} buildArgs 
  * @param {boolean} rebuildDockerImage 
  * @returns {Promise<{ checksum: string, multiaddr: string }>}
  */
@@ -21,6 +22,7 @@ export async function computeDockerChecksumAndMultiaddr(
     dockerRepository, 
     dockerTag, 
     dockerRegistryUrl, 
+    buildArgs,
     rebuildDockerImage) {
     throwIfNullishOrEmptyString(dockerRegistryUrl);
 
@@ -80,7 +82,7 @@ export async function computeDockerChecksumAndMultiaddr(
 
         // Build the local image
         console.log(`Docker: image build '${imgName}'`);
-        if (!await dockerImageBuild(imgName, dockerfileLocation)) {
+        if (!await dockerImageBuild(imgName, dockerfileLocation, buildArgs)) {
             throw new CodeError(`Docker: docker image build failed. dockerfile='${dockerfileLocation}/Dockerfile' image='${imgName}'`);
         }
 

@@ -147,6 +147,8 @@ export class Inventory {
       *      shared: any
       *      chains: any
       *      iexecsdk: any
+      *      teeworkerprecompute: any
+      *      teeworkerpostcompute: any
       * }} configJson
       * @param {?string=} dir 
       */
@@ -258,18 +260,46 @@ export class Inventory {
     }
 
     /**
-     * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk', progress:number, progressTotal:number) => (void))=} callbackfn 
+     * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk' | 'teeworkerprecompute' | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
     async installAll(callbackfn) {
         const install = new InventoryInstall(this._inv);
         return install.installAll(callbackfn);
     }
     /**
+     * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk' | 'teeworkerprecompute' | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installWorkers(callbackfn) {
+        const install = new InventoryInstall(this._inv);
+        return install.installWorkers(1, 1, callbackfn);
+    }
+    /**
+     * @param {((name:string, type: srvTypes.ServiceType | 'sms', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installSms(callbackfn) {
+        const install = new InventoryInstall(this._inv);
+        return install.installSms(1, 1, callbackfn);
+    }
+    /**
      * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
     async installIExecSdk(callbackfn) {
         const install = new InventoryInstall(this._inv);
-        return install.installIExecSdk(callbackfn);
+        return install.installIExecSdk(1, 1, callbackfn);
+    }
+    /**
+     * @param {((name:string, type: srvTypes.ServiceType | 'teeworkerprecompute', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installTeeWorkerPreCompute(callbackfn) {
+        const install = new InventoryInstall(this._inv);
+        return install.installTeeWorkerPreCompute(1, 1, callbackfn);
+    }
+    /**
+     * @param {((name:string, type: srvTypes.ServiceType | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installTeeWorkerPostCompute(callbackfn) {
+        const install = new InventoryInstall(this._inv);
+        return install.installTeeWorkerPostCompute(1, 1, callbackfn);
     }
 
     /**

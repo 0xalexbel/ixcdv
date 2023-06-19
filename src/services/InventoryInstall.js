@@ -1,7 +1,11 @@
 import * as srvTypes from './services-types-internal.js';
 import assert from 'assert';
+import path from 'path';
 import { fromServiceType, InventoryDB } from "./InventoryDB.js";
 import { installPackage } from '../pkgmgr/pkg.js';
+import { fileExists, resolveAbsolutePath, throwIfFileDoesNotExist, toRelativePath } from '../common/fs.js';
+import { computeDockerChecksumAndMultiaddr } from '../contracts/app-generator.js';
+import { removeSuffix, stringIsPOSIXPortable } from '../common/string.js';
 
 export class InventoryInstall {
     /** @type {InventoryDB} */
@@ -15,42 +19,88 @@ export class InventoryInstall {
     }
 
     /**
-     * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk', progress:number, progressTotal:number) => (void))=} callbackfn 
+     * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk' | 'teeworkerprecompute' | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
     async installAll(callbackfn) {
         const ics = [...this._inv];
-        const nInstalls = ics.length + 2;
+        const nInstalls = ics.length + 4;
         for (let i = 0; i < ics.length; ++i) {
             const ic = ics[i];
             assert(ic.type !== 'worker');
-            callbackfn?.(ic.name, ic.type, (i + 1), nInstalls);
-            await this.install(ic.name);
+            //callbackfn?.(ic.name, ic.type, (i + 1), nInstalls);
+            await this.install(ic.name, (i + 1), nInstalls, callbackfn);
         }
-        callbackfn?.('', 'worker', ics.length + 1, nInstalls);
-        await this.installWorkers();
-
-        callbackfn?.('', 'iexecsdk', ics.length + 2, nInstalls);
-        await this.#installIExecSdk();
+        await this.installWorkers(ics.length + 1, nInstalls, callbackfn);
+        await this.installIExecSdk(ics.length + 2, nInstalls, callbackfn);
+        await this.installTeeWorkerPreCompute(ics.length + 3, nInstalls, callbackfn);
+        await this.installTeeWorkerPostCompute(ics.length + 3, nInstalls, callbackfn);
     }
 
     /**
+     * Ex: sms.1337.standard
      * @param {string} name 
+     * @param {number} progress
+     * @param {number} progressTotal
+     * @param {((name:string, type: srvTypes.ServiceType, progress:number, progressTotal:number) => (void))=} callbackfn 
      */
-    async install(name) {
+    async install(name, progress, progressTotal, callbackfn) {
         const ic = this._inv.getConfig(name);
+        callbackfn?.(ic.name, ic.type, progress, progressTotal);
         return this.#installInventoryConfig(ic);
     }
 
-    async installWorkers() {
+    /**
+     * @param {number} progress
+     * @param {number} progressTotal
+     * @param {((name:string, type: srvTypes.ServiceType, progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installSms(progress, progressTotal, callbackfn) {
+        // Must use unsolved !
+        const names = this._inv.getConfigNamesFromType('sms');
+        if (!names || names.length === 0) {
+            return;
+        }
+        for (let i = 0; i < names.length; ++i) {
+            await this.install(names[i], (i+1), names.length, callbackfn);
+        }
+    }
+
+    /**
+     * @param {number} progress
+     * @param {number} progressTotal
+     * @param {((name:string, type: srvTypes.ServiceType | 'worker', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installWorkers(progress, progressTotal, callbackfn) {
+        callbackfn?.('', 'worker', progress, progressTotal);
         return this.#installWorkers();
     }
 
     /**
+     * @param {number} progress
+     * @param {number} progressTotal
      * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
-    async installIExecSdk(callbackfn) {
-        callbackfn?.('', 'iexecsdk', 1, 1);
+    async installIExecSdk(progress, progressTotal, callbackfn) {
+        callbackfn?.('', 'iexecsdk', progress, progressTotal);
         return this.#installIExecSdk();
+    }
+    /**
+     * @param {number} progress
+     * @param {number} progressTotal
+     * @param {((name:string, type: srvTypes.ServiceType | 'teeworkerprecompute', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installTeeWorkerPreCompute(progress, progressTotal, callbackfn) {
+        callbackfn?.('', 'teeworkerprecompute', progress, progressTotal);
+        return this.#installTeeWorkerPreCompute();
+    }
+    /**
+     * @param {number} progress
+     * @param {number} progressTotal
+     * @param {((name:string, type: srvTypes.ServiceType | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installTeeWorkerPostCompute(progress, progressTotal, callbackfn) {
+        callbackfn?.('', 'teeworkerpostcompute', progress, progressTotal);
+        return this.#installTeeWorkerPostCompute();
     }
 
     /**
@@ -70,11 +120,6 @@ export class InventoryInstall {
     }
 
     async #installIExecSdk() {
-        // 1- install package
-        // 2- install chain.json
-        // 3- compile app
-        // 4- compile dataset
-        // 5- generate vscode
         const ic = this._inv.getIExecSdkConfig();
         if (!ic) {
             return;
@@ -82,5 +127,77 @@ export class InventoryInstall {
         const conf = ic.resolved;
         assert(typeof conf.repository !== 'string');
         await installPackage(conf.repository);
+    }
+
+    async #installTeeWorkerPreCompute() {
+        const ic = this._inv.getTeeWorkerPreComputeConfig();
+        if (!ic) {
+            return;
+        }
+        const conf = ic.unsolved;
+        assert(typeof conf.repository !== 'string');
+        await installPackage(conf.repository);
+
+        let appAllJar = path.join(conf.repository.directory, 'build', 'libs', 'app-all.jar');
+        assert(appAllJar);
+        assert(path.isAbsolute(appAllJar));
+        throwIfFileDoesNotExist(appAllJar);
+        appAllJar = resolveAbsolutePath(appAllJar);
+        appAllJar = path.join(
+            toRelativePath(conf.repository.directory, path.dirname(appAllJar)),
+            path.basename(appAllJar));
+
+        const imgName = conf.repository.gitHubRepoName;
+        assert(imgName);
+        assert(conf.repository.commitish);
+        assert(conf.repository.commitish.startsWith('v'));
+        const imgVersion = removeSuffix('v', conf.repository.commitish);
+        // Ex: multiaddr = localhost:5008/tee-worker-pre-compute:v8.0.0
+        const res = await computeDockerChecksumAndMultiaddr(
+            conf.repository.directory,
+            imgName,
+            imgVersion,
+            this._inv.getDockerUrl(),
+            [`jar=${appAllJar}`], /* buildArgs */
+            true
+        );
+        console.log("tee-worker-pre-compute.checksum : " + res.checksum);
+        console.log("tee-worker-pre-compute.multiaddr: " + res.multiaddr);
+    }
+
+    async #installTeeWorkerPostCompute() {
+        const ic = this._inv.getTeeWorkerPostComputeConfig();
+        if (!ic) {
+            return;
+        }
+        const conf = ic.unsolved;
+        assert(typeof conf.repository !== 'string');
+        await installPackage(conf.repository);
+
+        let appAllJar = path.join(conf.repository.directory, 'build', 'libs', 'app-all.jar');
+        assert(appAllJar);
+        assert(path.isAbsolute(appAllJar));
+        throwIfFileDoesNotExist(appAllJar);
+        appAllJar = resolveAbsolutePath(appAllJar);
+        appAllJar = path.join(
+            toRelativePath(conf.repository.directory, path.dirname(appAllJar)),
+            path.basename(appAllJar));
+
+        const imgName = conf.repository.gitHubRepoName;
+        assert(imgName);
+        assert(conf.repository.commitish);
+        assert(conf.repository.commitish.startsWith('v'));
+        const imgVersion = removeSuffix('v', conf.repository.commitish);
+        // Ex: multiaddr = localhost:5008/tee-worker-post-compute:v8.0.0
+        const res = await computeDockerChecksumAndMultiaddr(
+            conf.repository.directory,
+            imgName,
+            imgVersion,
+            this._inv.getDockerUrl(),
+            [`jar=${appAllJar}`], /* buildArgs */
+            true
+        );
+        console.log("tee-worker-post-compute.checksum : " + res.checksum);
+        console.log("tee-worker-post-compute.multiaddr: " + res.multiaddr);
     }
 }

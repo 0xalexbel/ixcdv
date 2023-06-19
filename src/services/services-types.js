@@ -275,5 +275,19 @@ export const toNonWorkerServiceType = t => /** @type {NonWorkerServiceType} */(/
  * }} IExecSdkConfig
  */
 
+/**   
+ * @typedef {{
+ *      type: 'teeworkerprecompute',
+ *      repository: string | types.Package,
+ * }} TeeWorkerPreComputeConfig
+ */
+
+/**   
+ * @typedef {{
+ *      type: 'teeworkerpostcompute',
+ *      repository: string | types.Package,
+ * }} TeeWorkerPostComputeConfig
+ */
+
 // Does nothing but required for TypeScript to import this file.
 export { }

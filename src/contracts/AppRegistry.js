@@ -285,6 +285,7 @@ export class AppRegistry extends Registry {
      *     dockerRepository: string
      *     dockerTag?: string
      *     dockerUrl: string
+     *     mrenclave?: cTypes.MREnclave
      *     rebuildDockerImage?: boolean
      * }} args 
      * @param {types.TxArgsOrWallet} txArgsOrWallet 
@@ -298,6 +299,7 @@ export class AppRegistry extends Registry {
             args.dockerRepository, /* app docker repo */
             args.dockerTag ?? '1.0.0', /* app docker tag */
             args.dockerUrl, /* docker registry url */
+            [], /* buildArgs */
             args.rebuildDockerImage ?? false /* rebuild docker image */
         );
         
@@ -308,7 +310,7 @@ export class AppRegistry extends Registry {
             type: "DOCKER",
             checksum: appMC.checksum,
             multiaddr: appMC.multiaddr,
-            mrenclave: undefined
+            mrenclave: args.mrenclave
         }
 
         return this.newEntry(app, txArgs);

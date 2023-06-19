@@ -1403,6 +1403,8 @@ export class InventoryDB {
         this.#workersRepository = { unsolved: unsolvedPkg, resolved: resolvedPkg };
     }
 
+    /* ------------------------ iexec-sdk ----------------------------------- */
+
     /** @type {srvTypes.InventoryIExecSdkConfig=} */
     #iexecsdkConfig;
     /** @type {string} */
@@ -1469,6 +1471,144 @@ export class InventoryDB {
 
     getIExecSdkConfig() {
         return this.#iexecsdkConfig;
+    }
+
+    /* ---------------------- tee-worker-pre-compute ------------------------ */
+    
+    /** @type {srvTypes.InventoryTeeWorkerPreComputeConfig=} */
+    #teeworkerprecomputeConfig;
+    /** @type {string} */
+    static #teeworkerprecomputeLatestVersion;
+    static async teeWorkerPreComputeLatestVersion() {
+        if (!InventoryDB.#teeworkerprecomputeLatestVersion) {
+            InventoryDB.#teeworkerprecomputeLatestVersion = await getLatestVersion(this.teeWorkerPreComputeDefaultGitUrl);
+        }
+        return InventoryDB.#teeworkerprecomputeLatestVersion;
+    }
+    static get teeWorkerPreComputeDefaultGitUrl() {
+        return 'https://github.com/iExecBlockchainComputing/tee-worker-pre-compute.git';
+    }
+    static get teeWorkerPreComputeGitHubRepoName() {
+        return 'tee-worker-pre-compute';
+    }
+
+    /**
+     * @param {object} args 
+     * @param {srvTypes.TeeWorkerPreComputeConfig} args.config 
+     */
+    async addTeeWorkerPreCompute({ config }) {
+        assert(config);
+        assert(config.repository);
+        assert(config.type === 'teeworkerprecompute');
+
+        const type = config.type;
+
+        const unsolvedPkg = toPackage(config.repository, InventoryDB.teeWorkerPreComputeDefaultGitUrl);
+        if (!unsolvedPkg.gitHubRepoName) {
+            unsolvedPkg.gitHubRepoName = InventoryDB.teeWorkerPreComputeGitHubRepoName;
+        }
+        if (!unsolvedPkg.cloneRepo) {
+            unsolvedPkg.cloneRepo = InventoryDB.teeWorkerPreComputeDefaultGitUrl;
+        }
+        if (!unsolvedPkg.clone) {
+            unsolvedPkg.clone = 'ifmissing';
+        }
+        const resolvedPkg = deepCopyPackage(unsolvedPkg);
+        assert(typeof resolvedPkg !== 'string');
+
+        // Downloads the latest git repo version if needed
+        const gitHubRepo = await getGitHubRepo(
+            resolvedPkg,
+            InventoryDB.teeWorkerPreComputeDefaultGitUrl,
+            InventoryDB.teeWorkerPreComputeGitHubRepoName);
+
+        placeholdersPropertyReplace(
+            resolvedPkg,
+            'directory',
+            {
+                "${version}": gitHubRepo.commitish,
+                "${repoName}": gitHubRepo.gitHubRepoName
+            }
+        );
+
+        this.#teeworkerprecomputeConfig = {
+            type,
+            unsolved: { type, repository: unsolvedPkg },
+            resolved: { type, repository: resolvedPkg },
+        }
+    }
+
+    getTeeWorkerPreComputeConfig() {
+        return this.#teeworkerprecomputeConfig;
+    }
+
+    /* ---------------------- tee-worker-post-compute ----------------------- */
+    
+    /** @type {srvTypes.InventoryTeeWorkerPostComputeConfig=} */
+    #teeworkerpostcomputeConfig;
+    /** @type {string} */
+    static #teeworkerpostcomputeLatestVersion;
+    static async teeWorkerPostComputeLatestVersion() {
+        if (!InventoryDB.#teeworkerpostcomputeLatestVersion) {
+            InventoryDB.#teeworkerpostcomputeLatestVersion = await getLatestVersion(this.teeWorkerPostComputeDefaultGitUrl);
+        }
+        return InventoryDB.#teeworkerpostcomputeLatestVersion;
+    }
+    static get teeWorkerPostComputeDefaultGitUrl() {
+        return 'https://github.com/iExecBlockchainComputing/tee-worker-post-compute.git';
+    }
+    static get teeWorkerPostComputeGitHubRepoName() {
+        return 'tee-worker-post-compute';
+    }
+
+    /**
+     * @param {object} args 
+     * @param {srvTypes.TeeWorkerPostComputeConfig} args.config 
+     */
+    async addTeeWorkerPostCompute({ config }) {
+        assert(config);
+        assert(config.repository);
+        assert(config.type === 'teeworkerpostcompute');
+
+        const type = config.type;
+
+        const unsolvedPkg = toPackage(config.repository, InventoryDB.teeWorkerPostComputeDefaultGitUrl);
+        if (!unsolvedPkg.gitHubRepoName) {
+            unsolvedPkg.gitHubRepoName = InventoryDB.teeWorkerPostComputeGitHubRepoName;
+        }
+        if (!unsolvedPkg.cloneRepo) {
+            unsolvedPkg.cloneRepo = InventoryDB.teeWorkerPostComputeDefaultGitUrl;
+        }
+        if (!unsolvedPkg.clone) {
+            unsolvedPkg.clone = 'ifmissing';
+        }
+        const resolvedPkg = deepCopyPackage(unsolvedPkg);
+        assert(typeof resolvedPkg !== 'string');
+
+        // Downloads the latest git repo version if needed
+        const gitHubRepo = await getGitHubRepo(
+            resolvedPkg,
+            InventoryDB.teeWorkerPostComputeDefaultGitUrl,
+            InventoryDB.teeWorkerPostComputeGitHubRepoName);
+
+        placeholdersPropertyReplace(
+            resolvedPkg,
+            'directory',
+            {
+                "${version}": gitHubRepo.commitish,
+                "${repoName}": gitHubRepo.gitHubRepoName
+            }
+        );
+
+        this.#teeworkerpostcomputeConfig = {
+            type,
+            unsolved: { type, repository: unsolvedPkg },
+            resolved: { type, repository: resolvedPkg },
+        }
+    }
+
+    getTeeWorkerPostComputeConfig() {
+        return this.#teeworkerpostcomputeConfig;
     }
 
     /**

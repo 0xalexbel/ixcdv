@@ -80,6 +80,7 @@ export default class AppInitCmd extends Cmd {
                 appDockerRepo, /* app docker repo */
                 '1.0.0', /* app docker tag */
                 dockerUrl, /* docker registry url */
+                [], /* buildArgs */
                 rebuildDockerImage ?? false /* rebuild docker image */
             );
 

@@ -460,6 +460,12 @@ export class WorkerService extends SpringServerService {
             password: ""
         }
 
+        // TO BE REMOVED
+        // driver-mode = NONE (default)
+        // driver-mode = NATIVE
+        // driver-mode = LEGACY
+        ymlFullConfig.tee.sgx['driver-mode'] = 'NATIVE';
+
         return WorkerService.#newWorkerService({
             ...options,
             ymlConfig: ymlFullConfig,

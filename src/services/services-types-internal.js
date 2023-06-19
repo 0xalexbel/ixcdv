@@ -161,6 +161,22 @@ import * as srvTypes from './services-types.js';
 
 /** 
   * @typedef {{ 
+*      type: 'teeworkerprecompute', 
+*      unsolved: srvTypes.TeeWorkerPreComputeConfig, 
+*      resolved: srvTypes.TeeWorkerPreComputeConfig 
+* }} InventoryTeeWorkerPreComputeConfig
+*/
+
+/** 
+  * @typedef {{ 
+*      type: 'teeworkerpostcompute', 
+*      unsolved: srvTypes.TeeWorkerPostComputeConfig, 
+*      resolved: srvTypes.TeeWorkerPostComputeConfig 
+* }} InventoryTeeWorkerPostComputeConfig
+*/
+
+/** 
+  * @typedef {{ 
   *     resolve: (refLike: string | types.DevContractRefLike) => Promise<{ PoCoHubRef: import('../common/contractref.js').PoCoHubRef, service: import('../poco/GanachePoCoService.js').GanachePoCoService }>
   *     newInstanceFromHost: (host: string) => Promise<any>
   *     newInstanceFromHub: (type: "ganache" | "market" | "sms" | "resultproxy" | "blockchainadapter" | "core", hub: string) => Promise<any>

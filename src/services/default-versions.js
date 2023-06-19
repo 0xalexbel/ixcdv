@@ -5,7 +5,9 @@ export const DEFAULT_VERSIONS = {
     blockchainadapter: "v8.0.1", 
     core: "v8.0.1", 
     worker: "v8.0.0",
-    iexecsdk: "v8.0.0"
+    iexecsdk: "v8.0.0",
+    teeworkerprecompute: "v8.0.0",
+    teeworkerpostcompute: "v8.0.0",
 };
 
 // Previous pre-defined versions:

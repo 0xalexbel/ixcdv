@@ -456,20 +456,34 @@ export async function dockerGetImageID(imageName) {
 /**
  * @param {string} imgTag 
  * @param {string} dockerfileDir 
+ * @param {string[]} buildArgs 
  */
-export async function dockerImageBuild(imgTag, dockerfileDir) {
+export async function dockerImageBuild(imgTag, dockerfileDir, buildArgs) {
     assert(dirExists(dockerfileDir));
     assert(fileExists(dockerfileDir + '/Dockerfile'));
 
-    const out = await dockerProgress(dockerfileDir,
-        [
-            "image",
-            "build",
-            "-t",
-            imgTag,
-            "-f", dockerfileDir + '/Dockerfile',
-            "."
-        ], {});
+    const args = [
+        "image",
+        "build",
+        "-t",
+        imgTag,
+        "-f", dockerfileDir + '/Dockerfile',
+    ];
+    if (buildArgs && buildArgs.length > 0) {
+        for (let i = 0; i < buildArgs.length; ++i) {
+            args.push("--build-arg");
+            args.push(buildArgs[i]);
+        }
+    }
+    args.push(".");
+
+    console.log("===============================================");
+    console.log("BUILD DOCKER IMAGE:");
+    console.log("cwd: " + dockerfileDir);
+    console.log("docker " + args.join(' '));
+    console.log("===============================================");
+
+    const out = await dockerProgress(dockerfileDir, args, {});
 
     return out.ok;
 }

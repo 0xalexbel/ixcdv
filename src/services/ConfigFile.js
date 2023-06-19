@@ -182,8 +182,16 @@ export class ConfigFile {
     /**
      * @param {{
      *      iexecsdk: {
-     *          type: string
+     *          type: 'iexecsdk'
      *          chainsJsonLocation?: string
+     *      }
+     *      teeworkerprecompute: {
+     *          type: 'teeworkerprecompute',
+     *          repository?: string | types.Package
+     *      }
+     *      teeworkerpostcompute: {
+     *          type: 'teeworkerpostcompute',
+     *          repository?: string | types.Package
      *      }
      *      shared: any
      *      default: string
@@ -313,6 +321,34 @@ export class ConfigFile {
         }
 
         await addSortedSharedConfigsToInventory(inventoryDB, sharedTypes);
+
+        /* ---------------------------------- */
+        // tee-worker-pre-compute
+        /* ---------------------------------- */
+        /** @type {any} */
+        const teeworkerprecomputeConf = configJson.teeworkerprecompute;
+        if (teeworkerprecomputeConf) {
+            // turns teeworkerprecomputeConf.repository into a types.Package object
+            ConfigFile.#fillRepository(teeworkerprecomputeConf, theDir);
+            assert(typeof teeworkerprecomputeConf.repository === 'object');
+            teeworkerprecomputeConf.repository.gitHubRepoName = 'tee-worker-pre-compute';
+
+            await inventoryDB.addTeeWorkerPreCompute({ config: teeworkerprecomputeConf })
+        }
+
+        /* ---------------------------------- */
+        // tee-worker-post-compute
+        /* ---------------------------------- */
+        /** @type {any} */
+        const teeworkerpostcomputeConf = configJson.teeworkerpostcompute;
+        if (teeworkerpostcomputeConf) {
+            // turns teeworkerpostcomputeConf.repository into a types.Package object
+            ConfigFile.#fillRepository(teeworkerpostcomputeConf, theDir);
+            assert(typeof teeworkerpostcomputeConf.repository === 'object');
+            teeworkerpostcomputeConf.repository.gitHubRepoName = 'tee-worker-post-compute';
+
+            await inventoryDB.addTeeWorkerPostCompute({ config: teeworkerpostcomputeConf })
+        }
 
         /* ---------------------------------- */
         // iexec-sdk
@@ -1214,13 +1250,17 @@ export async function inventoryToConfigFile(inventory, dir) {
      *      shared: any, 
      *      chains: any
      *      iexecsdk: any
+     *      teeworkerprecompute: any
+     *      teeworkerpostcompute: any
      * }} 
      */
     const conf = {
         default: inventory.defaultChainName,
         shared: {},
         chains: {},
-        iexecsdk: {}
+        iexecsdk: {},
+        teeworkerprecompute: {},
+        teeworkerpostcompute: {}
     }
 
     const ipfsConf = inventory.getIpfsConfig();
@@ -1319,6 +1359,32 @@ export async function inventoryToConfigFile(inventory, dir) {
                         false /* keep unsolved */,
                         dir);
             }
+        }
+    }
+
+    const teeworkerprecomputeIConf = inventory.getTeeWorkerPreComputeConfig();
+    if (teeworkerprecomputeIConf) {
+        // keep unresolved
+        assert(teeworkerprecomputeIConf.type === 'teeworkerprecompute');
+        assert(teeworkerprecomputeIConf.resolved);
+        assert(teeworkerprecomputeIConf.unsolved);
+        assert(teeworkerprecomputeIConf.unsolved.type === 'teeworkerprecompute');
+        conf.teeworkerprecompute = {
+            ...teeworkerprecomputeIConf.unsolved,
+            repository: deepCopyPackage(teeworkerprecomputeIConf.unsolved.repository, dir)
+        }
+    }
+
+    const teeworkerpostcomputeIConf = inventory.getTeeWorkerPostComputeConfig();
+    if (teeworkerpostcomputeIConf) {
+        // keep unresolved
+        assert(teeworkerpostcomputeIConf.type === 'teeworkerpostcompute');
+        assert(teeworkerpostcomputeIConf.resolved);
+        assert(teeworkerpostcomputeIConf.unsolved);
+        assert(teeworkerpostcomputeIConf.unsolved.type === 'teeworkerpostcompute');
+        conf.teeworkerpostcompute = {
+            ...teeworkerpostcomputeIConf.unsolved,
+            repository: deepCopyPackage(teeworkerpostcomputeIConf.unsolved.repository, dir)
         }
     }
 

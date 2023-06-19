@@ -23,7 +23,12 @@ export default class InstallCmd extends Cmd {
         try {
             let type = 'all';
             if (options.type) {
-                if (options.type !== 'iexecsdk' && options.type !== 'all') {
+                if (options.type !== 'iexecsdk' && 
+                    options.type !== 'worker' && 
+                    options.type !== 'sms' && 
+                    options.type !== 'teeworkerprecompute' && 
+                    options.type !== 'teeworkerpostcompute' && 
+                    options.type !== 'all') {
                     throw new CodeError(`Unsupported type option ${options.type}`);
                 }
                 type = options.type;
@@ -57,7 +62,7 @@ export default class InstallCmd extends Cmd {
                 // Version parsing failed. Should adjust function 'checkMinGanacheVersion'
                 throw new CodeError(`Unknown Ganache version : ${checkGanache.version}`);
             }
-            
+
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir);
 
@@ -80,6 +85,22 @@ export default class InstallCmd extends Cmd {
             } else if (type === 'iexecsdk') {
                 await inventory.installIExecSdk((name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install iexec-sdk`);
+                });
+            } else if (type === 'worker') {
+                await inventory.installWorkers((name, type, progress, progressTotal) => {
+                    console.log(`${progress}/${progressTotal} Install workers : ${name}`);
+                });
+            } else if (type === 'sms') {
+                await inventory.installSms((name, type, progress, progressTotal) => {
+                    console.log(`${progress}/${progressTotal} Install sms : ${name}`);
+                });
+            } else if (type === 'teeworkerprecompute') {
+                await inventory.installTeeWorkerPreCompute((name, type, progress, progressTotal) => {
+                    console.log(`${progress}/${progressTotal} Install tee-worker-pre-compute`);
+                });
+            } else if (type === 'teeworkerpostcompute') {
+                await inventory.installTeeWorkerPostCompute((name, type, progress, progressTotal) => {
+                    console.log(`${progress}/${progressTotal} Install tee-worker-post-compute`);
                 });
             }
 

@@ -12,11 +12,12 @@ import { dirExists, fileExists, resolveAbsolutePath, rmrfDir, throwIfDirDoesNotE
 import { toPackage, toPackageDirectory } from '../pkgmgr/pkg.js';
 import { isNullishOrEmptyString, throwIfNullishOrEmptyString } from '../common/string.js';
 import { PoCoHubRef } from '../common/contractref.js';
-import { checkSecret, pushWeb2Secret } from '../common/secrets.js';
+import { checkSecret, checkWeb3Secret, pushWeb2Secret, pushWeb3Secret } from '../common/secrets.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
 import { envVarName, PROD_VAR_PREFIX } from '../common/consts.js';
 
 const SMS_DOMAIN = 'IEXEC_SMS_DOMAIN';
+const SMS_DEFAULT_TEE_PROFILE = 'gramine';
 
 /**
  * @typedef {srvTypes.SpringHubServerServiceConstructorArgs & 
@@ -324,7 +325,8 @@ export class SmsService extends SpringHubServerService {
         const ymlFileLocation = path.join(repoDir, 'src/main/resources');
         const ymlFullConfig = await parseApplicationYmlFile(ymlFileLocation, { merge: ymlConfig });
 
-        const profile = 'scone'; // or 'gramine'
+        /** @type {'scone' | 'gramine'} */
+        const profile = SMS_DEFAULT_TEE_PROFILE; // 'scone' or 'gramine'
         let v7 = false;
         let v8 = false;
 
@@ -378,17 +380,21 @@ export class SmsService extends SpringHubServerService {
                 }
             } else if (profile === 'gramine') {
                 /** @todo not yet implemented */
-                assert(false, 'TODO: not yet implemented');
+                //assert(false, 'TODO: not yet implemented');
             }
 
             if (isNullishOrEmptyString(worker['pre-compute'].image)) {
-                worker['pre-compute'].image = 'dummy-iexec-tee-worker-pre-compute-image:x.y.z';
+                //worker['pre-compute'].image = 'dummy-iexec-tee-worker-pre-compute-image:x.y.z';
+                worker['pre-compute'].image = 'ubuntu:latest';
+                worker['pre-compute'].entrypoint = '/bin/bash';
             }
             if (isNullishOrEmptyString(worker['pre-compute'].fingerprint)) {
                 worker['pre-compute'].fingerprint = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
             }
             if (isNullishOrEmptyString(worker['post-compute'].image)) {
-                worker['post-compute'].image = 'dummy-iexec-tee-worker-post-compute-image:x.y.z';
+                //worker['post-compute'].image = 'dummy-iexec-tee-worker-post-compute-image:x.y.z';
+                worker['post-compute'].image = 'ubuntu:latest';
+                worker['post-compute'].entrypoint = '/bin/bash';
             }
             if (isNullishOrEmptyString(worker['post-compute'].fingerprint)) {
                 worker['post-compute'].fingerprint = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
@@ -404,6 +410,7 @@ export class SmsService extends SpringHubServerService {
         } else {
             // v7
             assert(v7);
+            assert(profile === 'scone');
             const tee = ymlFullConfig['tee.workflow'];
             assert(tee);
             if (tee) {
@@ -594,6 +601,23 @@ export class SmsService extends SpringHubServerService {
     }
 
     /**
+     * @param {string} datasetAddress checksumaddress
+     */
+    async checkDatasetSecret(datasetAddress) {
+        const ok = await this.checkWeb3Secret(datasetAddress);
+        return ok;
+    }
+
+    /**
+     * @param {Wallet} signer
+     * @param {string} datasetAddress 
+     * @param {string} secretValue 
+     */
+    async pushDatasetSecret(signer, datasetAddress, secretValue) {
+        return this.pushWeb3Secret(signer, datasetAddress, secretValue);
+    }
+
+    /**
      * @param {string} ownerAddress checksumaddress
      */
     async checkDropboxSecret(ownerAddress) {
@@ -610,6 +634,14 @@ export class SmsService extends SpringHubServerService {
     }
 
     /**
+     * @param {string} secretAddress checksumaddress
+     */
+    async checkWeb3Secret(secretAddress) {
+        const ok = await checkWeb3Secret(this.url, secretAddress);
+        return ok;
+    }
+
+    /**
      * @param {Wallet} signer 
      * @param {string} secretName 
      * @param {string} secretValue 
@@ -617,5 +649,14 @@ export class SmsService extends SpringHubServerService {
      */
     async pushWeb2Secret(signer, secretName, secretValue, forceUpdate) {
         return pushWeb2Secret(this.url, SMS_DOMAIN, signer, secretName, secretValue, forceUpdate);
+    }
+
+    /**
+     * @param {Wallet} signer 
+     * @param {string} secretAddress 
+     * @param {string} secretValue 
+     */
+    async pushWeb3Secret(signer, secretAddress, secretValue) {
+        return pushWeb3Secret(this.url, SMS_DOMAIN, signer, secretAddress, secretValue);
     }
 }

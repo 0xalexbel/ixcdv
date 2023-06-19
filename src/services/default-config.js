@@ -127,8 +127,20 @@ export const DEFAULT_CONFIG = (
         shared: {},
         default: '',
         chains: {},
+        // Help compiler
+        /** @type {{ type : 'iexecsdk' }} */
         iexecsdk: {
             type: "iexecsdk"
+        },
+        // Help compiler
+        /** @type {{ type : 'teeworkerprecompute' }} */
+        teeworkerprecompute: {
+            type: "teeworkerprecompute"
+        },
+        // Help compiler
+        /** @type {{ type : 'teeworkerpostcompute' }} */
+        teeworkerpostcompute: {
+            type: "teeworkerpostcompute"
         }
     };
 

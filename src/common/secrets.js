@@ -35,18 +35,52 @@ export async function checkSecret(url, ownerAddress, secretName) {
 }
 
 /**
- * 
+ * @param {URL} url
+ * @param {types.checksumaddress} secretAddress
+ */
+export async function checkWeb3Secret(url, secretAddress) {
+    secretAddress = toChecksumAddress(secretAddress);
+
+    //"${url}/secrets/web3?secretAddress=${secret_addr}"
+    const u = new URL(
+        '/secrets/web3?secretAddress=' + secretAddress,
+        url);
+
+    const statusCode = await httpHEAD(u);
+    if (statusCode == 204) {
+        return true;
+    }
+    if (statusCode == 404) {
+        return false;
+    }
+
+    throw new CodeError('Check secret failed');
+}
+
+/**
  * @param {string} domain 
  * @param {types.checksumaddress} ownerAddress 
  * @param {string} secretKey 
  * @param {string} secretValue 
- * @returns 
  */
 function genChallengeForSetWeb2Secret(domain, ownerAddress, secretKey, secretValue) {
     return arrayifyConcatAndHash(
         keccak256(Buffer.from(domain, 'utf8')),
         ownerAddress,
         keccak256(Buffer.from(secretKey, 'utf8')),
+        keccak256(Buffer.from(secretValue, 'utf8')),
+    );
+}
+
+/**
+ * @param {string} domain 
+ * @param {types.checksumaddress} secretAddress 
+ * @param {string} secretValue 
+ */
+function genChallengeForSetWeb3Secret(domain, secretAddress, secretValue) {
+    return arrayifyConcatAndHash(
+        keccak256(Buffer.from(domain, 'utf8')),
+        secretAddress,
         keccak256(Buffer.from(secretValue, 'utf8')),
     );
 }
@@ -109,3 +143,60 @@ export async function pushWeb2Secret(url, domain, signer, secretName, secretValu
 
     return { isPushed: true, isUpdated: exists };
 }
+
+/**
+ * @param {URL} url 
+ * @param {string} domain 
+ * @param {Wallet} signer 
+ * @param {types.checksumaddress} secretAddress 
+ * @param {string} secretValue 
+ */
+export async function pushWeb3Secret(url, domain, signer, secretAddress, secretValue) {
+    if (signer == null || !(signer instanceof Wallet)) {
+        throw new CodeError('Invalid signer');
+    }
+    if (isNullishOrEmptyString(domain)) {
+        throw new CodeError('Invalid domain string');
+    }
+    if (isNullishOrEmptyString(secretAddress)) {
+        throw new CodeError('Invalid secret address');
+    }
+    if (isNullishOrEmptyString(secretValue)) {
+        throw new CodeError('Invalid secret value');
+    }
+    const theSecretAddress = toChecksumAddress(secretAddress);
+    const signerAddress = toChecksumAddress(await signer.getAddress());
+
+    const challenge = genChallengeForSetWeb3Secret(
+        domain,
+        theSecretAddress,
+        secretValue
+    );
+
+    const binaryChallenge = arrayify(challenge);
+    const authorization = await signer.signMessage(binaryChallenge);
+
+    const path = '/secrets/web3?secretAddress=' + theSecretAddress;
+    const headers = { Authorization: authorization };
+    const body = secretValue;
+
+    let response = null;
+    try {
+        response = await httpPOST(url, path, headers, body);
+    } catch (err) {
+        if (err instanceof CodeError) {
+            if (err.code === '409') {
+                throw Error(`Secret already exists for ${theSecretAddress} and can't be updated`);
+            }
+            if (err.code === '401') {
+                throw Error(`Wallet ${signerAddress} is not allowed to set secret for ${theSecretAddress}`);
+            }
+            throw Error(`SMS answered with unexpected status: ${err.code}`)
+        }
+        throw Error(`Server at ${url.toString()} didn't answered`);
+    }
+
+    return { isPushed: true, isUpdated: false };
+}
+
+  

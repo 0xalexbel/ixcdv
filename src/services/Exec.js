@@ -27,6 +27,7 @@ import { Deal } from '../contracts/Deal.js';
         appDir: string,
         appName: string,
         appOrderSalt?: string,
+        appMREnclave?: cTypes.MREnclave,
         datasetWallet?: Wallet,
         datasetFile?: string,
         datasetName?: string,
@@ -55,6 +56,7 @@ export async function runIexecApp(inventory, args) {
     const appName = args.appName;
     const appRebuildImage = true;
     const appSalt = args.appOrderSalt ?? salt1;
+    const appMREnclave = args.appMREnclave;
 
     const datasetFile = args.datasetFile;
     const datasetSalt = (args.datasetFile) ? (args.datasetOrderSalt ?? salt1) : null;
@@ -156,6 +158,7 @@ export async function runIexecApp(inventory, args) {
             dockerRepository: appName,
             dockerTag: '1.0.0',
             dockerUrl,
+            mrenclave: appMREnclave,
             rebuildDockerImage: appRebuildImage
         },
         appWallet);
@@ -164,9 +167,15 @@ export async function runIexecApp(inventory, args) {
         throw new CodeError(`Failed to add app to hub's app registry. (${appDir})`);
     }
 
+    const isTee = (appMREnclave) ? true : false;
+
+    /** @type {cTypes.tag} */
+    const tag = (isTee) ? ["tee"] : [];
+
     // Create an infinite appOrder
     const appOrder = await hubContract.newAppOrder({
         app: newApp,
+        tag,
         volume: 1000000 //infinite
     });
 
@@ -189,8 +198,24 @@ export async function runIexecApp(inventory, args) {
             throw new CodeError(`Failed to add dataset to hub's dataset registry. (${datasetFile})`);
         }
 
+        if (isTee) {
+            // In Tee mode only
+            const datasetEncryptionKey = "0x123456789";
+            assert(newDataset.address);
+            const ok = await sms.checkDatasetSecret(newDataset.address);
+            if (!ok) {
+                // Must compute the dataset encryption key
+                const { isPushed, isUpdated } = await sms.pushDatasetSecret(
+                    datasetWallet, 
+                    newDataset.address, 
+                    datasetEncryptionKey);
+                assert(isPushed);
+            }
+        }
+
         datasetOrder = await hubContract.newDatasetOrder({
             dataset: newDataset,
+            tag,
             volume: 1000000 //infinite
         });
     }
@@ -199,6 +224,7 @@ export async function runIexecApp(inventory, args) {
     const workerpoolOrder = await hubContract.newWorkerpoolOrder({
         workerpool: workerpoolAddress,
         trust: workerpoolTrust,
+        tag,
         volume: 1 //default
     });
     const workerpoolSalt = genRandomSalt();
@@ -210,6 +236,7 @@ export async function runIexecApp(inventory, args) {
         workerpool: workerpoolOrder.workerpool,
         requester: requesterWallet.address,
         volume: 1,
+        tag,
         trust: requestTrust,
         params: {
             //"iexec_args": "",

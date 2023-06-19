@@ -13,6 +13,7 @@ import { downloadAndUnzipZipFile } from '../../common/zip.js';
 import { Task } from '../../contracts/Task.js';
 import { dockerAppName } from '../../common/consts.js';
 import { isNullishOrEmptyString } from '../../common/string.js';
+import * as cTypes from '../../contracts/contracts-types-internal.js';
 
 export default class TestCmd extends Cmd {
 
@@ -94,6 +95,19 @@ export default class TestCmd extends Cmd {
             /*                                                                */
             /* -------------------------------------------------------------- */
 
+            
+            /** @type {cTypes.MREnclave=} */
+            const appMREnclave = undefined;
+            // const appMREnclave = {
+            //     provider: "GRAMINE",
+            //     //framework: "GRAMINE",
+            //     entrypoint: "python /app/app.py",
+            //     version: "v5",
+            //     heapSize: 1073741824,
+            //     //./graphene-sgx-get-token --sig ../../entrypoint.sig
+            //     fingerprint: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+            // };
+
             const outRun = await runIexecApp(inventory, {
                 hub: hubAlias,
                 trust: 1,
@@ -101,6 +115,7 @@ export default class TestCmd extends Cmd {
                 inputFiles,
                 appDir,
                 appName,
+                appMREnclave,
                 datasetName: options.datasetName,
                 datasetFile,
             });
