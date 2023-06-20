@@ -235,6 +235,7 @@ export class Inventory {
      *      chainid?: number | string
      *      type?: srvTypes.NonWorkerServiceType,
      *      onlyDependencies?: boolean
+     *      noDependencies?: boolean
      *      types?: srvTypes.OptionalServiceTypes<boolean>
      *      progressCb?: types.progressCallback
      * }} options 

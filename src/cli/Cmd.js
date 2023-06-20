@@ -17,6 +17,10 @@ export class Cmd {
      * @param {any} error 
      */
     exit(commandOptions, error) {
+        if (!error) {
+            process.exit(0);
+        }
+        
         if (this.#debugMode) {
             console.error(error.stack);
         }

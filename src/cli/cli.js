@@ -385,6 +385,7 @@ cmd.description('Starts a new Market service.')
 cmd = startCmd.command('sms');
 addChainAndHubOptions(cmd);
 cmd.description('Starts a new Sms service.')
+    .option('--no-dependencies', "Do not start any service dependency")
     .action((options) => {
         execCmd('start', 'sms', options);
     });

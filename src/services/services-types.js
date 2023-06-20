@@ -244,6 +244,7 @@ export const toNonWorkerServiceType = t => /** @type {NonWorkerServiceType} */(/
  *      coreUrl?: string
  *      dockerHost: string
  *      walletIndex: number
+ *      sgxDriverMode: 'none' | 'native' | 'legacy'
  * }} WorkerConfig
  */
 

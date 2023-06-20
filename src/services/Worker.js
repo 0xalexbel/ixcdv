@@ -374,6 +374,7 @@ export class WorkerService extends SpringServerService {
      *      directory: string,
      *      coreUrl?: string,
      *      dockerHost?: string,
+     *      sgxDriverMode?: 'none' | 'native' | 'legacy'
      * }} params
      * @param {srvTypes.InventoryLike=} inventory
      */
@@ -400,7 +401,7 @@ export class WorkerService extends SpringServerService {
         // cleanup paths
         repoDir = resolveAbsolutePath(repoDir);
         springConfigLocation = resolveAbsolutePath(springConfigLocation);
-        
+
         throwIfDirDoesNotExist(repoDir);
 
         if (inventory) {
@@ -460,11 +461,20 @@ export class WorkerService extends SpringServerService {
             password: ""
         }
 
-        // TO BE REMOVED
         // driver-mode = NONE (default)
         // driver-mode = NATIVE
         // driver-mode = LEGACY
-        ymlFullConfig.tee.sgx['driver-mode'] = 'NATIVE';
+        // ymlFullConfig.tee.sgx['driver-mode'] = 'NATIVE';
+        if (!options.sgxDriverMode) {
+            ymlFullConfig.tee.sgx['driver-mode'] = 'NONE';
+        } else {
+            if (options.sgxDriverMode !== 'none' &&
+                options.sgxDriverMode !== 'legacy' &&
+                options.sgxDriverMode !== 'native') {
+                throw new CodeError(`Invalid sgxDriverMode '${options.sgxDriverMode}', expecting 'none' | 'legacy' | 'native'`);
+            }
+            ymlFullConfig.tee.sgx['driver-mode'] = options.sgxDriverMode.toUpperCase();
+        }
 
         return WorkerService.#newWorkerService({
             ...options,

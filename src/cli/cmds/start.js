@@ -28,6 +28,10 @@ export default class StartCmd extends Cmd {
      */
     async cliExec(cliDir, serviceType, options) {
         try {
+            if (options.dependencies === false) {
+                delete options.dependencies;
+                options.noDependencies = true;
+            }
             const configDir = this.resolveConfigDir(cliDir);
             this.exitIfNoConfig(configDir);
             // Load inventory from config json file

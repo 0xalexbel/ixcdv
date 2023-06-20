@@ -150,6 +150,7 @@ export class InventoryRun {
      *      hub?: string,
      *      type?: srvTypes.NonWorkerServiceType | 'iexecsdk',
      *      onlyDependencies?: boolean
+     *      noDependencies?: boolean
      *      types?: srvTypes.OptionalServiceTypes<boolean>
      *      progressCb?: types.progressCallback
      * }} options  
@@ -183,18 +184,29 @@ export class InventoryRun {
         const name = ic.name;
 
         const onlyDependencies = (options?.onlyDependencies === true);
-        const dependencies = this._inv.dependencies(name);
+        const noDependencies = (options?.noDependencies === true);
+        if (onlyDependencies && noDependencies) {
+            throw new CodeError('Conflicting options (onlyDependencies & noDependencies)');
+        }
+
         const allResults = [];
-        for (let i = 0; i < ORDERED_SERVICE_TYPE_GROUPS.length; ++i) {
-            // exclude 'name' if --only-dependencies
-            const excludeConfigName = (onlyDependencies) ? name : null;
-            // groups are sequential, NOT parallel
-            const result = await this.#startNamesFromNonWorkerTypes(
-                ORDERED_SERVICE_TYPE_GROUPS[i],
-                dependencies,
-                excludeConfigName,
-                options);
-            allResults.push(...result);
+
+        if (!noDependencies) {
+            const dependencies = this._inv.dependencies(name);
+            for (let i = 0; i < ORDERED_SERVICE_TYPE_GROUPS.length; ++i) {
+                // exclude 'name' if --only-dependencies
+                const excludeConfigName = (onlyDependencies) ? name : null;
+                // groups are sequential, NOT parallel
+                const result = await this.#startNamesFromNonWorkerTypes(
+                    ORDERED_SERVICE_TYPE_GROUPS[i],
+                    dependencies,
+                    excludeConfigName,
+                    options);
+                allResults.push(...result);
+            }
+        } else {
+            const res = await this.#startByName(name, options);
+            allResults.push(res);
         }
 
         if (onlyDependencies) {
