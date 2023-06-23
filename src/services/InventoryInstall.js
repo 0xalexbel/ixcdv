@@ -141,7 +141,7 @@ export class InventoryInstall {
             await ssh.ixcdv(
                 machine.sshConfig,
                 machine.ixcdvWorkspaceDirectory,
-                ["install", "--type", ic.type]);
+                ["install", "--name", ic.name]);
         }
     }
 
