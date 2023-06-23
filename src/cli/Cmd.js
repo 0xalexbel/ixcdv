@@ -70,8 +70,17 @@ export class Cmd {
     /**
      * @param {string} dir 
      */
-    exitIfNoConfig(dir) {
+    hasConfig(dir) {
         if (!fileExistsInDir(dir, ConfigFile.basename())) {
+            return false;
+        }
+        return true;
+    }
+    /**
+     * @param {string} dir 
+     */
+    exitIfNoConfig(dir) {
+        if (!this.hasConfig(dir)) {
             throw new CodeError(`Config file '${dir}/${ConfigFile.basename()}' does not exist. Call '${PROD_BIN} init' to create a new default '${ConfigFile.basename()}'`);
         }
     }

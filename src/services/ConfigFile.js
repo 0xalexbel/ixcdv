@@ -356,8 +356,8 @@ export class ConfigFile {
                 if (machineConfig.type === 'qemu') {
                     const machine = new QemuMachine(theDir, machineConfig);
                     allMachines.push(machine);
-                    if (machine.sshConfig.host) {
-                        globalPlaceholders["${" + machineName + "}"] = machine.sshConfig.host;
+                    if (!globalPlaceholders["${" + machineName + "}"]) {
+                        throw new CodeError(`Missing machine host variable \${${machineName}}`);
                     }
                 }
             }

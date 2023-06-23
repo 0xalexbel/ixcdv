@@ -166,8 +166,10 @@ export class MongoService extends ServerService {
         throwIfDirDoesNotExist(mongoDir);
         assert(mongoDir);
 
+        const hostname = this.hostname ?? 'localhost';
+
         const args = [
-            "--bind_ip", "localhost",
+            "--bind_ip", hostname,
             "--port", p.toString(),
             "--ipv6",
             "--dbpath", mongoDir

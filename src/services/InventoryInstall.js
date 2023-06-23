@@ -3,9 +3,9 @@ import assert from 'assert';
 import path from 'path';
 import { fromServiceType, InventoryDB } from "./InventoryDB.js";
 import { installPackage } from '../pkgmgr/pkg.js';
-import { fileExists, resolveAbsolutePath, throwIfFileDoesNotExist, toRelativePath } from '../common/fs.js';
+import { resolveAbsolutePath, throwIfFileDoesNotExist, toRelativePath } from '../common/fs.js';
 import { computeDockerChecksumAndMultiaddr } from '../contracts/app-generator.js';
-import { removeSuffix, stringIsPOSIXPortable } from '../common/string.js';
+import { removeSuffix } from '../common/string.js';
 import { CodeError } from '../common/error.js';
 import * as ssh from '../common/ssh.js';
 
@@ -137,6 +137,32 @@ export class InventoryInstall {
             const machine = this._inv.getConfigRunningMachine(ic);
             if (!machine) {
                 throw new CodeError(`No machine availabled for config ${ic.name}`);
+            }
+
+            // must copy shared/db/ganache.1337/ixcdv-ganache-poco-config.json
+            // if needed
+            assert(machine.sshConfig.username);
+            const remoteGanacheAddr = path.join(
+                '/home',
+                machine.sshConfig.username,
+                machine.ixcdvWorkspaceDirectory,
+                'shared/db/ganache.1337/ixcdv-ganache-poco-config.json');
+
+            //@ts-ignore
+            assert(ic.type === 'sms' || ic.type === 'worker');
+            const ganacheConf = this._inv.getGanacheConfigFromHubAlias(ic.resolved.hub);
+            assert(ganacheConf);
+
+            if (!(await ssh.exists(machine.sshConfig, remoteGanacheAddr)).exists) {
+                await ssh.mkDirP(machine.sshConfig, path.dirname(remoteGanacheAddr));
+                //./shared/db/ganache.1337/ixcdv-ganache-poco-config.json
+                await ssh.scp(machine.sshConfig,
+                    path.join(machine.rootDir, `shared/db/ganache.${ganacheConf.resolved.config.chainid}/ixcdv-ganache-poco-config.json`),
+                    path.dirname(remoteGanacheAddr));
+                //./shared/db/ganache.1337/DBUUID
+                await ssh.scp(machine.sshConfig,
+                    path.join(machine.rootDir, `shared/db/ganache.${ganacheConf.resolved.config.chainid}/DBUUID`),
+                    path.dirname(remoteGanacheAddr));
             }
             await ssh.ixcdv(
                 machine.sshConfig,

@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import { CodeError } from './error.js';
 import { PROD_DBSIG_BASENAME } from './consts.js';
 import { isNullishOrEmptyString, throwIfNullishOrEmptyString } from './string.js';
-import { dirIsEmptySync, fileExists, mkDirP, parentDirExists, readFileSync, readObjectFromJSONFile, resolveAbsolutePath, saveToFileSync, throwIfDirAlreadyExists, throwIfDirDoesNotExist, throwIfParentDirDoesNotExist } from './fs.js';
+import { dirExists, dirIsEmptySync, fileExists, mkDirP, parentDirExists, readFileSync, readObjectFromJSONFile, resolveAbsolutePath, saveToFileSync, throwIfDirAlreadyExists, throwIfDirDoesNotExist, throwIfParentDirDoesNotExist } from './fs.js';
 
 const DBUUID_BASENAME = 'DBUUID';
 
@@ -85,10 +85,18 @@ export class DBDirectory {
         return this.#DBUUID;
     }
     get DBDir() {
+        // remote
+        if (!this.#DBUUID) {
+            return undefined;
+        }
         assert(this.#DBUUID);
         return path.join(this.#directory, this.#DBUUID);
     }
     get DBFileNoExt() {
+        // remote
+        if (!this.DBDir) {
+            return undefined;
+        }
         assert(this.#dbFilename);
         return path.join(this.DBDir, this.#dbFilename);
     }
@@ -411,67 +419,73 @@ export class DBDirectory {
         throwIfNullishOrEmptyString(directory);
 
         directory = resolveAbsolutePath(directory);
-        throwIfDirDoesNotExist(directory);
+        const remote = !dirExists(directory);
+        if (!remote) {
+            throwIfDirDoesNotExist(directory);
+        }
 
         const DBUUIDFile = DBDirectory.#getDBUUIDFile(directory);
-        if (!fileExists(DBUUIDFile)) {
+        if (!fileExists(DBUUIDFile) && !remote) {
             throw new CodeError(`Invalid ${type} directory. DBUUID file '${DBUUIDFile}' does not exist`, ERROR_CODES.DBDIR_ERROR);
         }
 
         const DBUUID = DBDirectory.#readDBUUID(directory);
-        if (isNullishOrEmptyString(DBUUID)) {
+        if (isNullishOrEmptyString(DBUUID) && !remote) {
             throw new CodeError(`Invalid ${type} directory. Invalid DBUUID file '${DBUUIDFile}'`, ERROR_CODES.DBDIR_ERROR);
-        }
-        assert(DBUUID);
-
-        const dbDir = DBDirectory.#computeDBDir(directory, DBUUID);
-        assert(dbDir);
-
-        // is it a valid db directory ?
-        if (!this.#isValidDBDir(type, dbDir, filename)) {
-            throw new CodeError(`Invalid ${type} db directory`, ERROR_CODES.DBDIR_ERROR);
         }
 
         /** @type {types.DBSignatureDict=} */
         let signatureDict;
 
-        const sigFile = DBDirectory.#getSignatureFile(directory);
-        if (fileExists(sigFile)) {
-            /** @type {types.DBSignatureDict} */
-            const loadedSignatureDict = await readObjectFromJSONFile(
-                sigFile,
-                { strict: true });
-            assert(loadedSignatureDict);
+        if (!remote) {
+            assert(DBUUID);
 
-            if (requestedDBSignature) {
-                /** @type {types.DBSignatureItem} */
-                const reqSig = {
-                    serviceType: requestedDBSignature.serviceType,
-                    signature: requestedDBSignature.signature
-                };
+            const dbDir = DBDirectory.#computeDBDir(directory, DBUUID);
+            assert(dbDir);
 
-                const loadedSig = loadedSignatureDict[requestedDBSignature.name];
-                if (loadedSig) {
-                    if (!isDeepStrictEqual(reqSig, loadedSig)) {
-                        throw new CodeError(
-                            `Incompatible ${type} db directory '${directory}' (signature mismatch)`,
-                            ERROR_CODES.SIGNATURE_CONFLICT_ERROR);
-                    }
-                } else {
-                    loadedSignatureDict[requestedDBSignature.name] = reqSig;
-                    DBDirectory.#saveSignatureDictSync(directory, loadedSignatureDict);
-                }
+            // is it a valid db directory ?
+            if (!this.#isValidDBDir(type, dbDir, filename)) {
+                throw new CodeError(`Invalid ${type} db directory`, ERROR_CODES.DBDIR_ERROR);
             }
-            signatureDict = loadedSignatureDict;
-        } else {
-            if (requestedDBSignature) {
-                signatureDict = {
-                    [requestedDBSignature.name]: {
+
+            const sigFile = DBDirectory.#getSignatureFile(directory);
+            if (fileExists(sigFile)) {
+                /** @type {types.DBSignatureDict} */
+                const loadedSignatureDict = await readObjectFromJSONFile(
+                    sigFile,
+                    { strict: true });
+                assert(loadedSignatureDict);
+
+                if (requestedDBSignature) {
+                    /** @type {types.DBSignatureItem} */
+                    const reqSig = {
                         serviceType: requestedDBSignature.serviceType,
                         signature: requestedDBSignature.signature
+                    };
+
+                    const loadedSig = loadedSignatureDict[requestedDBSignature.name];
+                    if (loadedSig) {
+                        if (!isDeepStrictEqual(reqSig, loadedSig)) {
+                            throw new CodeError(
+                                `Incompatible ${type} db directory '${directory}' (signature mismatch)`,
+                                ERROR_CODES.SIGNATURE_CONFLICT_ERROR);
+                        }
+                    } else {
+                        loadedSignatureDict[requestedDBSignature.name] = reqSig;
+                        DBDirectory.#saveSignatureDictSync(directory, loadedSignatureDict);
                     }
                 }
-                DBDirectory.#saveSignatureDictSync(directory, signatureDict);
+                signatureDict = loadedSignatureDict;
+            } else {
+                if (requestedDBSignature) {
+                    signatureDict = {
+                        [requestedDBSignature.name]: {
+                            serviceType: requestedDBSignature.serviceType,
+                            signature: requestedDBSignature.signature
+                        }
+                    }
+                    DBDirectory.#saveSignatureDictSync(directory, signatureDict);
+                }
             }
         }
 
@@ -492,7 +506,7 @@ export class DBDirectory {
                 });
             }
             o.#signatureDict = signatureDict;
-            o.#DBUUID = DBUUID;
+            o.#DBUUID = DBUUID ?? undefined;
         } catch (err) {
             DBDirectory.#guardConstructing = false;
             throw err;

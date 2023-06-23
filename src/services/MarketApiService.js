@@ -250,6 +250,7 @@ export class MarketApiService extends ServerService {
         env['MONGO_HOST'] = this.#mongoHost;
         env['REDIS_HOST'] = this.#redisHost;
         env['PORT'] = this.port.toString();
+        env['IXCDV_HOSTNAME'] = this.hostname;
 
         let chains = '';
         for (let i = 0; i < this.#chains.length; ++i) {
@@ -456,6 +457,7 @@ export class MarketApiService extends ServerService {
 
             const apiService = newMarketApiService({
                 port: pidInfo.port,
+                hostname: pidInfo.hostname,
                 repository: cwd,
                 mongoHost: pidInfo.mongoHost,
                 redisHost: pidInfo.redisHost,
@@ -766,7 +768,7 @@ export class MarketApiService extends ServerService {
      * @param {string} str 
      */
     static parseEnvVars(str) {
-        const varNames = ['PORT', 'MONGO_HOST', 'REDIS_HOST'];
+        const varNames = ['IXCDV_HOSTNAME', 'PORT', 'MONGO_HOST', 'REDIS_HOST'];
         /** @type {Object.<string, string>} */
         const o = {};
         for (let k = 0; k < varNames.length; ++k) {
@@ -793,6 +795,7 @@ export class MarketApiService extends ServerService {
         assert(port);
         return {
             port: port,
+            hostname: o['IXCDV_HOSTNAME'],
             mongoHost: mongoHost,
             redisHost: o['REDIS_HOST'],
             chains: MarketApiService.envVarsToChains(str)

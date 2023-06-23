@@ -172,6 +172,7 @@ export class InventoryDB {
 
     get globalPlaceholders() { return this.#globalPlaceholders; }
     get allMachines() { return this.#allMachines; }
+    get allMachinesArray() { return Array.from(this.#allMachines.values()); }
 
     /**
      * @param {string} name 
@@ -437,6 +438,9 @@ export class InventoryDB {
         // Must be resolved
         assert(ipfsConfig.hostname);
         return { hostname: ipfsConfig.hostname, port: ipfsConfig.apiPort };
+    }
+    getIpfsApiUrl() {
+        return "http://" + hostnamePortToString(this.getIpfsApiHost(), undefined);
     }
 
     /**
@@ -750,6 +754,38 @@ export class InventoryDB {
         return (configMachine === localMachine);
     }
 
+    isMaster() {
+        const localMachine = this.getLocalRunningMachineName();
+        return (localMachine === 'master');
+    }
+
+    /**
+     * @param {boolean} kill 
+     */
+    async remoteStopAll(kill) {
+        // stop any other running services on remote machines as well
+        if (this.isMaster()) {
+            const allMachines = this.allMachinesArray;
+            for (let i = 0; i < allMachines.length; ++i) {
+                const machine = allMachines[i];
+                if (kill) {
+                    await machine.ixcdvKillAll();
+                } else {
+                    await machine.ixcdvStopAll();
+                }
+            }
+        }
+    }
+
+    /**
+     * Determine if a given config must be runned locally or remotely
+     * @param {string} name 
+     */
+    isConfigNameRunningLocally(name) {
+        const ic = this.getConfig(name);
+        return this.isConfigRunningLocally(ic);
+    }
+
     /**
      * Returns the name of the machine where the config must run
      * @param {srvTypes.InventoryNonWorkerConfig} ic 
@@ -769,6 +805,15 @@ export class InventoryDB {
         assert(unsolvedHostname.endsWith('}'));
 
         return removePrefix("${", removeSuffix("}", unsolvedHostname));
+    }
+
+    /**
+     * Returns the name of the machine where the config must run
+     * @param {string} name 
+     */
+    getConfigNameRunningMachine(name) {
+        const ic = this.getConfig(name);
+        return this.getConfigRunningMachine(ic);
     }
 
     /**
@@ -1480,21 +1525,19 @@ export class InventoryDB {
      * @param {{[varname:string]: string}} placeholders
      */
     async resolveAndAddBlockchainAdapter({ name, config, mongoConfig }, placeholders) {
-        // assert(config.marketApiUrl);
-        // assert(config.marketApiUrl.startsWith('http'));
-
         const confName = await this.#resolveAndAddHubService({ name, config, mongoConfig }, placeholders);
 
-        // Make sure marketApiUrl is valid (if needed)
+        // Need to resolve market api url
         const ic = this.getConfig(confName);
         const resolved = ic.resolved;
         assert(resolved.type === 'blockchainadapter');
-        if (resolved.marketApiUrl) {
-            const marketName = this.configNameFromHost(resolved.marketApiUrl);
-            if (!marketName) {
-                throw new CodeError(`Unknown market api host ${resolved.marketApiUrl}`);
-            }
+
+        const resolvedMarketApiUrl = this.getMarketApiUrlFromHubAlias(resolved.hub);
+        if (!resolvedMarketApiUrl) {
+            throw new CodeError(`Unable to retrieve market api url from hub ${resolved.hub}`);
         }
+
+        resolved.marketApiUrl = resolvedMarketApiUrl;
 
         return confName;
     }
@@ -1507,75 +1550,35 @@ export class InventoryDB {
      * @param {{[varname:string]: string}} placeholders
      */
     async resolveAndAddCore({ name, config, mongoConfig }, placeholders) {
-        // if (isNullishOrEmptyString(config.blockchainAdapterUrl)) {
-        //     throw new CodeError('Missing blockchain adapter url');
-        // }
-        // if (isNullishOrEmptyString(config.smsUrl)) {
-        //     throw new CodeError('Missing sms url');
-        // }
-        // if (isNullishOrEmptyString(config.resultProxyUrl)) {
-        //     throw new CodeError('Missing result proxy url');
-        // }
-        // if (isNullishOrEmptyString(config.ipfsHost)) {
-        //     throw new CodeError('Missing ipfs host');
-        // }
-
-        // assert(config.ipfsHost);
-        // assert(config.smsUrl);
-        // assert(config.resultProxyUrl);
-        // assert(config.blockchainAdapterUrl);
-
-        // const ipfsName = this.configNameFromHost(config.ipfsHost);
-        // const resultProxyName = this.configNameFromHost(config.resultProxyUrl);
-        // const blockchainAdapterName = this.configNameFromHost(config.blockchainAdapterUrl);
-        // const smsName = this.configNameFromHost(config.smsUrl);
-
-        // if (!ipfsName) {
-        //     throw new CodeError(`Missing ipfs host '${config.ipfsHost}'`);
-        // }
-        // if (!blockchainAdapterName) {
-        //     throw new CodeError(`Missing blockchain adapter url '${config.blockchainAdapterUrl}'`);
-        // }
-        // if (!smsName) {
-        //     throw new CodeError(`Missing sms url '${config.smsUrl}'`);
-        // }
-        // if (!resultProxyName) {
-        //     throw new CodeError(`Missing result proxy url '${config.resultProxyUrl}'`);
-        // }
-
         const confName = await this.#resolveAndAddHubService({ name, config, mongoConfig }, placeholders);
 
         const ic = this.getConfig(confName);
         const resolved = ic.resolved;
         assert(resolved.type === 'core');
 
-        if (resolved.ipfsHost) {
-            const ipfsName = this.configNameFromHost(resolved.ipfsHost);
-            if (!ipfsName) {
-                throw new CodeError(`Missing ipfs host '${resolved.ipfsHost}'`);
-            }
+        const resolvedIpfsHost = this.getIpfsApiHost();
+        if (!resolvedIpfsHost) {
+            throw new CodeError(`Missing ipfs api host`);
         }
+        resolved.ipfsHost = hostnamePortToString(resolvedIpfsHost, undefined);
 
-        if (resolved.resultProxyUrl) {
-            const resultProxyName = this.configNameFromHost(resolved.resultProxyUrl);
-            if (!resultProxyName) {
-                throw new CodeError(`Missing result proxy url '${resolved.resultProxyUrl}'`);
-            }
+        const resolvedResultProxyUrl = this.getHubServiceUrl('resultproxy', resolved.hub);
+        if (!resolvedResultProxyUrl) {
+            throw new CodeError(`Missing result proxy url in hub '${resolved.hub}'`);
         }
+        resolved.resultProxyUrl = resolvedResultProxyUrl;
+    
+        const resolvedBlockchainAdapterUrl = this.getHubServiceUrl('blockchainadapter', resolved.hub);
+        if (!resolvedBlockchainAdapterUrl) {
+            throw new CodeError(`Missing blockchain adapter url in hub '${resolved.hub}'`);
+        }
+        resolved.blockchainAdapterUrl = resolvedBlockchainAdapterUrl;
 
-        if (resolved.blockchainAdapterUrl) {
-            const blockchainAdapterName = this.configNameFromHost(resolved.blockchainAdapterUrl);
-            if (!blockchainAdapterName) {
-                throw new CodeError(`Missing blockchain adapter url '${resolved.blockchainAdapterUrl}'`);
-            }
+        const resolvedSmsUrl = this.getHubServiceUrl('sms', resolved.hub);
+        if (!resolvedSmsUrl) {
+            throw new CodeError(`Missing sms url in hub '${resolved.hub}'`);
         }
-
-        if (resolved.smsUrl) {
-            const smsName = this.configNameFromHost(resolved.smsUrl);
-            if (!smsName) {
-                throw new CodeError(`Missing sms url '${resolved.smsUrl}'`);
-            }
-        }
+        resolved.smsUrl = resolvedSmsUrl;
 
         return confName;
     }

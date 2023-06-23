@@ -748,6 +748,7 @@ export class RedisService extends ServerService {
     /** @param {*} params */
     static async stop({ hostname, port, pid, directory }) {
         if (!hostname) {
+            assert(false, "RedisService.stop : hostname must be defined")
             hostname = 'localhost';
         }
         let rs;

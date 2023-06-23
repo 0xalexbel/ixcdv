@@ -76,7 +76,7 @@ export default class InstallCmd extends Cmd {
             const inventory = await Inventory.fromConfigFile(configDir, vars);
 
             // First stop (gently)
-            await StopAllCmd.exec(false /* only gentle stop */, null);
+            await StopAllCmd.exec(false /* only gentle stop */, inventory, null);
 
             if (hasVars) {
                 await inventory.saveConfigFile({ directory:configDir, overrideExistingFile: true });

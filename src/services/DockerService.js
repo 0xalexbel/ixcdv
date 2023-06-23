@@ -28,7 +28,7 @@ export class DockerService extends AbstractService {
      */
     constructor(args) {
         throwIfNotStrictlyPositiveInteger(args.port);
-
+        assert(args.hostname);
         const hostname = (isNullishOrEmptyString(args.hostname)) ? 'localhost' : args.hostname;
         assert(hostname);
 

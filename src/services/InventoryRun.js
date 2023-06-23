@@ -21,6 +21,7 @@ import { IpfsService } from '../ipfs/IpfsService.js';
 import { PoCoHubRef } from '../common/contractref.js';
 import { DockerService } from './DockerService.js';
 import { WORKERPOOL_NAME, WORKERPOOL_URL_TEXT_RECORD_KEY } from '../common/consts.js';
+import * as ssh from '../common/ssh.js';
 
 /** @type {srvTypes.NonWorkerServiceType[][]} */
 const ORDERED_SERVICE_TYPE_GROUPS = [
@@ -50,6 +51,21 @@ export class InventoryRun {
      */
     async #startByName(name, options) {
         assert(pathIsPOSIXPortable(this._inv.rootDir));
+        if (!this._inv.isConfigNameRunningLocally(name)) {
+            const machine = this._inv.getConfigNameRunningMachine(name);
+            assert(machine);
+            const ic = this._inv.getConfig(name);
+            assert(ic.type === 'sms');
+            const res = await ssh.ixcdv(
+                machine.sshConfig,
+                machine.ixcdvWorkspaceDirectory,
+                ["start", ic.type, "--hub", ic.resolved.hub, "--no-dependencies"]);
+            if (!res.ok) {
+                throw res.error;
+            }
+            return { name, startReturn: { ok: true } };
+        }
+        
         const instance = await this._inv.newInstanceFromName(name);
         const startReturn = await instance.start({
             createDir: true,
@@ -401,12 +417,12 @@ export class InventoryRun {
          * etc.
          * Missing : should stop corresponding DBs
          */
-        if (type !== 'all' && type !== types[types.length-1]) {
+        if (type !== 'all' && type !== types[types.length - 1]) {
             const pos = types.findIndex(t => t === type);
             if (pos < 0) {
                 throw new CodeError(`Invalid type ${type}`);
             }
-            types.splice(pos+1, types.length-(pos+1));
+            types.splice(pos + 1, types.length - (pos + 1));
             assert(types[0] === type);
         }
 

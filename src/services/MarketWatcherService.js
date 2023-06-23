@@ -213,7 +213,8 @@ export class MarketWatcherService extends Service {
                 repository: cwd,
                 mongoHost: pidInfo.mongoHost,
                 redisHost: pidInfo.redisHost,
-                hub: pidInfo.hub
+                hub: pidInfo.hub,
+                hostname: pidInfo.hostname
             });
             services.push({ pid: pidInfo.pid, configFile, service: watcherService });
         }
@@ -306,6 +307,7 @@ export class MarketWatcherService extends Service {
         const env = {};
         env['MONGO_HOST'] = this.#mongoHost;
         env['REDIS_HOST'] = this.#redisHost;
+        env['IXCDV_HOSTNAME'] = this.hostname;
 
         env['CHAIN'] = CHAIN;
         env['CHAIN_ID'] = this.#hub.chainid.toString();
@@ -434,7 +436,8 @@ export class MarketWatcherService extends Service {
                     repository: cwd,
                     mongoHost: pid.mongoHost,
                     redisHost: pid.redisHost,
-                    hub: pid.hub
+                    hub: pid.hub,
+                    hostname: pid.hostname
                 });
                 services.push(s);
             }
@@ -520,6 +523,7 @@ export class MarketWatcherService extends Service {
      */
     static parseEnvVars(str) {
         const varNames = [
+            'IXCDV_HOSTNAME',
             'MONGO_HOST',
             'REDIS_HOST',
             'CHAIN',
@@ -561,6 +565,7 @@ export class MarketWatcherService extends Service {
         });
 
         return {
+            hostname: o['IXCDV_HOSTNAME'],
             mongoHost: o['MONGO_HOST'],
             redisHost: o['REDIS_HOST'],
             hub: ref,

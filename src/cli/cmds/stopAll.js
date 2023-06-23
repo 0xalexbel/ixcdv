@@ -4,6 +4,8 @@ import cliProgress from 'cli-progress';
 import { CodeError } from "../../common/error.js";
 import { Inventory } from "../../services/Inventory.js";
 import { asServiceType } from '../../services/base-internal.js';
+import { ConfigFile } from '../../services/ConfigFile.js';
+import { fileExistsInDir } from '../../common/fs.js';
 
 export default class StopAllCmd extends Cmd {
 
@@ -23,9 +25,17 @@ export default class StopAllCmd extends Cmd {
      */
     async cliExec(cliDir, type, kill, options) {
         try {
+            const configDir = this.resolveConfigDir(cliDir);
+            const vars = this.parseVars(options);
+
+            let hasConfigFile = this.hasConfig(configDir);
+
+            // Load inventory from config json file
+            const inventory = (hasConfigFile) ? await Inventory.fromConfigFile(configDir, vars) : undefined;
+
             /** @type {srvTypes.ServiceType | 'all'} */
             const t = (type === 'all') ? type : asServiceType(type);
-            await this.#execOnce(t, kill, options);
+            await this.#execOnce(t, kill, inventory, options);
 
             /**
              * @todo To be removed
@@ -43,19 +53,21 @@ export default class StopAllCmd extends Cmd {
 
     /**
      * @param {boolean} kill
+     * @param {Inventory} inventory
      * @param {*} options 
      */
-    static async exec(kill, options) {
+    static async exec(kill, inventory, options) {
         const cmd = new StopAllCmd();
-        return cmd.#execOnce('all', kill, options);
+        return cmd.#execOnce('all', kill, inventory, options);
     }
 
     /**
      * @param {srvTypes.ServiceType | 'all'} type 
      * @param {boolean} kill
+     * @param {Inventory | undefined} inventory
      * @param {*} options 
      */
-    async #execOnce(type, kill, options) {
+    async #execOnce(type, kill, inventory, options) {
         // The current implementation does not support multiple calls.
         if (StopAllCmd.#calledOnce) {
             throw new CodeError('Internal error (stop all can only be called once)');
@@ -69,6 +81,9 @@ export default class StopAllCmd extends Cmd {
             // stop any other running services (zombie)
             await Inventory.stopAny(type, { progressCb: stopProgress, reset: false });
         }
+
+        // stop any other running services on remote machines as well
+        await inventory?._inv.remoteStopAll(kill);
 
         endProgress('all services stopped');
     }

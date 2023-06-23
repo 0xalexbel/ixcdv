@@ -296,6 +296,8 @@ export class Market extends AbstractService {
         apiArgs,
         watcherArgs
     }) {
+        assert(apiArgs); // for the moment, we need apiArgs to determine watchers hostname
+        assert(apiArgs.hostname); // for the moment, we need apiArgs to determine watchers hostname
         assert(chainidToGanacheService);
         if (isNullishOrEmptyString(directory)) {
             directory = undefined;
@@ -449,7 +451,8 @@ export class Market extends AbstractService {
                 mongoHost: mongoHost,
                 redisHost: redisHost,
                 logFile: ref.logFile,
-                hub: ref.hub
+                hub: ref.hub,
+                hostname: this.#api?.hostname
             });
 
             if (!this.#watchers) {

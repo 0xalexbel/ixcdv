@@ -193,6 +193,7 @@ export class Service extends AbstractService {
      */
     constructor(args) {
         assert(args);
+        assert(args.hostname);
         const hostname = (isNullishOrEmptyString(args.hostname)) ? 'localhost' : args.hostname;
         assert(hostname);
         super(); //compiler

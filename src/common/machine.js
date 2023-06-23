@@ -119,6 +119,28 @@ export class AbstractMachine {
         this.#hostfwdPorts.push(port);
     }
 
+    async ixcdvStopAll() {
+        if (! await this.isRunning()) {
+            throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
+        }
+        const sshConf = this.sshConfig;
+        await ssh.ixcdv(
+            sshConf,
+            this.#ixcdvWorkspaceDirectory,
+            ["stop", "all"]);
+    }
+
+    async ixcdvKillAll() {
+        if (! await this.isRunning()) {
+            throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
+        }
+        const sshConf = this.sshConfig;
+        await ssh.ixcdv(
+            sshConf,
+            this.#ixcdvWorkspaceDirectory,
+            ["kill", "all"]);
+    }
+
     /**
      * @param {object} ixcdvConfigJSON 
      */

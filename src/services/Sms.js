@@ -105,7 +105,7 @@ export class SmsService extends SpringHubServerService {
      */
     static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         const configCopy = await super.deepCopyConfig(
-            config, 
+            config,
             false, /* replace is performed below, because of extra properties */
             placeholders,
             relativeToDirectory);
@@ -309,7 +309,7 @@ export class SmsService extends SpringHubServerService {
         dbDirectory = resolveAbsolutePath(dbDirectory);
 
         throwIfDirDoesNotExist(repoDir);
-        throwIfDirDoesNotExist(dbDirectory);
+        //throwIfDirDoesNotExist(dbDirectory);
 
         /** 
          * @type {{
@@ -467,8 +467,14 @@ export class SmsService extends SpringHubServerService {
             requestedDBSignature: requestedDBSignature
         });
 
-        // Adujst yml config with the final pathname
-        ymlFullConfig.spring.datasource.url = 'jdbc:h2:file:' + dbDir.DBFileNoExt;
+        const dbFile = dbDir.DBFileNoExt;
+        if (dbFile) {
+            // Adujst yml config with the final pathname
+            ymlFullConfig.spring.datasource.url = 'jdbc:h2:file:' + dbDir.DBFileNoExt;
+        } else {
+            // remote
+            ymlFullConfig.spring.datasource.url = undefined;
+        }
 
         return SmsService.#newSmsService({
             ...options,
