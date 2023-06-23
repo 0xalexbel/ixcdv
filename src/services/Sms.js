@@ -10,7 +10,7 @@ import { DBDirectory } from '../common/db-directory.js';
 import { getLatestVersion } from '../git/git-api.js';
 import { dirExists, fileExists, resolveAbsolutePath, rmrfDir, throwIfDirDoesNotExist, throwIfNotAbsolutePath, toRelativePath } from '../common/fs.js';
 import { toPackage, toPackageDirectory } from '../pkgmgr/pkg.js';
-import { isNullishOrEmptyString, throwIfNullishOrEmptyString } from '../common/string.js';
+import { isNullishOrEmptyString, placeholdersPropertyReplace, throwIfNullishOrEmptyString } from '../common/string.js';
 import { PoCoHubRef } from '../common/contractref.js';
 import { checkSecret, checkWeb3Secret, pushWeb2Secret, pushWeb3Secret } from '../common/secrets.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
@@ -100,24 +100,35 @@ export class SmsService extends SpringHubServerService {
      * - if `resolvePlaceholders === true` : may retrieve repo latest version from github 
      * @param {srvTypes.SmsConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
-        const configCopy = await super.deepCopyConfig(config, resolvePlaceholders, relativeToDirectory);
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
+        const configCopy = await super.deepCopyConfig(
+            config, 
+            false, /* replace is performed below, because of extra properties */
+            placeholders,
+            relativeToDirectory);
         assert(configCopy.type === 'sms');
+
+        if (!configCopy.hostname && placeholders) {
+            configCopy.hostname = placeholders["${defaultHostname}"];
+        }
 
         if (relativeToDirectory) {
             configCopy.dbDirectory = toRelativePath(relativeToDirectory, config.dbDirectory);
         }
 
         if (resolvePlaceholders) {
+            // Warning : 'configCopy.repository' is calculated in 'super.deepCopyConfig(...)'
             // if needed, retrieves latest version on github
             const gitHubRepo = await this.getGitHubRepo(toPackage(configCopy.repository));
             inplaceResolveSpringServicePlaceholders(
                 configCopy, ["dbDirectory"],
                 {
+                    ...placeholders,
                     "${version}": gitHubRepo.commitish,
-                    "${repoName}": gitHubRepo.gitHubRepoName
+                    "${repoName}": gitHubRepo.gitHubRepoName,
                 });
         }
 

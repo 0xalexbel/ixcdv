@@ -197,18 +197,22 @@ export function stringToHostnamePort(str) {
 }
 
 /**
+ * Throws an error if `defaultHostname` is needed and null or undefined.
  * @param {{
  *      hostname?: string
  *      port?: number
  * } | string | number | null | undefined } args
+ * @param {string | null | undefined} defaultHostname
  */
-export function hostnamePortToString(args) {
+export function hostnamePortToString(args, defaultHostname) {
     if (args === null || args === undefined) {
-        return 'localhost';
+        assert(defaultHostname, "Missing defaultHostname");
+        return defaultHostname;
     }
     if (typeof args === 'string') {
         if (isNullishOrEmptyString(args)) {
-            return 'localhost';
+            assert(defaultHostname, "Missing defaultHostname");
+            return defaultHostname;
         }
         if (args.startsWith('http:') || args.startsWith('https:')) {
             const u = new URL(args);
@@ -217,12 +221,17 @@ export function hostnamePortToString(args) {
         return new URL(args).host;
     } else if (typeof args === 'number') {
         throwIfNotStrictlyPositiveInteger(args);
-        return 'localhost:' + args.toString();
+        assert(defaultHostname, "Missing defaultHostname");
+        return defaultHostname + ':' + args.toString();
     } else if (typeof args === 'object') {
         let hostname = args.hostname;
         let port = args.port;
         if (!hostname || isNullishOrEmptyString(hostname)) {
-            hostname = 'localhost';
+            if (!defaultHostname) {
+                let hh = 0;
+            }
+            assert(defaultHostname, "Missing defaultHostname");
+            hostname = defaultHostname;
         }
         if (port === null || port === undefined) {
             return hostname;
@@ -260,7 +269,7 @@ export function placeholdersReplace(str, placeholders) {
  * @see placeholdersReplace
  * @param {any} object 
  * @param {!string} property 
- * @param {!Object.<string,string>} placeholders
+ * @param {!{[varname:string]: string}} placeholders
  */
 export function placeholdersPropertyReplace(object, property, placeholders) {
     if (object[property] && typeof object[property] === 'string') {

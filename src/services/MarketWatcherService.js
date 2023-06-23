@@ -170,8 +170,10 @@ export class MarketWatcherService extends Service {
      * @param {(string | number)=} params.mongo
      */
     static async stop({ redis, mongo }) {
-        const _redis = hostnamePortToString(redis);
-        const _mongo = hostnamePortToString(mongo);
+        // should be resolved
+        const _redis = hostnamePortToString(redis, undefined);
+        // should be resolved
+        const _mongo = hostnamePortToString(mongo, undefined);
 
         const pids = await MarketWatcherService.pidsFromHosts({ redis: _redis, mongo: _mongo });
         if (!pids) {
@@ -375,8 +377,10 @@ export class MarketWatcherService extends Service {
      * @param {(string | number)=} params.mongo
      */
     static async fromHosts({ redis, mongo }) {
-        const _redis = hostnamePortToString(redis);
-        const _mongo = hostnamePortToString(mongo);
+        // should be resolved
+        const _redis = hostnamePortToString(redis, undefined);
+        // should be resolved
+        const _mongo = hostnamePortToString(mongo, undefined);
 
         const pids = await MarketWatcherService.pidsFromHosts({ redis: _redis, mongo: _mongo });
         if (!pids) {

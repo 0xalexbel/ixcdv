@@ -115,7 +115,6 @@ export async function psGrepPIDAndArgs(grepPattern) {
     return; /* undefined */
 }
 
-
 /**
  * @param {string} grepPattern 
  */

@@ -122,18 +122,21 @@ export class PoCoDeployer {
     }
 
     /**
+     * - performs a 'placeholdersReplace'
      * @param {string | types.Package} PoCo 
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static toPackage(PoCo, relativeToDirectory) {
+    static toResolvedPackage(PoCo, placeholders, relativeToDirectory) {
         /** @type {types.Package} */
         let PoCoPkg;
         // PoCoChainConfig.PoCo refers to a directory
         if (typeof PoCo === 'string') {
             const version = "v5.3.0";
             let PoCoDir = placeholdersReplace(PoCo, {
+                ...placeholders,
                 "${repoName}": 'PoCo',
-                "${version}": version
+                "${version}": version,
             });
             PoCoDir = resolveAbsolutePath(PoCoDir);
             PoCoDir = (relativeToDirectory) ? toRelativePath(relativeToDirectory, PoCoDir) : PoCoDir;
@@ -147,14 +150,15 @@ export class PoCoDeployer {
                 patch: true
             };
         } else {
-            /** @type {!Object.<string,string>} */
-            let placeholders = {
-                "${repoName}": PoCo.gitHubRepoName ?? 'PoCo'
+            /** @type {!{[varname:string]: string}} */
+            let allPlaceholders = {
+                "${repoName}": PoCo.gitHubRepoName ?? 'PoCo',
+                ...placeholders
             };
             if (PoCo.commitish) {
-                placeholders["${version}"] = PoCo.commitish;
+                allPlaceholders["${version}"] = PoCo.commitish;
             }
-            const PoCoDir = placeholdersReplace(PoCo.directory, placeholders);
+            const PoCoDir = placeholdersReplace(PoCo.directory, allPlaceholders);
             // Help compiler
             const PoCoPkgCopy = deepCopyPackage(PoCo, relativeToDirectory);
             assert(PoCoPkgCopy);
@@ -188,7 +192,10 @@ export class PoCoDeployer {
             throw new CodeError('Missing PoCo package or directory', ERROR_CODES.POCO_ERROR);
         }
         assert(PoCoChainConfig.PoCo);
-        this.#PoCoPkg = PoCoDeployer.toPackage(PoCoChainConfig.PoCo);
+        // ?? perform placeholders replacement ??
+        this.#PoCoPkg = PoCoDeployer.toResolvedPackage(
+            PoCoChainConfig.PoCo, 
+            {} /* empty for now */);
 
         // - starts a temporary ganache server on a dummy port
         // - the ganache server points to a fresh new empty DB 

@@ -76,8 +76,10 @@ export default class AppRunCmd extends Cmd {
                 }
             }
 
+            const vars = this.parseVars(options);
+
             // Load inventory from config json file
-            const inventory = await Inventory.fromConfigFile(configDir);
+            const inventory = await Inventory.fromConfigFile(configDir, vars);
 
             // The hubAlias = <chainid>.<deployConfigName>
             const hubAlias = inventory._inv.guessHubAlias(options);

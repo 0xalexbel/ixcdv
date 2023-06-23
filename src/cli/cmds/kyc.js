@@ -23,8 +23,11 @@ export default class KycCmd extends Cmd {
 
             const configDir = this.resolveConfigDir(cliDir);
             this.exitIfNoConfig(configDir);
+
+            const vars = this.parseVars(options);
+
             // Load inventory from config json file
-            const inventory = await Inventory.fromConfigFile(configDir);
+            const inventory = await Inventory.fromConfigFile(configDir, vars);
 
             const hubAlias = inventory._inv.guessHubAlias(options);
             console.log('hubAlias=' + hubAlias);

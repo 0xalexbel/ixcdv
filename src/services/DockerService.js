@@ -5,7 +5,7 @@ import * as types from '../common/common-types.js';
 import * as srvTypes from './services-types-internal.js';
 import { dockerPrivateLocalRegistryStart, isDockerDesktopRunning, isDockerPrivateLocalRegistryRunning, startDockerDesktop } from '../docker/docker-api.js';
 import { throwIfNotStrictlyPositiveInteger } from '../common/number.js';
-import { isNullishOrEmptyString } from '../common/string.js';
+import { isNullishOrEmptyString, placeholdersPropertyReplace } from '../common/string.js';
 
 export class DockerService extends AbstractService {
 
@@ -43,11 +43,23 @@ export class DockerService extends AbstractService {
     /** 
      * @param {srvTypes.DockerConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
-        const newConf = { ...config };
-        return newConf;
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
+        const configCopy = { ...config };
+        assert(configCopy.type === 'docker');
+
+        if (!configCopy.hostname && placeholders) {
+            configCopy.hostname = placeholders["${defaultHostname}"];
+        }
+
+        if (resolvePlaceholders) {
+            ["hostname"].forEach((v) => {
+                placeholdersPropertyReplace(configCopy, v, placeholders)
+            });
+        }
+        return configCopy;
     }
 
     static async install() {

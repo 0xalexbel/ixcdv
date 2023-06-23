@@ -37,8 +37,11 @@ export default class TestCmd extends Cmd {
         try {
             const configDir = this.resolveConfigDir(cliDir);
             this.exitIfNoConfig(configDir);
+
+            const vars = this.parseVars(options);
+
             // Load inventory from config json file
-            const inventory = await Inventory.fromConfigFile(configDir);
+            const inventory = await Inventory.fromConfigFile(configDir, vars);
 
             // Generate temporary test app
             const appName = dockerAppName('test');

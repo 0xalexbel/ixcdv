@@ -23,7 +23,10 @@ export default class DealCmd extends Cmd {
         try {
             const configDir = this.resolveConfigDir(cliDir);
             this.exitIfNoConfig(configDir);
-            const inventory = await Inventory.fromConfigFile(configDir);
+
+            const vars = this.parseVars(options);
+
+            const inventory = await Inventory.fromConfigFile(configDir, vars);
 
             const hubAlias = inventory._inv.guessHubAlias(options);
 

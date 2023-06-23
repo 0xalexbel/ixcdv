@@ -8,7 +8,7 @@ import { ServerService } from '../common/service.js';
 import { DBDirectory } from '../common/db-directory.js';
 import { assertIsStrictlyPositiveInteger, isStrictlyPositiveInteger, throwIfNotStrictlyPositiveInteger } from '../common/number.js';
 import { dirExists, readFile, resolveAbsolutePath, rmrfDir, throwIfDirDoesNotExist, throwIfParentDirDoesNotExist, toRelativePath } from '../common/fs.js';
-import { isNullishOrEmptyString, stringToHostnamePort, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
+import { isNullishOrEmptyString, placeholdersPropertyReplace, stringToHostnamePort, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
 import { CodeError } from '../common/error.js';
 import { psGetArgs, psGetEnv, psGrepPID, psp } from '../common/ps.js';
 import { genNohupBashScript } from '../common/bash.js';
@@ -75,11 +75,17 @@ export class MongoService extends ServerService {
     /** 
      * @param {srvTypes.MongoConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         const configCopy = { ...config };
         assert(configCopy.type === 'mongo');
+
+        if (!configCopy.hostname && placeholders) {
+            configCopy.hostname = placeholders["${defaultHostname}"];
+        }
+
         if (relativeToDirectory) {
             if (configCopy.directory) {
                 configCopy.directory = toRelativePath(relativeToDirectory, configCopy.directory);
@@ -87,6 +93,11 @@ export class MongoService extends ServerService {
             if (configCopy.logFile) {
                 configCopy.logFile = toRelativePath(relativeToDirectory, configCopy.logFile);
             }
+        }
+        if (resolvePlaceholders) {
+            ["hostname"].forEach((v) => {
+                placeholdersPropertyReplace(configCopy, v, placeholders)
+            });
         }
         return configCopy;
     }

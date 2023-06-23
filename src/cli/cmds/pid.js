@@ -70,8 +70,10 @@ export default class PidCmd extends Cmd {
             let inventory;
             try {
                 const configDir = this.resolveConfigDir(cliDir);
+                const vars = this.parseVars(options);
+
                 // Load inventory from config json file
-                inventory = await Inventory.fromConfigFile(configDir);
+                inventory = await Inventory.fromConfigFile(configDir, vars);
             } catch { }
 
             /**

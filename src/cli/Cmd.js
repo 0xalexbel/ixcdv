@@ -20,7 +20,7 @@ export class Cmd {
         if (!error) {
             process.exit(0);
         }
-        
+
         if (this.#debugMode) {
             console.error(error.stack);
         }
@@ -74,6 +74,39 @@ export class Cmd {
         if (!fileExistsInDir(dir, ConfigFile.basename())) {
             throw new CodeError(`Config file '${dir}/${ConfigFile.basename()}' does not exist. Call '${PROD_BIN} init' to create a new default '${ConfigFile.basename()}'`);
         }
+    }
+
+    /**
+     * @param {*} options 
+     * @returns {{[varname:string]: string}}
+     */
+    parseVars(options) {
+        /** @type {{[varname:string]: string}} */
+        const vars = {};
+
+        if (!options || !options.vars) {
+            return vars;
+        }
+        for (let i = 0; i < options.vars.length; ++i) {
+            const kv = options.vars[i].trim();
+            if (typeof kv !== 'string') {
+                throw new CodeError(`Synthax error, invalid key/value pair '${kv}', expecting string formatted as '<key>=<value>'`);
+            }
+            if (kv.indexOf(' ') >= 0) {
+                throw new CodeError(`Synthax error, invalid key/value pair '${kv}', whitespaces are not allowed`);
+            }
+            if (kv.indexOf('"') >= 0 || kv.indexOf("'") >= 0) {
+                throw new CodeError(`Synthax error, invalid key/value pair '${kv}', " and ' are not allowed`);
+            }
+            const sep = kv.indexOf('=');
+            if (sep < 0) {
+                throw new CodeError(`Synthax error, invalid key/value pair '${kv}', required synthax is '<key>=<value>'`);
+            }
+            const k = kv.substring(0, sep);
+            const v = kv.substring(sep + 1);
+            vars[k] = v;
+        }
+        return vars;
     }
 
     /**

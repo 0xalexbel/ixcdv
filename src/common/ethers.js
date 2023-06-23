@@ -7,6 +7,7 @@ import { entropyToMnemonic, isValidMnemonic } from '@ethersproject/hdnode';
 import { randomBytes } from 'crypto';
 import { importJsonModule } from './import.cjs';
 import { CodeError } from './error.js';
+import { httpPOST } from './http.js';
 
 const BN_MAX_BYTES32 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
 const NULL_BYTES = '0x';
@@ -513,4 +514,26 @@ export async function getContractCode(provider, addr) {
         return await provider.getCode(addr);
     } catch (err) { }
     return undefined;
+}
+
+/** 
+ * @param {number} chainid 
+ * @param {string} url 
+ * @returns {Promise<types.checksumaddress[]>} 
+ */
+export async function getEthAccounts(chainid, url) {
+    try {
+        const queryObj = {
+            jsonrpc: "2.0",
+            method: "eth_accounts",
+            id: chainid
+        };
+        const response = await httpPOST(url, null, null, queryObj);
+        if (response &&
+            typeof response === 'object' &&
+            response.id === chainid) {
+            return response.result;
+        }
+    } catch (err) { }
+    throw new CodeError('eth_accounts query failed');
 }

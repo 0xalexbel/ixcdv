@@ -93,10 +93,15 @@ export class SpringServerService extends ServerService {
     /** 
      * @param {srvTypes.SpringServiceConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         const configCopy = { ...config };
+        if (!configCopy.hostname && placeholders) {
+            configCopy.hostname = placeholders["${defaultHostname}"];
+        }
+
         if (config.ymlConfig) {
             configCopy.ymlConfig = { ...config.ymlConfig };
         }
@@ -109,6 +114,18 @@ export class SpringServerService extends ServerService {
             if (configCopy.pidFile) {
                 configCopy.pidFile = toRelativePath(relativeToDirectory, configCopy.pidFile);
             }
+        }
+
+        if (resolvePlaceholders) {
+            // if needed, retrieves latest version on github
+            const gitHubRepo = await this.getGitHubRepo(toPackage(configCopy.repository));
+            inplaceResolveSpringServicePlaceholders(
+                configCopy, [],
+                {
+                    ...placeholders,
+                    "${version}": gitHubRepo.commitish,
+                    "${repoName}": gitHubRepo.gitHubRepoName,
+                });
         }
 
         return configCopy;
@@ -990,7 +1007,7 @@ export async function installServiceClassPackage(abstractServiceClass, {
  * @param {{[varname:string]: string}} placeholders
  */
 export function inplaceResolveSpringServicePlaceholders(config, additionnalProperties, placeholders) {
-    ["logFile", "pidFile", "springConfigLocation"].forEach((v) => {
+    ["logFile", "pidFile", "springConfigLocation", "hostname"].forEach((v) => {
         placeholdersPropertyReplace(config, v, placeholders);
     });
     additionnalProperties.forEach((v) => {

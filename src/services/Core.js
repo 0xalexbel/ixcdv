@@ -142,20 +142,27 @@ export class CoreService extends SpringMongoServerService {
     /** 
      * @param {srvTypes.CoreConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
-        const configCopy = await super.deepCopyConfig(config, resolvePlaceholders, relativeToDirectory);
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
+        const configCopy = await super.deepCopyConfig(
+            config, 
+            false, /* replace is performed below, because of extra properties */
+            placeholders, 
+            relativeToDirectory);
         assert(configCopy.type === 'core');
 
         if (resolvePlaceholders) {
+            // Warning : 'configCopy.repository' is calculated in 'super.deepCopyConfig(...)'
             // if needed, retrieves latest version on github
             const gitHubRepo = await this.getGitHubRepo(toPackage(configCopy.repository));
             inplaceResolveSpringServicePlaceholders(
-                configCopy, [],
+                configCopy, ["mongoHost"],
                 {
+                    ...placeholders,
                     "${version}": gitHubRepo.commitish,
-                    "${repoName}": gitHubRepo.gitHubRepoName
+                    "${repoName}": gitHubRepo.gitHubRepoName,
                 });
         }
 

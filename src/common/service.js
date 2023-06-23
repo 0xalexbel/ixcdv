@@ -151,10 +151,11 @@ export class AbstractService extends EventEmitter {
     /** 
      * @param {any} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      * @returns {Promise<any>}
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         throw pureVirtualError('AbstractService.deepCopyConfig()');
     }
 }

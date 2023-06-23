@@ -9,7 +9,7 @@ import { CONTRACTS_MIN_BASENAME, PoCoDeployer, WALLETS_BASENAME, WALLETS_DEFAULT
 import { randomUUID } from 'crypto';
 import { Wallet } from 'ethers';
 import { GanacheService } from '../common/ganache.js';
-import { assertNonEmptyString, isNullishOrEmptyString, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
+import { assertNonEmptyString, isNullishOrEmptyString, placeholdersPropertyReplace, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
 import { cprfDir, dirExists, fileExists, mkDirP, moveDir, readFileSync, readObjectFromJSONFile, resolveAbsolutePath, rmrf, rmrfDir, saveToFile, saveToFileSync, throwIfDirDoesNotExist, toRelativePath } from '../common/fs.js';
 import { throwIfNotPositiveInteger } from '../common/number.js';
 import { keysAtIndex, mnemonicToEncryptedJson } from '../common/wallet.js';
@@ -476,11 +476,17 @@ export class GanachePoCoService extends GanacheService {
     /** 
      * @param {pocoTypes.GanachePoCoServiceConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         const configCopy = { ...config };
         configCopy.config = { ...config.config };
+        assert(configCopy.type === 'ganache');
+
+        if (!configCopy.hostname && placeholders) {
+            configCopy.hostname = placeholders["${defaultHostname}"];
+        }
 
         if (configCopy.config.PoCo) {
             configCopy.config.PoCo = deepCopyPackage(configCopy.config.PoCo, relativeToDirectory);
@@ -501,8 +507,14 @@ export class GanachePoCoService extends GanacheService {
         }
         if (resolvePlaceholders) {
             if (configCopy.config.PoCo) {
-                configCopy.config.PoCo = PoCoDeployer.toPackage(configCopy.config.PoCo, relativeToDirectory);
+                configCopy.config.PoCo = PoCoDeployer.toResolvedPackage(
+                    configCopy.config.PoCo, 
+                    placeholders,
+                    relativeToDirectory);
             }
+            ["hostname"].forEach((v) => {
+                placeholdersPropertyReplace(configCopy, v, placeholders)
+            });
         }
 
         const d = configCopy.config.deploySequence.map(s => { return { ...s }; });

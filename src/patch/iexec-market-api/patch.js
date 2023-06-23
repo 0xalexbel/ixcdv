@@ -4,7 +4,7 @@ import * as pkgTypes from '../../pkgmgr/pkgmgr-types.js';
 import * as ERROR_CODES from '../../common/error-codes.js'
 import { commitAll } from '../../git/git-api.js';
 import { CodeError, fail } from '../../common/error.js';
-import { replaceInFile, replaceInFileUsingSed } from '../../common/fs.js';
+import { replaceInFileUsingSed } from '../../common/fs.js';
 import { PROD_NAME } from '../../common/consts.js';
 
 /**

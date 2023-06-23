@@ -6,7 +6,7 @@ import path from 'path';
 import assert from 'assert';
 import { ServerService } from '../common/service.js';
 import { assertIsStrictlyPositiveInteger, isStrictlyPositiveInteger, throwIfNotStrictlyPositiveInteger } from '../common/number.js';
-import { isNullishOrEmptyString, stringToHostnamePort, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
+import { isNullishOrEmptyString, placeholdersPropertyReplace, stringToHostnamePort, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
 import { dirExists, errorDirDoesNotExist, fileExists, generateTmpPathname, mkDirP, resolveAbsolutePath, rmFile, rmrfDir, saveToFile, throwIfDirDoesNotExist, toRelativePath } from '../common/fs.js';
 import { CodeError, fail, falseOrThrow } from '../common/error.js';
 import { repeatCallUntil } from '../common/repeat-call-until.js';
@@ -88,11 +88,17 @@ export class RedisService extends ServerService {
     /** 
      * @param {srvTypes.RedisConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         const configCopy = { ...config };
         assert(configCopy.type === 'redis');
+
+        if (!configCopy.hostname && placeholders) {
+            configCopy.hostname = placeholders["${defaultHostname}"];
+        }
+
         if (relativeToDirectory) {
             if (configCopy.directory) {
                 configCopy.directory = toRelativePath(relativeToDirectory, configCopy.directory);
@@ -100,6 +106,11 @@ export class RedisService extends ServerService {
             if (configCopy.logFile) {
                 configCopy.logFile = toRelativePath(relativeToDirectory, configCopy.logFile);
             }
+        }
+        if (resolvePlaceholders) {
+            ["hostname"].forEach((v) => {
+                placeholdersPropertyReplace(configCopy, v, placeholders)
+            });
         }
         return configCopy;
     }

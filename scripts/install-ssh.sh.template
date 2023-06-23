@@ -1,0 +1,27 @@
+#!/bin/bash
+
+readonly IXCDV_DIR={{ dir }}
+readonly IXCDV_KEY=qemuworkerkey
+readonly IXCDV_HOST={{ host }}
+readonly IXCDV_PORT={{ port }}
+readonly IXCDV_USER={{ user }}
+
+cd "${IXCDV_DIR}"
+
+if [[ ! -f "./${IXCDV_KEY}" ]]; then
+    # generate a custom key
+    ssh-keygen -b 2048 -t rsa -q -N "" -f "./${IXCDV_KEY}"
+fi
+
+# copy key to guest
+scp -P ${IXCDV_PORT} "./${IXCDV_KEY}.pub" ${IXCDV_USER}@${IXCDV_HOST}:/home/${IXCDV_USER}/.ssh/
+
+# run 'cat .ssh/qemukey.pub >> .ssh/authorized_keys'
+ssh ${IXCDV_USER}@${IXCDV_HOST} -p ${IXCDV_PORT} "cat .ssh/${IXCDV_KEY}.pub >> .ssh/authorized_keys"
+
+# disable sudo pass for USER
+readonly IXCDV_CMD="echo '${IXCDV_USER} ALL=(ALL:ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/${IXCDV_USER}"
+ssh -t ${IXCDV_USER}@${IXCDV_HOST} -p ${IXCDV_PORT} ${IXCDV_CMD}
+
+# run 'sudo /etc/init.d/ssh restart'
+ssh -t ${IXCDV_USER}@${IXCDV_HOST} -p ${IXCDV_PORT} 'sudo /etc/init.d/ssh restart'

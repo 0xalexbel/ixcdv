@@ -1,0 +1,84 @@
+#!/bin/bash
+
+readonly IXCDV_GRADLE_VERSION={{ gradle_version }}
+readonly IXCDV_NODE_VERSION={{ node_version }}
+readonly IXCDV_JDK=openjdk-{{ jdk }}-jdk
+readonly IXCDV_JRE=openjdk-{{ jdk }}-jre-headless
+
+sudo apt update
+
+sudo apt install -y wget curl unzip zip git apt-transport-https
+
+echo ""
+echo "=================================================="
+echo "=          Install ${IXCDV_JDK}                ="
+echo "=================================================="
+echo ""
+
+# JDK
+sudo apt install -y ${IXCDV_JDK}
+
+echo ""
+echo "=================================================="
+echo "=              Install docker                    ="
+echo "=================================================="
+echo ""
+
+# docker
+sudo apt install -y docker.io
+
+echo ""
+echo "=================================================="
+echo "=              Install sdkman!                   ="
+echo "=================================================="
+echo ""
+
+# sdkman!
+curl -s "https://get.sdkman.io" | bash
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+sdk version
+
+echo ""
+echo "=================================================="
+echo "=            Install gradle ${IXCDV_GRADLE_VERSION}                ="
+echo "=================================================="
+echo ""
+
+# gradle
+sdk install gradle ${IXCDV_GRADLE_VERSION}
+
+echo ""
+echo "=================================================="
+echo "=            Install node ${IXCDV_NODE_VERSION}               ="
+echo "=================================================="
+echo ""
+
+# nodejs
+curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+nvm install ${IXCDV_NODE_VERSION}
+
+echo ""
+echo "=================================================="
+echo "=                  Install ganache               ="
+echo "=================================================="
+echo ""
+
+# ganache
+cd $HOME
+npm install -g ganache
+
+echo ""
+echo "=================================================="
+echo "=                  Install truffle               ="
+echo "=================================================="
+echo ""
+
+# truffle
+cd $HOME
+npm install -g truffle
+

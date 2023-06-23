@@ -6,6 +6,8 @@ import { installPackage } from '../pkgmgr/pkg.js';
 import { fileExists, resolveAbsolutePath, throwIfFileDoesNotExist, toRelativePath } from '../common/fs.js';
 import { computeDockerChecksumAndMultiaddr } from '../contracts/app-generator.js';
 import { removeSuffix, stringIsPOSIXPortable } from '../common/string.js';
+import { CodeError } from '../common/error.js';
+import * as ssh from '../common/ssh.js';
 
 export class InventoryInstall {
     /** @type {InventoryDB} */
@@ -27,7 +29,6 @@ export class InventoryInstall {
         for (let i = 0; i < ics.length; ++i) {
             const ic = ics[i];
             assert(ic.type !== 'worker');
-            //callbackfn?.(ic.name, ic.type, (i + 1), nInstalls);
             await this.install(ic.name, (i + 1), nInstalls, callbackfn);
         }
         await this.installWorkers(ics.length + 1, nInstalls, callbackfn);
@@ -61,7 +62,23 @@ export class InventoryInstall {
             return;
         }
         for (let i = 0; i < names.length; ++i) {
-            await this.install(names[i], (i+1), names.length, callbackfn);
+            await this.install(names[i], (i + 1), names.length, callbackfn);
+        }
+    }
+
+    /**
+     * @param {number} progress
+     * @param {number} progressTotal
+     * @param {((name:string, type: srvTypes.ServiceType, progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installGanache(progress, progressTotal, callbackfn) {
+        // Must use unsolved !
+        const names = this._inv.getConfigNamesFromType('ganache');
+        if (!names || names.length === 0) {
+            return;
+        }
+        for (let i = 0; i < names.length; ++i) {
+            await this.install(names[i], (i + 1), names.length, callbackfn);
         }
     }
 
@@ -108,9 +125,21 @@ export class InventoryInstall {
      */
     async #installInventoryConfig(ic) {
         assert(ic.type !== 'worker');
-        // Must use unsolved !
-        // @ts-ignore
-        return fromServiceType[ic.type].install(ic.unsolved);
+        if (this._inv.isConfigRunningLocally(ic)) {
+            // Must use unsolved !
+            // @ts-ignore
+            return fromServiceType[ic.type].install(ic.unsolved);
+        } else {
+            // forward install command to remote machine via ssh
+            const machine = this._inv.getConfigRunningMachine(ic);
+            if (!machine) {
+                throw new CodeError(`No machine availabled for config ${ic.name}`);
+            }
+            await ssh.ixcdv(
+                machine.sshConfig,
+                machine.ixcdvWorkspaceDirectory,
+                ["install", "--type", ic.type]);
+        }
     }
 
     async #installWorkers() {

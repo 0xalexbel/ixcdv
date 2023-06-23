@@ -23,16 +23,21 @@ export default class InstallCmd extends Cmd {
         try {
             let type = 'all';
             if (options.type) {
-                if (options.type !== 'iexecsdk' && 
-                    options.type !== 'worker' && 
-                    options.type !== 'sms' && 
-                    options.type !== 'teeworkerprecompute' && 
-                    options.type !== 'teeworkerpostcompute' && 
+                if (options.type !== 'iexecsdk' &&
+                    options.type !== 'worker' &&
+                    options.type !== 'sms' &&
+                    options.type !== 'ganache' &&
+                    options.type !== 'teeworkerprecompute' &&
+                    options.type !== 'teeworkerpostcompute' &&
                     options.type !== 'all') {
                     throw new CodeError(`Unsupported type option ${options.type}`);
                 }
                 type = options.type;
             }
+
+            const vars = this.parseVars(options);
+            const hasVars = Object.keys(vars).length;
+
             const configDir = this.resolveConfigDir(cliDir);
             this.exitIfNoConfig(configDir);
 
@@ -64,10 +69,14 @@ export default class InstallCmd extends Cmd {
             }
 
             // Load inventory from config json file
-            const inventory = await Inventory.fromConfigFile(configDir);
+            const inventory = await Inventory.fromConfigFile(configDir, vars);
 
             // First stop (gently)
             await StopAllCmd.exec(false /* only gentle stop */, null);
+
+            if (hasVars) {
+                await inventory.saveConfigFile({ directory:configDir, overrideExistingFile: true });
+            }
 
             let installWallets = false;
 
@@ -89,6 +98,11 @@ export default class InstallCmd extends Cmd {
             } else if (type === 'worker') {
                 await inventory.installWorkers((name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install workers : ${name}`);
+                });
+            } else if (type === 'ganache') {
+                installWallets = true;
+                await inventory.installGanache((name, type, progress, progressTotal) => {
+                    console.log(`${progress}/${progressTotal} Install ganache : ${name}`);
                 });
             } else if (type === 'sms') {
                 await inventory.installSms((name, type, progress, progressTotal) => {

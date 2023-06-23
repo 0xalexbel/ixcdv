@@ -963,14 +963,15 @@ export function parsePathnameOrUrl(value) {
 }
 
 /**
- * @param {string} str 
- * @param {string} replace 
+ * @param {string[]} strArr 
+ * @param {string[]} replaceArr
  * @param {string} file 
  */
-export async function replaceInFile(str, replace, file) {
-    if (isNullishOrEmptyString(str)) {
+export async function replaceInFile(strArr, replaceArr, file) {
+    if (!strArr || strArr.length == 0) {
         return true;
     }
+    assert(replaceArr.length === strArr.length);
 
     file = resolveAbsolutePath(file);
     if (!fileExists(file)) {
@@ -984,15 +985,18 @@ export async function replaceInFile(str, replace, file) {
         return false;
     }
 
-    if (fileStr.indexOf(str) < 0) {
-        return true;
-    }
-
-    let fileStrReplaced;
-    try {
-        fileStrReplaced = fileStr.replaceAll(str, replace);
-    } catch (err) {
-        return false;
+    let fileStrReplaced = fileStr;
+    for (let i = 0; i < strArr.length; ++i) {
+        const str = strArr[i];
+        const replace = replaceArr[i];
+        if (fileStr.indexOf(str) < 0) {
+            return true;
+        }
+        try {
+            fileStrReplaced = fileStrReplaced.replaceAll(str, replace);
+        } catch (err) {
+            return false;
+        }
     }
 
     try {

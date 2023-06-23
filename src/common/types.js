@@ -369,5 +369,29 @@ representation of binary data as a string.
 @typedef { TxArgs | import('ethers').Wallet } TxArgsOrWallet
 */
 
+/**
+ * @typedef {import('ssh2').ConnectConfig & {
+ *      port: number 
+ *      privateKeyFile: string 
+ * }} SSHConfig
+ * 
+ * @typedef {{
+ *      hda: string
+ *      cpu: string
+ *      memory: string
+ * }} QemuConfig
+ *
+ * @typedef {{
+ *      name: string,
+ *      ixcdvWorkspaceDirectory: string
+ *      gatewayIp: string
+ *      sshConfig: SSHConfig 
+ * }} AbstractMachineArgs
+ *
+ * @typedef { AbstractMachineArgs & {
+ *      qemuConfig: QemuConfig
+ * }} QemuMachineArgs
+ */
+
 // Does nothing but required for TypeScript to import this file.
 export { }

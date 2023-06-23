@@ -63,9 +63,12 @@ program.configureHelp({
 });
 
 const initCmd = program.command('init');
+const configCmd = program.command('config');
 const installCmd = program.command('install');
 const uninstallCmd = program.command('uninstall');
 const testCmd = program.command('test');
+const pingCmd = program.command('ping');
+const machineCmd = program.command('machine');
 const vscodeCmd = program.command('vscode');
 
 const startCmd = program.command('start');
@@ -106,8 +109,58 @@ By default all the chainids are sharing the same following mnemonic: "${DEFAULT_
 installCmd.description(`Installs a new ${PROD_NAME} workspace in the current working directory (or in the folder specified using the global '--config' option). The command will fail if the install directory does contain a valid '${PROD_CONFIG_BASENAME}' file. Use the '${PROD_BIN} init' command to generate a new config file.`)
     .summary(`Installs a new ${PROD_NAME} workspace.`)
     .option('--type <type>', 'Only installs configs with a specific type <"all"|"iexecsdk">')
+    .option('--vars <vars...>', 'Specify key/value pairs <key>=<value>')
     .action((options) => {
         execCmd('install', options);
+    });
+
+/* ------------- ping -------------- */
+
+pingCmd.description('Performs a ping-like network command on a specified service.\n ');
+addChainAndHubOptions(pingCmd);
+pingCmd.argument('<type>', 'Service type')
+    .action((type, options) => {
+        execCmd('ping', type, options);
+    });
+
+/* ------------- config -------------- */
+
+machineCmd.description('Machine related commands.\n ');
+cmd = machineCmd.command('generate-scripts');
+cmd.description("Generate the scripts to install the specified machine.")
+    .argument('<name>', 'Machine name')
+    .action((name, options) => {
+        execCmd('machine', 'generate-scripts', { name, options });
+    });
+cmd = machineCmd.command('install-tools');
+cmd.description("Install all the necessary software tools on the specified machine.")
+    .argument('<name>', 'Machine name')
+    .action((name, options) => {
+        execCmd('machine', 'install-tools', { name, options });
+    });
+cmd = machineCmd.command('print-config');
+cmd.description("Print the remote machine 'ixcdv-config.json' file.")
+    .argument('<name>', 'Machine name')
+    .action((name, options) => {
+        execCmd('machine', 'print-config', { name, options });
+    });
+cmd = machineCmd.command('upload-config');
+cmd.description("Upload 'ixcdv-config.json' file to the specified machine.")
+    .argument('<name>', 'Machine name')
+    .action((name, options) => {
+        execCmd('machine', 'print-config', { name, options: { ...options, upload : true } });
+    });
+cmd = machineCmd.command('start');
+cmd.description("Boot the specified machine.")
+    .argument('<name>', 'Machine name')
+    .action((name, options) => {
+        execCmd('machine', 'start', { name, options });
+    });
+cmd = machineCmd.command('shutdown');
+cmd.description("Power-off the specified machine.")
+    .argument('<name>', 'Machine name')
+    .action((name, options) => {
+        execCmd('machine', 'shutdown', { name, options });
     });
 
 /* ------------- install -------------- */

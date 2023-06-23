@@ -13,6 +13,7 @@ import { isNullishOrEmptyString, stringToPositiveInteger } from '../common/strin
 import { resolveAbsolutePath, saveToFile, throwIfDirDoesNotExist, throwIfFileAlreadyExists } from '../common/fs.js';
 import { AbstractService } from '../common/service.js';
 import { getDockerDesktopPids } from '../docker/docker-api.js';
+import { AbstractMachine } from '../common/machine.js';
 
 export const InventoryConstructorGuard = { value: false };
 
@@ -111,14 +112,15 @@ export class Inventory {
     }
 
     /**
-     * @param {?string=} dir 
+     * @param {string} dir 
      * @param {{
      *      firstChainId?: string
      *      countChainIds?: string
      *      mnemonic?: string | string[]
-     * }=} options 
+     * }} options 
+     * @param {{[varname:string]: string}} vars
      */
-    static newDefault(dir, options) {
+    static newDefault(dir, options, vars) {
         const firstChainId = stringToPositiveInteger(options?.firstChainId ?? "1337", { strict: true });
         const countChainIds = stringToPositiveInteger(options?.countChainIds ?? "2", { strict: true });
 
@@ -127,9 +129,10 @@ export class Inventory {
 
         // starts with a basic empty config containing the minimal PoCo configs
         const defaultJSON = ConfigFile.default(firstChainId, countChainIds, options?.mnemonic);
+
         // Generates the corresponding inventory
         // All the folder absolute paths are resolved as well as all the service ports.
-        return ConfigFile.load(defaultJSON, dir);
+        return ConfigFile.load(defaultJSON, dir, vars);
     }
 
     /**
@@ -137,8 +140,19 @@ export class Inventory {
      * - All path are constructed relative to `dir`
      * @param {string} dir 
      */
-    toConfigJSON(dir) {
+    async toConfigJSON(dir) {
         return inventoryToConfigFile(this._inv, dir);
+    }
+
+    /**
+     * @param {AbstractMachine} machine 
+     */
+    async toMachineConfigJSON(machine) {
+        const configJSON = await inventoryToConfigFile(this._inv, this._inv.rootDir);
+        assert(configJSON.vars);
+        configJSON.vars["master"] = machine.gatewayIp;
+        configJSON.vars["localHostname"] = '${' + machine.name + '}';
+        return configJSON;
     }
 
     /**
@@ -150,17 +164,19 @@ export class Inventory {
       *      teeworkerprecompute: any
       *      teeworkerpostcompute: any
       * }} configJson
-      * @param {?string=} dir 
+      * @param {string} dir 
+      * @param {{[varname:string]: string}} vars
       */
-    static fromConfigJSON(configJson, dir) {
-        return ConfigFile.load(configJson, dir);
+    static fromConfigJSON(configJson, dir, vars) {
+        return ConfigFile.load(configJson, dir, vars);
     }
 
     /**
-     * @param {?string=} dir 
+     * @param {string} dir 
+     * @param {{[varname:string]: string}} vars
      */
-    static fromConfigFile(dir) {
-        return ConfigFile.loadFile(dir);
+    static fromConfigFile(dir, vars) {
+        return ConfigFile.loadFile(dir, vars);
     }
 
     /**
@@ -195,6 +211,8 @@ export class Inventory {
             directory,
             ConfigFile.basename(),
             { strict: true });
+        
+        return path.join(directory, ConfigFile.basename());
     }
 
     // /**
@@ -275,7 +293,14 @@ export class Inventory {
         return install.installWorkers(1, 1, callbackfn);
     }
     /**
-     * @param {((name:string, type: srvTypes.ServiceType | 'sms', progress:number, progressTotal:number) => (void))=} callbackfn 
+     * @param {((name:string, type: srvTypes.ServiceType, progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installGanache(callbackfn) {
+        const install = new InventoryInstall(this._inv);
+        return install.installGanache(1, 1, callbackfn);
+    }
+    /**
+     * @param {((name:string, type: srvTypes.ServiceType, progress:number, progressTotal:number) => (void))=} callbackfn 
      */
     async installSms(callbackfn) {
         const install = new InventoryInstall(this._inv);

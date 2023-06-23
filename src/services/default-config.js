@@ -1,4 +1,5 @@
 import { PROD_NAME } from "../common/consts.js";
+import * as types from '../common/common-types.js';
 
 export const DEFAULT_MNEMONIC = "tackle clump have cool idea ripple rally jump airport shed raven song";
 const STANDARD = 'standard';
@@ -108,6 +109,36 @@ function addGanache(shared, mnemonic, chainId) {
     }
 }
 
+/**
+ * @param {*} machines 
+ * @param {string} name 
+ */
+function addQemuMachine(machines, name) {
+    /** @type {types.QemuMachineArgs} */
+    const args = {
+        name,
+        qemuConfig: {
+            cpu: 'host',
+            hda: './machines/qemu/ubuntu20.04/ubuntu-20-04-server.qcow2',
+            memory: '4G'
+        },
+        sshConfig: {
+            username: 'ixcdv',
+            host: 'localhost',
+            port: 2222,
+            privateKeyFile: './machines/qemu/ubuntu20.04/qemuworkerkey',
+            forceIPv4: true,
+            readyTimeout: 2 * 60 * 1000
+        },
+        gatewayIp: '10.0.2.2',
+        ixcdvWorkspaceDirectory: './workspace',
+    };
+    machines[name] = {
+        type: "qemu",
+        ...args
+    }
+}
+
 export const DEFAULT_CONFIG = (
     /** @type {number} */ firstChainId,
     /** @type {number} */ countChains,
@@ -141,12 +172,14 @@ export const DEFAULT_CONFIG = (
         /** @type {{ type : 'teeworkerpostcompute' }} */
         teeworkerpostcompute: {
             type: "teeworkerpostcompute"
-        }
+        },
+        machines: {}
     };
 
     addMarket(c.shared, STANDARD, firstChainId, countChains);
     addMarket(c.shared, ENTERPRISE, firstChainId, countChains);
     addMarket(c.shared, NATIVE, firstChainId, countChains);
+    addQemuMachine(c.machines, 'node1');
 
     c.default = computeChainName(firstChainId + 0, STANDARD);
 

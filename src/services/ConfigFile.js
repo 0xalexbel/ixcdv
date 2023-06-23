@@ -5,7 +5,7 @@ import assert from 'assert';
 import { Market } from './Market.js';
 import { CoreService } from './Core.js';
 import { ORDERED_SERVICE_TYPES, SERVICE_TYPE_INDICES, CHAIN_SERVICE_TYPES } from './base-internal.js';
-import { InventoryDB, addSortedConfigsToInventory as addSortedSharedConfigsToInventory, fromServiceType } from './InventoryDB.js';
+import { InventoryDB, resolveAndAddSortedConfigsToInventory as addSortedSharedConfigsToInventory, fromServiceType, resolveAndAddSortedConfigsToInventory } from './InventoryDB.js';
 import { PORT_RANGE } from './default-ports.js';
 import { DEFAULT_CONFIG } from './default-config.js';
 import { DEFAULT_VERSIONS } from './default-versions.js';
@@ -15,13 +15,14 @@ import { MongoService } from './MongoService.js';
 import { RedisService } from './RedisService.js';
 import { fileExists, readObjectFromJSONFile, resolveAbsolutePath, toAbsolutePathWithPlaceholders, toRelativePath } from '../common/fs.js';
 import { CodeError } from '../common/error.js';
-import { isNullishOrEmptyString, stringToHostnamePort } from '../common/string.js';
+import { hostnamePortToString, isNullishOrEmptyString, removePrefix, removeSuffix, stringToHostnamePort } from '../common/string.js';
 import { createRandomMnemonic, ethersIsValidMnemonic } from '../common/ethers.js';
 import { IpfsService } from '../ipfs/IpfsService.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
 import { throwIfNotStrictlyPositiveInteger } from '../common/number.js';
 import { PROD_CONFIG_BASENAME } from '../common/consts.js';
 import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
+import { AbstractMachine, QemuMachine } from '../common/machine.js';
 
 /**
  * @param {string} propertyName 
@@ -32,6 +33,17 @@ function errorMissingProperty(propertyName, path) {
         return `${PROD_CONFIG_BASENAME} : Missing '${propertyName}' property (path=${path}).`;
     }
     return `${PROD_CONFIG_BASENAME} : Missing '${propertyName}' property.`;
+}
+
+/**
+ * @param {string} propertyName 
+ * @param {string=} path 
+ */
+function errorInvalidProperty(propertyName, path) {
+    if (path) {
+        return `${PROD_CONFIG_BASENAME} : Invalid '${propertyName}' property (path=${path}).`;
+    }
+    return `${PROD_CONFIG_BASENAME} : Invalid '${propertyName}' property.`;
 }
 
 /*
@@ -109,12 +121,10 @@ function computeChainDBDir(root, chain, type) {
 export class ConfigFile {
 
     /**
-     * @param {?string=} dir 
+     * @param {string} dir 
+     * @param {{[varname:string]: string}} globalPlaceholders
      */
-    static async loadFile(dir) {
-        if (isNullishOrEmptyString(dir)) {
-            dir = process.cwd();
-        }
+    static async loadFile(dir, globalPlaceholders) {
         assert(dir);
         dir = resolveAbsolutePath(dir);
 
@@ -131,11 +141,21 @@ export class ConfigFile {
         if (!configJson.shared || typeof configJson.shared !== 'object') {
             throw new CodeError(errorMissingProperty('shared', configFile));
         }
+        if (!configJson.vars) {
+            configJson.vars = {
+                "defaultHostname": "${master}",
+                "localHostname": "${master}",
+                "master": "localhost"
+            }
+        }
+        if (typeof configJson.vars !== 'object') {
+            throw new CodeError(errorInvalidProperty('vars', configFile));
+        }
         if (isNullishOrEmptyString(configJson.default)) {
             const chainNames = Object.keys(configJson.chains);
             configJson.default = chainNames[0];
         }
-        return ConfigFile.load(configJson, dir);
+        return ConfigFile.load(configJson, dir, globalPlaceholders);
     }
 
     /**
@@ -180,7 +200,69 @@ export class ConfigFile {
     }
 
     /**
+     * @param {string} p 
+     * @param {{[varname:string]: string}} placeholders
+     */
+    static #verifyPlaceholder(p, placeholders) {
+        assert(p.startsWith('${') && p.endsWith('}'));
+        const pp = placeholders[p];
+        if (!pp) {
+            throw new CodeError(`Unknown variable '${p}'`);
+        }
+        // is it a var ?
+        if (!pp.startsWith('${')) {
+            return;
+        }
+        assert(pp.endsWith('}'));
+        if (!placeholders[pp]) {
+            throw new CodeError(`Unknown variable '${pp}'`);
+        }
+    }
+    /**
+     * @param {{[varname:string]: string}} placeholders
+     */
+    static #initGlobalplaceholders(placeholders) {
+        const has_defaultHostname = !!placeholders["${defaultHostname}"];
+        const has_localHostname = !!placeholders["${localHostname}"];
+        const has_master = !!placeholders["${master}"];
+
+        if (has_defaultHostname) {
+            this.#verifyPlaceholder("${defaultHostname}", placeholders);
+        }
+        if (has_localHostname) {
+            this.#verifyPlaceholder("${localHostname}", placeholders);
+        }
+        if (has_master) {
+            this.#verifyPlaceholder("${master}", placeholders);
+        }
+
+        if (!has_defaultHostname &&
+            !has_localHostname) {
+            if (!has_master) {
+                placeholders["${master}"] = 'localhost';
+            }
+            placeholders["${defaultHostname}"] = "${master}";
+            placeholders["${localHostname}"] = "${master}";
+            return;
+        }
+
+        if (!has_defaultHostname &&
+            has_localHostname) {
+            placeholders["${defaultHostname}"] = placeholders["${localHostname}"];
+            return;
+        }
+
+        if (has_defaultHostname &&
+            !has_localHostname) {
+            placeholders["${localHostname}"] = placeholders["${defaultHostname}"];
+            return;
+        }
+    }
+
+    /**
      * @param {{
+     *      vars?: {[varname:string]: string}
+     *      machines?: {[varname:string]: any}
      *      iexecsdk: {
      *          type: 'iexecsdk'
      *          chainsJsonLocation?: string
@@ -205,20 +287,87 @@ export class ConfigFile {
      *          }
      *      }
      * }} configJson
-     * @param {?string=} dir 
+     * @param {string} dir 
+     * @param {{[varname:string]: string}} vars
      */
-    static async load(configJson, dir) {
+    static async load(configJson, dir, vars) {
         assert(typeof configJson === 'object');
         assert(configJson);
-
-        if (isNullishOrEmptyString(dir)) {
-            dir = process.cwd();
-        }
         assert(dir);
         dir = resolveAbsolutePath(dir);
         const theDir = dir; //compiler + forEach
 
-        const inventoryDB = new InventoryDB(theDir, configJson.default);
+        /** @type {{[varname:string]: string}} */
+        const globalPlaceholders = {};
+
+        if (configJson.vars) {
+            Object.entries(configJson.vars).forEach(([key, value]) => {
+                if (key.indexOf("$") >= 0 || key.indexOf("{") >= 0 || key.indexOf("}") >= 0) {
+                    throw new CodeError(`Invalid var name ${key}`);
+                }
+                globalPlaceholders["${" + key + "}"] = value;
+            });
+        }
+        Object.entries(vars).forEach(([key, value]) => {
+            if (key.indexOf("$") >= 0 || key.indexOf("{") >= 0 || key.indexOf("}") >= 0) {
+                throw new CodeError(`Invalid var name ${key}`);
+            }
+            globalPlaceholders["${" + key + "}"] = value;
+        });
+
+        // Definitions:
+        // ${defaultHostname} : the value used when any service 'hostname' property is undefined
+        // ${localHostname} : name of the machine where the `ixcdv-config.json` is located
+        // ${master} : default name of the master machine.
+
+        // Default values:
+        // const globalPlaceholders = {
+        //     "${defaultHostname}": "${master}",
+        //     "${localHostname}": "${master}",
+        //     "${master}": "localhost"
+        // }
+
+        // Example:
+        // const globalPlaceholders = {
+        //     "${defaultHostname}": "${node0}",
+        //     "${localHostname}": "${node0}",
+        //     "${node0}": "localhost",
+        //     "${node1}": "10.0.2.2"
+        // }
+        // Explanation:
+        // - We are running on manchine 'node0' ("${localHostname}": "${node0}")
+        // - address of machine 'node0' is resolved as 'localhost' ("${node0}": "localhost")
+        // - any service where the hostname property is left undefined are considering
+        //   to be running on 'node0' ("${defaultHostname}": "${node0}")
+
+        this.#initGlobalplaceholders(globalPlaceholders);
+
+        const defaultHostname = globalPlaceholders["${defaultHostname}"];
+
+        /** @type {AbstractMachine[]} */
+        const allMachines = [];
+
+        // Machines (also fill globalPlaceholders with machine name)
+        if (configJson.machines) {
+            const machineNames = Object.keys(configJson.machines);
+            for (let i = 0; i < machineNames.length; ++i) {
+                const machineName = machineNames[i];
+                const machineConfig = configJson.machines[machineName];
+                if (machineConfig.type === 'qemu') {
+                    const machine = new QemuMachine(theDir, machineConfig);
+                    allMachines.push(machine);
+                    if (machine.sshConfig.host) {
+                        globalPlaceholders["${" + machineName + "}"] = machine.sshConfig.host;
+                    }
+                }
+            }
+        }
+
+        const inventoryDB = new InventoryDB(
+            theDir,
+            configJson.default,
+            allMachines,
+            globalPlaceholders);
 
         // First pass : enumerate all chains specified ports
         // Second pass : fill all the missing ports 
@@ -234,7 +383,7 @@ export class ConfigFile {
                     return;
                 }
                 const p = v.port;
-                const h = v.hostname ?? 'localhost';
+                const h = v.hostname ?? defaultHostname;
                 if (p) {
                     this.#addPort(__allLocalhostPorts, { hostname: h, port: p });
                 }
@@ -320,7 +469,10 @@ export class ConfigFile {
             }
         }
 
-        await addSortedSharedConfigsToInventory(inventoryDB, sharedTypes);
+        await resolveAndAddSortedConfigsToInventory(
+            inventoryDB,
+            sharedTypes,
+            globalPlaceholders);
 
         /* ---------------------------------- */
         // tee-worker-pre-compute
@@ -333,7 +485,9 @@ export class ConfigFile {
             assert(typeof teeworkerprecomputeConf.repository === 'object');
             teeworkerprecomputeConf.repository.gitHubRepoName = 'tee-worker-pre-compute';
 
-            await inventoryDB.addTeeWorkerPreCompute({ config: teeworkerprecomputeConf })
+            await inventoryDB.resolveAndAddTeeWorkerPreCompute(
+                { config: teeworkerprecomputeConf },
+                globalPlaceholders);
         }
 
         /* ---------------------------------- */
@@ -347,7 +501,9 @@ export class ConfigFile {
             assert(typeof teeworkerpostcomputeConf.repository === 'object');
             teeworkerpostcomputeConf.repository.gitHubRepoName = 'tee-worker-post-compute';
 
-            await inventoryDB.addTeeWorkerPostCompute({ config: teeworkerpostcomputeConf })
+            await inventoryDB.resolveAndAddTeeWorkerPostCompute(
+                { config: teeworkerpostcomputeConf },
+                globalPlaceholders);
         }
 
         /* ---------------------------------- */
@@ -363,11 +519,13 @@ export class ConfigFile {
             iexecsdkConf.chainsJsonLocation =
                 computeSharedRunDir(theDir, iexecsdkConf.repository.gitHubRepoName);
 
-            await inventoryDB.addIExecSdk({ config: iexecsdkConf })
+            await inventoryDB.resolveAndAddIExecSdk(
+                { config: iexecsdkConf },
+                globalPlaceholders);
         }
 
-        const ipfsApiHost = inventoryDB.getIpfsApiHost();
-        const ipfsHost = ipfsApiHost.hostname + ":" + ipfsApiHost.port.toString();
+        //const ipfsApiHost = inventoryDB.getIpfsApiHost();
+        //const ipfsHost = ipfsApiHost.hostname + ":" + ipfsApiHost.port.toString();
 
         // add chain services in type order
         for (let i = 0; i < chainNames.length; ++i) {
@@ -395,7 +553,7 @@ export class ConfigFile {
             ConfigFile.#fillRepository(workersConf, theDir);
             // Add config to inventory
             // - resolve placeholders
-            await inventoryDB.addWorkers(workersConf);
+            await inventoryDB.resolveAndAddWorkers(workersConf, globalPlaceholders);
 
             const ganacheConf = inventoryDB.getGanacheConfigFromHubAlias(hub);
             if (!ganacheConf) {
@@ -405,7 +563,7 @@ export class ConfigFile {
             if (!seq) {
                 throw new CodeError(errorMissingProperty(`No ganache service associated with hub=${hub}`, dir));
             }
-            const marketApiUrl = inventoryDB.getMarketApiUrlFromHubAlias(hub);
+            // const marketApiUrl = inventoryDB.getMarketApiUrlFromHubAlias(hub);
 
             /* ---------------------------------- */
             // sms
@@ -416,7 +574,10 @@ export class ConfigFile {
                 // Generates a minimal config (only port)
                 smsConf = this.#genSmsConf(__allLocalhostPorts);
             } else {
-                smsConf = await fromServiceType['sms'].deepCopyConfig(chain.sms, false /* keep unresolved */);
+                smsConf = await fromServiceType['sms'].deepCopyConfig(
+                    chain.sms,
+                    false /* keep unresolved */,
+                    globalPlaceholders);
             }
             if (!smsConf.port) {
                 throw new CodeError(errorMissingProperty(`chains.${chainName}.sms.port`, dir));
@@ -427,8 +588,13 @@ export class ConfigFile {
             this.#fillSmsConf(__allLocalhostPorts, chainName, hub, smsConf, dir);
             // Add config to inventory
             // - resolve placeholders
-            await inventoryDB.addSms({ config: smsConf });
-            const smsUrl = "http://" + (smsConf.hostname ?? 'localhost') + ':' + smsConf.port.toString();
+            const smsConfName = await inventoryDB.resolveAndAddSms(
+                { config: smsConf },
+                globalPlaceholders);
+            const smsIC = inventoryDB.getConfig(smsConfName);
+            assert(smsIC.type === 'sms');
+            // When resolved, do not specify `defaultHostname`
+            // const resolvedSmsUrl = "http://" + hostnamePortToString(smsIC.resolved, undefined);
 
             /* ---------------------------------- */
             // resultproxy
@@ -438,29 +604,51 @@ export class ConfigFile {
             if (!chain.resultproxy) {
                 resultproxyConf = this.#genResultProxyConf(__allLocalhostPorts);
             } else {
-                resultproxyConf = await fromServiceType['resultproxy'].deepCopyConfig(chain.resultproxy, false /* keep unresolved */);
+                resultproxyConf = await fromServiceType['resultproxy'].deepCopyConfig(
+                    chain.resultproxy,
+                    false /* keep unresolved */,
+                    globalPlaceholders);
             }
             if (!resultproxyConf.port) {
                 throw new CodeError(errorMissingProperty(`chains.${chainName}.resultproxy.port`, dir));
             }
             // type, repository, hub, springConfigLocation, logFile
             this.#fillResultProxyConf(__allLocalhostPorts, chainName, hub, resultproxyConf, dir);
-            if (!resultproxyConf.ipfsHost) {
-                resultproxyConf.ipfsHost = ipfsHost;
-            }
+
+            // Use shared ipfs instead !
+            // if (!resultproxyConf.ipfsHost) {
+            //     resultproxyConf.ipfsHost = ipfsHost;
+            // }
+
             // mongoHost
             let newResultProxyMongoConf;
             const sharedResultProxyMongoConf = inventoryDB.configFromHost(resultproxyConf.mongoHost);
             if (!sharedResultProxyMongoConf) {
-                newResultProxyMongoConf = this.#genResultProxyMongoConf(__allLocalhostPorts, chainName, resultproxyConf, dir);
+                newResultProxyMongoConf = this.#genResultProxyMongoConf(
+                    __allLocalhostPorts,
+                    defaultHostname,
+                    chainName,
+                    resultproxyConf,
+                    dir);
                 assert(newResultProxyMongoConf.type === 'mongo');
             } else {
                 if (!resultproxyConf.mongoDBName) {
                     throw new CodeError(errorMissingProperty(`chains.${chainName}.resultproxy.mongoDBName`, dir));
                 }
             }
-            await inventoryDB.addResultProxy({ config: resultproxyConf, mongoConfig: newResultProxyMongoConf });
-            const resultproxyUrl = "http://" + (resultproxyConf.hostname ?? 'localhost') + ':' + resultproxyConf.port.toString();
+
+            // Add config to inventory
+            // - resolve placeholders
+            const resultproxyConfName = await inventoryDB.resolveAndAddResultProxy(
+                {
+                    config: resultproxyConf,
+                    mongoConfig: newResultProxyMongoConf
+                },
+                globalPlaceholders);
+            const resultproxyIC = inventoryDB.getConfig(resultproxyConfName);
+            assert(resultproxyIC.type === 'resultproxy');
+            // When resolved, do not specify `defaultHostname`
+            // const resolvedResultproxyUrl = "http://" + hostnamePortToString(resultproxyIC.resolved, undefined);
 
             /* ---------------------------------- */
             // blockchainadapter
@@ -470,7 +658,10 @@ export class ConfigFile {
             if (!chain.blockchainadapter) {
                 blockchainadapterConf = this.#genBlockchainAdapterConf(__allLocalhostPorts);
             } else {
-                blockchainadapterConf = await fromServiceType['blockchainadapter'].deepCopyConfig(chain.blockchainadapter, false /* keep unresolved */);
+                blockchainadapterConf = await fromServiceType['blockchainadapter'].deepCopyConfig(
+                    chain.blockchainadapter,
+                    false /* keep unresolved */,
+                    globalPlaceholders);
             }
             if (!blockchainadapterConf.port) {
                 throw new CodeError(errorMissingProperty(`chains.${chainName}.blockchainadapter.port`, dir));
@@ -481,23 +672,36 @@ export class ConfigFile {
             let newBlockchainAdapterMongoConf;
             const sharedBlockchainAdapterMongoConf = inventoryDB.configFromHost(blockchainadapterConf.mongoHost);
             if (!sharedBlockchainAdapterMongoConf) {
-                newBlockchainAdapterMongoConf = this.#genBlockchainAdapterMongoConf(__allLocalhostPorts, chainName, blockchainadapterConf, dir);
+                newBlockchainAdapterMongoConf = this.#genBlockchainAdapterMongoConf(
+                    __allLocalhostPorts,
+                    defaultHostname,
+                    chainName,
+                    blockchainadapterConf,
+                    dir);
                 assert(newBlockchainAdapterMongoConf.type === 'mongo');
             } else {
                 if (!blockchainadapterConf.mongoDBName) {
                     throw new CodeError(errorMissingProperty(`chains.${chainName}.blockchainadapter.mongoDBName`, dir));
                 }
             }
-            // marketApiUrl
-            if (marketApiUrl) {
-                blockchainadapterConf.marketApiUrl = marketApiUrl;
-            }
+            // Use shared value instead
+            // if (!blockchainadapterConf.marketApiUrl && marketApiUrl) {
+            //     blockchainadapterConf.marketApiUrl = marketApiUrl;
+            // }
             // walletIndex
             if (blockchainadapterConf.walletIndex === undefined) {
                 blockchainadapterConf.walletIndex = seq.WorkerpoolAccountIndex;
             }
-            await inventoryDB.addBlockchainAdapter({ config: blockchainadapterConf, mongoConfig: newBlockchainAdapterMongoConf });
-            const blockchainadapterUrl = "http://" + (blockchainadapterConf.hostname ?? 'localhost') + ':' + blockchainadapterConf.port.toString();
+            const blockchainadapterConfName = await inventoryDB.resolveAndAddBlockchainAdapter(
+                {
+                    config: blockchainadapterConf,
+                    mongoConfig: newBlockchainAdapterMongoConf
+                },
+                globalPlaceholders);
+            const blockchainadapterIC = inventoryDB.getConfig(blockchainadapterConfName);
+            assert(blockchainadapterIC.type === 'blockchainadapter');
+            // When resolved, do not specify `defaultHostname`
+            // const blockchainadapterUrl = "http://" + hostnamePortToString(blockchainadapterIC.resolved, undefined);
 
             /* ---------------------------------- */
             // core
@@ -507,7 +711,10 @@ export class ConfigFile {
             if (!chain.core) {
                 coreConf = this.#genCoreConf(__allLocalhostPorts);
             } else {
-                coreConf = await fromServiceType['core'].deepCopyConfig(chain.core, false /* keep unresolved */);
+                coreConf = await fromServiceType['core'].deepCopyConfig(
+                    chain.core,
+                    false /* keep unresolved */,
+                    globalPlaceholders);
             }
             if (!coreConf.port) {
                 throw new CodeError(errorMissingProperty(`chains.${chainName}.core.port`, dir));
@@ -518,7 +725,12 @@ export class ConfigFile {
             let newCoreMongoConf;
             const sharedCoreMongoConf = inventoryDB.configFromHost(coreConf.mongoHost);
             if (!sharedCoreMongoConf) {
-                newCoreMongoConf = this.#genCoreMongoConf(__allLocalhostPorts, chainName, coreConf, dir);
+                newCoreMongoConf = this.#genCoreMongoConf(
+                    __allLocalhostPorts,
+                    defaultHostname,
+                    chainName,
+                    coreConf,
+                    dir);
                 assert(newCoreMongoConf.type === 'mongo');
             } else {
                 if (!coreConf.mongoDBName) {
@@ -529,24 +741,32 @@ export class ConfigFile {
             if (coreConf.walletIndex === undefined) {
                 coreConf.walletIndex = seq.WorkerpoolAccountIndex;
             }
-            // ipfsHost
-            if (!coreConf.ipfsHost) {
-                coreConf.ipfsHost = ipfsHost;
-            }
-            // smsUrl
-            if (!coreConf.smsUrl) {
-                coreConf.smsUrl = smsUrl;
-            }
-            // resultProxyUrl
-            if (!coreConf.resultProxyUrl) {
-                coreConf.resultProxyUrl = resultproxyUrl;
-            }
-            // blockchainAdapterUrl
-            if (!coreConf.blockchainAdapterUrl) {
-                coreConf.blockchainAdapterUrl = blockchainadapterUrl;
-            }
-            await inventoryDB.addCore({ config: coreConf, mongoConfig: newCoreMongoConf });
+            // // ipfsHost
+            // if (!coreConf.ipfsHost) {
+            //     coreConf.ipfsHost = ipfsHost;
+            // }
+            // // smsUrl
+            // if (!coreConf.smsUrl) {
+            //     coreConf.smsUrl = resolvedSmsUrl;
+            // }
+            // // resultProxyUrl
+            // if (!coreConf.resultProxyUrl) {
+            //     coreConf.resultProxyUrl = resolvedResultproxyUrl;
+            // }
+            // // blockchainAdapterUrl
+            // if (!coreConf.blockchainAdapterUrl) {
+            //     coreConf.blockchainAdapterUrl = blockchainadapterUrl;
+            // }
+            await inventoryDB.resolveAndAddCore(
+                {
+                    config: coreConf,
+                    mongoConfig: newCoreMongoConf
+                },
+                globalPlaceholders);
         }
+
+        // When everything is setup, resolve the machine ports forwading
+        inventoryDB.setupMachineHostFwdPorts();
 
         const inventory = newInventory();
         inventory._inv = inventoryDB;
@@ -561,7 +781,7 @@ export class ConfigFile {
      * @param {any=} params.port 
      */
     static #addPort(allLocalhostPorts, { hostname, port } = {}) {
-        if (hostname && hostname !== 'localhost') {
+        if (hostname && hostname !== 'localhost' && !hostname.startsWith('${')) {
             return;
         }
         if (port === undefined) {
@@ -684,6 +904,7 @@ export class ConfigFile {
             assert(!allLocalhostPorts.has(port));
             allLocalhostPorts.add(port);
         }
+
         assert(allLocalhostPorts.has(config.port));
     }
 
@@ -840,7 +1061,10 @@ export class ConfigFile {
      * @param {string} dir 
      */
     static #fillMarketPorts(allLocalhostPorts, { name, config }, dir) {
-        if (config.api.hostname && config.api.hostname !== 'localhost') {
+        const apiHostname = config.api.hostname;
+        if (apiHostname &&
+            apiHostname !== 'localhost' &&
+            !apiHostname.startsWith('${')) {
             return;
         }
         /** @type {number=} */
@@ -1032,15 +1256,18 @@ export class ConfigFile {
 
     /**
      * @param {Set<number>} allLocalhostPorts 
+     * @param {string} defaultHostname 
      * @param {string} chain 
      * @param {srvTypes.ResultProxyConfig} resultproxyConf 
      * @param {string} dir 
      */
-    static #genResultProxyMongoConf(allLocalhostPorts, chain, resultproxyConf, dir) {
+    static #genResultProxyMongoConf(allLocalhostPorts, defaultHostname, chain, resultproxyConf, dir) {
+        assert(!isNullishOrEmptyString(defaultHostname));
+
         const runDir = computeChainRunDir(dir, chain, resultproxyConf.type);
         const dbDir = computeChainDBDir(dir, chain, resultproxyConf.type);
 
-        let mongoHostname = 'localhost';
+        let mongoHostname = defaultHostname;
         // management = resultproxyConf.port + 1
         let mongoPort = resultproxyConf.port + 2;
         assert(!allLocalhostPorts.has(mongoPort));
@@ -1048,10 +1275,10 @@ export class ConfigFile {
         if (resultproxyConf.mongoHost) {
             const { hostname, port } = stringToHostnamePort(resultproxyConf.mongoHost);
             if (!hostname) {
-                throw new CodeError(`Invalid chains.${chain}.core.mongoHost property.`);
+                throw new CodeError(`Invalid chains.${chain}.resultproxy.mongoHost property.`);
             }
             if (!port) {
-                throw new CodeError(`Invalid chains.${chain}.core.mongoHost property.`);
+                throw new CodeError(`Invalid chains.${chain}.resultproxy.mongoHost property.`);
             }
             mongoHostname = hostname;
             mongoPort = port;
@@ -1062,9 +1289,9 @@ export class ConfigFile {
         /** @type {srvTypes.MongoConfig} */
         const mongoConf = {
             type: "mongo",
-            hostname: 'localhost',
+            hostname: mongoHostname,
             // management = conf.port + 1
-            port: resultproxyConf.port + 2,
+            port: mongoPort,
             directory: path.join(dbDir, 'mongo'),
             logFile: path.join(runDir, 'mongo.log'),
             pidFile: path.join(runDir, 'mongo.pid'),
@@ -1074,15 +1301,18 @@ export class ConfigFile {
 
     /**
      * @param {Set<number>} allLocalhostPorts 
+     * @param {string} defaultHostname 
      * @param {string} chain 
      * @param {srvTypes.BlockchainAdapterConfig} blockchainadapterConf 
      * @param {string} dir 
      */
-    static #genBlockchainAdapterMongoConf(allLocalhostPorts, chain, blockchainadapterConf, dir) {
+    static #genBlockchainAdapterMongoConf(allLocalhostPorts, defaultHostname, chain, blockchainadapterConf, dir) {
+        assert(!isNullishOrEmptyString(defaultHostname));
+
         const runDir = computeChainRunDir(dir, chain, blockchainadapterConf.type);
         const dbDir = computeChainDBDir(dir, chain, blockchainadapterConf.type);
 
-        let mongoHostname = 'localhost';
+        let mongoHostname = defaultHostname;
         // management = blockchainadapterConf.port + 1
         let mongoPort = blockchainadapterConf.port + 2;
         assert(!allLocalhostPorts.has(mongoPort));
@@ -1090,10 +1320,10 @@ export class ConfigFile {
         if (blockchainadapterConf.mongoHost) {
             const { hostname, port } = stringToHostnamePort(blockchainadapterConf.mongoHost);
             if (!hostname) {
-                throw new CodeError(`Invalid chains.${chain}.core.mongoHost property.`);
+                throw new CodeError(`Invalid chains.${chain}.blockchainadapter.mongoHost property.`);
             }
             if (!port) {
-                throw new CodeError(`Invalid chains.${chain}.core.mongoHost property.`);
+                throw new CodeError(`Invalid chains.${chain}.blockchainadapter.mongoHost property.`);
             }
             mongoHostname = hostname;
             mongoPort = port;
@@ -1104,9 +1334,9 @@ export class ConfigFile {
         /** @type {srvTypes.MongoConfig} */
         const mongoConf = {
             type: "mongo",
-            hostname: 'localhost',
+            hostname: mongoHostname,
             // management = conf.port + 1
-            port: blockchainadapterConf.port + 2,
+            port: mongoPort,
             directory: path.join(dbDir, 'mongo'),
             logFile: path.join(runDir, 'mongo.log'),
             pidFile: path.join(runDir, 'mongo.pid'),
@@ -1116,15 +1346,18 @@ export class ConfigFile {
 
     /**
      * @param {Set<number>} allLocalhostPorts 
+     * @param {string} defaultHostname 
      * @param {string} chain 
      * @param {srvTypes.CoreConfig} coreConf 
      * @param {string} dir 
      */
-    static #genCoreMongoConf(allLocalhostPorts, chain, coreConf, dir) {
+    static #genCoreMongoConf(allLocalhostPorts, defaultHostname, chain, coreConf, dir) {
+        assert(!isNullishOrEmptyString(defaultHostname));
+
         const runDir = computeChainRunDir(dir, chain, coreConf.type);
         const dbDir = computeChainDBDir(dir, chain, coreConf.type);
 
-        let mongoHostname = 'localhost';
+        let mongoHostname = defaultHostname;
         // management = conf.port + 1
         let mongoPort = coreConf.port + 2;
         assert(!allLocalhostPorts.has(mongoPort));
@@ -1244,8 +1477,28 @@ export class ConfigFile {
  * @param {string} dir 
  */
 export async function inventoryToConfigFile(inventory, dir) {
+
+    /** @type {{[varname:string]: string}} */
+    const vars = {};
+
+    const g = inventory.globalPlaceholders;
+    Object.entries(g).forEach(([key, value]) => {
+        assert(key.startsWith('${') && key.endsWith('}'));
+        const name = removePrefix('${', removeSuffix('}', key));
+        vars[name] = value;
+    });
+
+    /** @type {any} */
+    const machines = {};
+    const allMachines = inventory.allMachines;
+    allMachines.forEach((machine, name) => {
+        machines[name] = machine.toJSON();        
+    });
+
     /** 
      * @type {{ 
+     *      vars?: {[varname:string]: string},
+     *      machines?: {[varname:string]: any},
      *      default:string, 
      *      shared: any, 
      *      chains: any
@@ -1255,6 +1508,7 @@ export async function inventoryToConfigFile(inventory, dir) {
      * }} 
      */
     const conf = {
+        vars,
         default: inventory.defaultChainName,
         shared: {},
         chains: {},
@@ -1263,13 +1517,29 @@ export async function inventoryToConfigFile(inventory, dir) {
         teeworkerpostcompute: {}
     }
 
+    if (machines) {
+        conf.machines = machines;
+    }
+
+    /** @type {{[varname:string]: string}} */
+    const globalPlaceholders = {}; /* keep it empty, we want to save an unresolved JSON file */
+    const resolvePlaceholders = false; /* keep unsolved */
+
     const ipfsConf = inventory.getIpfsConfig();
     assert(ipfsConf);
-    conf.shared.ifps = await IpfsService.deepCopyConfig(ipfsConf.unsolved, false /* keep unsolved */, dir);
+    conf.shared.ifps = await IpfsService.deepCopyConfig(
+        ipfsConf.unsolved,
+        resolvePlaceholders,
+        globalPlaceholders,
+        dir);
 
     const dockerConf = inventory.getDockerConfig();
     assert(dockerConf);
-    conf.shared.docker = await DockerService.deepCopyConfig(dockerConf.unsolved, false /* keep unsolved */, dir);
+    conf.shared.docker = await DockerService.deepCopyConfig(
+        dockerConf.unsolved,
+        resolvePlaceholders,
+        globalPlaceholders,
+        dir);
 
     const ganacheConfs = inventory.getConfigsByType('ganache');
     if (ganacheConfs) {
@@ -1281,7 +1551,11 @@ export async function inventoryToConfigFile(inventory, dir) {
             assert(ic.resolved);
             assert(ic.unsolved);
             assert(ic.unsolved.type === 'ganache');
-            conf.shared[ic.name] = await GanachePoCoService.deepCopyConfig(ic.unsolved, false /* keep unsolved */, dir);
+            conf.shared[ic.name] = await GanachePoCoService.deepCopyConfig(
+                ic.unsolved,
+                resolvePlaceholders,
+                globalPlaceholders,
+                dir);
         }
     }
 
@@ -1297,7 +1571,11 @@ export async function inventoryToConfigFile(inventory, dir) {
             assert(ic.unsolved.type === 'mongo');
             if (inventory.isShared(ic.name)) {
                 // keep unresolved
-                conf.shared[ic.name] = await MongoService.deepCopyConfig(ic.unsolved, false /* keep unsolved */, dir);
+                conf.shared[ic.name] = await MongoService.deepCopyConfig(
+                    ic.unsolved,
+                    resolvePlaceholders,
+                    globalPlaceholders,
+                    dir);
             }
         }
     }
@@ -1314,7 +1592,11 @@ export async function inventoryToConfigFile(inventory, dir) {
             assert(ic.unsolved.type === 'redis');
             if (inventory.isShared(ic.name)) {
                 // keep unresolved
-                conf.shared[ic.name] = await RedisService.deepCopyConfig(ic.unsolved, false /* keep unsolved */, dir);
+                conf.shared[ic.name] = await RedisService.deepCopyConfig(
+                    ic.unsolved,
+                    resolvePlaceholders,
+                    globalPlaceholders,
+                    dir);
             }
         }
     }
@@ -1331,7 +1613,11 @@ export async function inventoryToConfigFile(inventory, dir) {
             assert(ic.unsolved.type === 'market');
             if (inventory.isShared(ic.name)) {
                 // keep unresolved
-                conf.shared[ic.name] = await Market.deepCopyConfig(ic.unsolved, false /* keep unsolved */, dir);
+                conf.shared[ic.name] = await Market.deepCopyConfig(
+                    ic.unsolved,
+                    resolvePlaceholders,
+                    globalPlaceholders,
+                    dir);
             }
         }
     }
@@ -1356,7 +1642,8 @@ export async function inventoryToConfigFile(inventory, dir) {
                     await fromServiceType[type].deepCopyConfig(
                         // @ts-ignore
                         ic.unsolved  /* keep unsolved */,
-                        false /* keep unsolved */,
+                        resolvePlaceholders,
+                        globalPlaceholders,
                         dir);
             }
         }
@@ -1368,10 +1655,15 @@ export async function inventoryToConfigFile(inventory, dir) {
         assert(teeworkerprecomputeIConf.type === 'teeworkerprecompute');
         assert(teeworkerprecomputeIConf.resolved);
         assert(teeworkerprecomputeIConf.unsolved);
+        assert(teeworkerprecomputeIConf.resolved.type === 'teeworkerprecompute');
         assert(teeworkerprecomputeIConf.unsolved.type === 'teeworkerprecompute');
+
+        /** @type {srvTypes.TeeWorkerPreComputeConfig} */
+        const teeworkerprecomputeConf = (resolvePlaceholders) ? teeworkerprecomputeIConf.resolved : teeworkerprecomputeIConf.unsolved;
+
         conf.teeworkerprecompute = {
-            ...teeworkerprecomputeIConf.unsolved,
-            repository: deepCopyPackage(teeworkerprecomputeIConf.unsolved.repository, dir)
+            ...teeworkerprecomputeConf,
+            repository: deepCopyPackage(teeworkerprecomputeConf.repository, dir)
         }
     }
 
@@ -1381,27 +1673,35 @@ export async function inventoryToConfigFile(inventory, dir) {
         assert(teeworkerpostcomputeIConf.type === 'teeworkerpostcompute');
         assert(teeworkerpostcomputeIConf.resolved);
         assert(teeworkerpostcomputeIConf.unsolved);
+        assert(teeworkerpostcomputeIConf.resolved.type === 'teeworkerpostcompute');
         assert(teeworkerpostcomputeIConf.unsolved.type === 'teeworkerpostcompute');
+
+        /** @type {srvTypes.TeeWorkerPostComputeConfig} */
+        const teeworkerpostcomputeConf = (resolvePlaceholders) ? teeworkerpostcomputeIConf.resolved : teeworkerpostcomputeIConf.unsolved;
+
         conf.teeworkerpostcompute = {
-            ...teeworkerpostcomputeIConf.unsolved,
-            repository: deepCopyPackage(teeworkerpostcomputeIConf.unsolved.repository, dir)
+            ...teeworkerpostcomputeConf,
+            repository: deepCopyPackage(teeworkerpostcomputeConf.repository, dir)
         }
     }
 
     const iexecsdkIConf = inventory.getIExecSdkConfig();
     if (iexecsdkIConf) {
-        // keep unresolved
         assert(iexecsdkIConf.type === 'iexecsdk');
         assert(iexecsdkIConf.resolved);
         assert(iexecsdkIConf.unsolved);
         assert(iexecsdkIConf.unsolved.type === 'iexecsdk');
-        if (iexecsdkIConf.unsolved.chainsJsonLocation) {
-            iexecsdkIConf.unsolved.chainsJsonLocation =
-                toRelativePath(dir, iexecsdkIConf.unsolved.chainsJsonLocation);
+        assert(iexecsdkIConf.resolved.type === 'iexecsdk');
+
+        /** @type {srvTypes.IExecSdkConfig} */
+        const iexecsdkConf = (resolvePlaceholders) ? iexecsdkIConf.resolved : iexecsdkIConf.unsolved;
+        if (iexecsdkConf.chainsJsonLocation) {
+            iexecsdkConf.chainsJsonLocation =
+                toRelativePath(dir, iexecsdkConf.chainsJsonLocation);
         }
         conf.iexecsdk = {
-            ...iexecsdkIConf.unsolved,
-            repository: deepCopyPackage(iexecsdkIConf.unsolved.repository, dir)
+            ...iexecsdkConf,
+            repository: deepCopyPackage(iexecsdkConf.repository, dir)
         }
     }
 

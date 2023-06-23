@@ -13,7 +13,7 @@ import { psGetEnv, psGrepPID, psGrepPIDAndEnv } from "../common/ps.js";
 import { CodeError } from "../common/error.js";
 import { genSetMBashScript } from "../common/bash.js";
 import { parseSingleEnvVar } from "../common/utils.js";
-import { isNullishOrEmptyString, throwIfNullishOrEmptyString } from "../common/string.js";
+import { isNullishOrEmptyString, placeholdersPropertyReplace, throwIfNullishOrEmptyString } from "../common/string.js";
 import { isStrictlyPositiveInteger, throwIfNotStrictlyPositiveInteger } from "../common/number.js";
 
 /**
@@ -73,11 +73,17 @@ export class IpfsService extends ServerService {
     /** 
      * @param {types.IpfsConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         const configCopy = { ...config };
         assert(configCopy.type === 'ipfs');
+
+        if (!configCopy.hostname && placeholders) {
+            configCopy.hostname = placeholders["${defaultHostname}"];
+        }
+
         if (relativeToDirectory) {
             if (configCopy.directory) {
                 configCopy.directory = toRelativePath(relativeToDirectory, configCopy.directory);
@@ -85,6 +91,11 @@ export class IpfsService extends ServerService {
             if (configCopy.logFile) {
                 configCopy.logFile = toRelativePath(relativeToDirectory, configCopy.logFile);
             }
+        }
+        if (resolvePlaceholders) {
+            ["hostname"].forEach((v) => {
+                placeholdersPropertyReplace(configCopy, v, placeholders)
+            });
         }
         return configCopy;
     }

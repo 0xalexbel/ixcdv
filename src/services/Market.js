@@ -129,13 +129,24 @@ export class Market extends AbstractService {
      * - if `resolvePlaceholders === true` : may retrieve repo latest version from github 
      * @param {srvTypes.MarketConfig} config 
      * @param {boolean} resolvePlaceholders
+     * @param {{[varname:string]: string}} placeholders
      * @param {string=} relativeToDirectory
      */
-    static async deepCopyConfig(config, resolvePlaceholders, relativeToDirectory) {
+    static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         const configCopy = { ...config };
         configCopy.mongo = { ...config.mongo };
         configCopy.redis = { ...config.redis };
         assert(configCopy.type === 'market');
+
+        if (!configCopy.mongo.hostname && placeholders) {
+            configCopy.mongo.hostname = placeholders["${defaultHostname}"];
+        }
+        if (!configCopy.redis.hostname && placeholders) {
+            configCopy.redis.hostname = placeholders["${defaultHostname}"];
+        }
+        if (!configCopy.api.hostname && placeholders) {
+            configCopy.api.hostname = placeholders["${defaultHostname}"];
+        }
 
         if (configCopy.repository) {
             configCopy.repository = deepCopyPackage(configCopy.repository, relativeToDirectory);
@@ -162,17 +173,22 @@ export class Market extends AbstractService {
         if (resolvePlaceholders) {
             // if needed, retrieves latest version on github
             const gitHubRepo = await this.getGitHubRepo(toPackage(configCopy.repository));
-            const placeholders = {
+            const allPlaceholders = {
+                ...placeholders,
                 "${version}": gitHubRepo.commitish,
-                "${repoName}": gitHubRepo.gitHubRepoName
+                "${repoName}": gitHubRepo.gitHubRepoName,
             };
-            placeholdersPropertyReplace(configCopy, 'directory', placeholders);
-            placeholdersPropertyReplace(configCopy.mongo, 'directory', placeholders);
-            placeholdersPropertyReplace(configCopy.redis, 'directory', placeholders);
+            ["directory", "hostname"].forEach((v) => {
+                placeholdersPropertyReplace(configCopy, v, allPlaceholders);
+                placeholdersPropertyReplace(configCopy.api, v, allPlaceholders);
+                placeholdersPropertyReplace(configCopy.mongo, v, allPlaceholders);
+                placeholdersPropertyReplace(configCopy.redis, v, allPlaceholders);
+            });
+
             if (typeof configCopy.repository === 'string') {
-                placeholdersPropertyReplace(configCopy, 'repository', placeholders);
+                placeholdersPropertyReplace(configCopy, 'repository', allPlaceholders);
             } else {
-                placeholdersPropertyReplace(configCopy.repository, 'directory', placeholders);
+                placeholdersPropertyReplace(configCopy.repository, 'directory', allPlaceholders);
             }
         }
 
@@ -636,8 +652,11 @@ export class Market extends AbstractService {
         }
         Market.#guardConstructing = false;
 
-        const mongoHost = hostnamePortToString(mongo);
-        const redisHost = hostnamePortToString(redis);
+        // should be resolved
+        const mongoHost = hostnamePortToString(mongo, undefined);
+        // should be resolved
+        const redisHost = hostnamePortToString(redis, undefined);
+
         const chainids = (inventory) ? await inventory.getChainids() : undefined;
 
         // Throws an exception if multiple ganache instances 

@@ -1,0 +1,61 @@
+#!/bin/bash
+
+readonly MACHINE_NAME={{ machineName }}
+
+if [[ -z "${MACHINE_NAME}" ]]; then
+    echo "Missing node name"
+    exit 1
+fi
+
+# check that qemu is properly installed
+which qemu-img > /dev/null || echo "qemu is not installed. Type 'brew install qemu'."
+
+readonly IXCDV_FILE="${MACHINE_NAME}-ubuntu-20-04-server.qcow2"
+readonly IXCDV_HDD_SZ="30G"
+readonly IXCDV_RAM="4G"
+readonly IXCDV_CPU="host"
+
+readonly IXCDV_VERSION=$(curl -s https://releases.ubuntu.com/20.04/SHA256SUMS | grep live-server-amd64.iso | awk -F "*" '{print $2}')
+
+echo "Install qemu ubuntu 20.04 : ${IXCDV_VERSION}"
+echo "- ISO file : ${IXCDV_VERSION}"
+echo "- Disk file : ${IXCDV_FILE}"
+echo "- Disk file size: ${IXCDV_HDD_SZ}"
+
+# 1. install qemu
+# echo "Install qemu"
+# brew install qemu
+
+# 2. file that will serve as the hard drive for the VM (30 Giga):
+echo "Create HDD file: ${IXCDV_FILE}"
+if [[ ! -f "${IXCDV_FILE}" ]]; then
+    qemu-img create -f qcow2 "${IXCDV_FILE}" "${IXCDV_HDD_SZ}"
+else 
+    echo "File: ${IXCDV_FILE} already exists"
+fi 
+exit 
+
+# 3. download unbuntu live server iso
+echo "Download ${IXCDV_VERSION}"
+if [[ ! -f "${IXCDV_VERSION}" ]]; then
+    curl -LO "https://releases.ubuntu.com/20.04/${IXCDV_VERSION}"
+else
+    echo "ISO: ${IXCDV_VERSION} already exists"
+fi
+
+# Error message : vmx_write_mem: mmu_gva_to_gpa ffff9cb53f8d9000 failed
+# 4. install ubuntu
+qemu-system-x86_64 \
+  -cdrom "${IXCDV_VERSION}" \
+  -hda "${IXCDV_FILE}" \
+  -cpu "${IXCDV_CPU}" \
+  -machine "accel=hvf" \
+  -m "${IXCDV_RAM}"
+
+# qemu-system-x86_64 \
+#   -cdrom "ubuntu-20.04.6-live-server-amd64.iso" \
+#   -hda "ubuntu-20-04-server.qcow2" \
+#   -machine "type=q35,accel=hvf" \
+#   -m "4G" \
+#   -netdev "user,id=n1,hostfwd=tcp::2222-:22" \
+#   -device "virtio-net-pci,netdev=n1,bus=pcie.0,addr=0x19"
