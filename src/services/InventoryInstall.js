@@ -130,6 +130,9 @@ export class InventoryInstall {
             // @ts-ignore
             return fromServiceType[ic.type].install(ic.unsolved);
         } else {
+            if (this._inv.getLocalRunningMachineName() !== 'master') {
+                throw new CodeError('Cannot perform any ssh install from a slave machine');
+            }
             // forward install command to remote machine via ssh
             const machine = this._inv.getConfigRunningMachine(ic);
             if (!machine) {

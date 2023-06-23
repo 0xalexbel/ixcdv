@@ -22,6 +22,7 @@ export default class InstallCmd extends Cmd {
     async cliExec(cliDir, options) {
         try {
             let type = 'all';
+            let name;
             if (options.type) {
                 if (options.type !== 'iexecsdk' &&
                     options.type !== 'worker' &&
@@ -33,6 +34,9 @@ export default class InstallCmd extends Cmd {
                     throw new CodeError(`Unsupported type option ${options.type}`);
                 }
                 type = options.type;
+            }
+            if (options.name) {
+                name = options.name;
             }
 
             const vars = this.parseVars(options);
@@ -80,7 +84,18 @@ export default class InstallCmd extends Cmd {
 
             let installWallets = false;
 
-            if (type === 'all') {
+            if (!name) {
+                const ic = inventory._inv.getConfig(name);
+                if (!ic) {
+                    throw new CodeError(`Unknown inventory config name : '${name}'`);
+                }
+                if (ic.type === 'ganache') {
+                    installWallets = true;
+                }
+                await inventory.installSingleConfig(name, (name, type, progress, progressTotal) => {
+                    console.log(`${progress}/${progressTotal} Install ${name}`);
+                });
+            } else if (type === 'all') {
                 installWallets = true;
                 await inventory.installAll((name, type, progress, progressTotal) => {
                     if (type === 'worker') {

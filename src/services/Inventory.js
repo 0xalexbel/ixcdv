@@ -327,7 +327,14 @@ export class Inventory {
         const install = new InventoryInstall(this._inv);
         return install.installTeeWorkerPostCompute(1, 1, callbackfn);
     }
-
+    /**
+     * @param {string} name
+     * @param {((name:string, type: srvTypes.ServiceType, progress:number, progressTotal:number) => (void))=} callbackfn 
+     */
+    async installSingleConfig(name, callbackfn) {
+        const install = new InventoryInstall(this._inv);
+        return install.install(name, 1, 1, callbackfn);
+    }
     /**
      * @param {srvTypes.ServiceType | 'all'} type 
      * @returns {Promise<{

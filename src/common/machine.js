@@ -127,7 +127,7 @@ export class AbstractMachine {
             throw new CodeError(`Invalid ${PROD_CONFIG_BASENAME} content`);
         }
         if (! await this.isRunning()) {
-            throw new CodeError(`machine ${this.#name} is not running`);
+            throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
         }
         const sshConf = this.sshConfig;
         const ok = await ssh.mkDirP(sshConf, this.#ixcdvWorkspaceDirectory);
