@@ -84,7 +84,7 @@ export default class InstallCmd extends Cmd {
 
             let installWallets = false;
 
-            if (!name) {
+            if (name !== null && name !== undefined) {
                 const ic = inventory._inv.getConfig(name);
                 if (!ic) {
                     throw new CodeError(`Unknown inventory config name : '${name}'`);
