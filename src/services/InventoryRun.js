@@ -51,31 +51,44 @@ export class InventoryRun {
      */
     async #startByName(name, options) {
         assert(pathIsPOSIXPortable(this._inv.rootDir));
+
+        let startReturn;
+        let instance;
+
         if (!this._inv.isConfigNameRunningLocally(name)) {
             const machine = this._inv.getConfigNameRunningMachine(name);
             assert(machine);
+            
             const ic = this._inv.getConfig(name);
             //@ts-ignore
-            assert(ic.type === 'sms' || ic.type === 'worker');
-            const res = await ssh.ixcdv(
-                machine.sshConfig,
-                machine.ixcdvWorkspaceDirectory,
-                ["start", ic.type, "--hub", ic.resolved.hub, "--no-dependencies"]);
-            if (!res.ok) {
-                throw res.error;
-            }
-            return { name, startReturn: { ok: true } };
-        }
+            const hub = ic.resolved.hub;
 
-        const instance = await this._inv.newInstanceFromName(name);
-        const startReturn = await instance.start({
-            createDir: true,
-            env: { marker: this._inv.rootDir },
-            context: {
-                name
-            },
-            progressCb: options?.progressCb
-        });
+            startReturn = await machine.ixcdvStart(
+                ic.type,
+                hub,
+                options?.progressCb);
+
+            // //@ts-ignore
+            // assert(ic.type === 'sms' || ic.type === 'worker');
+            // const res = await ssh.ixcdv(
+            //     machine.sshConfig,
+            //     machine.ixcdvWorkspaceDirectory,
+            //     ["start", ic.type, "--hub", ic.resolved.hub, "--no-dependencies"]);
+            // if (!res.ok) {
+            //     throw res.error;
+            // }
+            // return { name, startReturn: { ok: true } };
+        } else {
+            instance = await this._inv.newInstanceFromName(name);
+            startReturn = await instance.start({
+                createDir: true,
+                env: { marker: this._inv.rootDir },
+                context: {
+                    name
+                },
+                progressCb: options?.progressCb
+            });
+        }
 
         if (startReturn === false) {
             throw new CodeError(`Unable to start service ${name}`);
@@ -355,7 +368,7 @@ export class InventoryRun {
                 assert(machine);
                 startReturn = await machine.ixcdvStartWorker(hub, options.workerIndex);
             }
-            
+
             allResults.push({ name: workerName, instance, startReturn });
         } else {
             const ic = this._inv.getWorkerConfig(

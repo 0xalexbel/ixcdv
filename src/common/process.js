@@ -58,6 +58,7 @@ function log(msgOrErr) {
  * @property {boolean=} return
  * @property {boolean=} print
  * @property {boolean=} trim
+ * @property {((s:string) => void)=} callback
  * @property {('default' | 'stdout' | 'stderr' | 'dev/null')=} redirect
  */
 
@@ -168,7 +169,8 @@ export function childProcessSpawn(command, args, options) {
 
         const returnStdout = processExec.options.stdout.return;
         const printStdout = processExec.options.stdout.print;
-        if (returnStdout !== undefined && returnStdout) {
+        const callbackStdout = !!processExec.options.stdout.callback;
+        if ((returnStdout === true) || (callbackStdout === true)) {
             // 'pipe' is the only available way to intercept the process output
             stdio[1] = 'pipe';
         } else if (printStdout !== undefined) {
@@ -260,9 +262,10 @@ export function childProcessSpawn(command, args, options) {
                 const optPrint = processExec.options.stdout.print;
                 const optReturn = processExec.options.stdout.return;
                 const optRedirect = processExec.options.stdout.redirect;
+                const optCallback = processExec.options.stdout.callback;
 
                 let s = '';
-                if (optReturn || optPrint) {
+                if (optReturn || optPrint || optCallback) {
                     s = data.toString();
                 }
                 if (optPrint) {
@@ -274,6 +277,9 @@ export function childProcessSpawn(command, args, options) {
                 }
                 if (optReturn) {
                     processExec.output.stdout.out += s;
+                }
+                if (optCallback) {
+                    optCallback(s);
                 }
             });
 
@@ -392,6 +398,7 @@ export function childProcessSpawn(command, args, options) {
                 const optPrint = processExec.options.stderr.print;
                 const optReturn = processExec.options.stderr.return;
                 const optRedirect = processExec.options.stderr.redirect;
+                const optCallback = processExec.options.stderr.callback;
 
                 let s = '';
                 if (optReturn || optPrint) {
@@ -423,6 +430,9 @@ export function childProcessSpawn(command, args, options) {
                 }
                 if (optReturn) {
                     processExec.output.stderr.out += s;
+                }
+                if (optCallback) {
+                    optCallback(s);
                 }
             });
 

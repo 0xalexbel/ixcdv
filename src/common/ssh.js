@@ -2,7 +2,7 @@ import assert from 'assert';
 import path from 'path';
 import { Client } from 'ssh2';
 import * as sftp from 'ssh2-sftp-client';
-import { isNullishOrEmptyString, throwIfNullishOrEmptyString } from './string.js';
+import { isNullishOrEmptyString, removeSuffix, stringToPositiveInteger, throwIfNullishOrEmptyString } from './string.js';
 import { CodeError, fail } from '../common/error.js';
 import { dirExists, errorDirDoesNotExist, generateTmpPathname, rmrfDir, rmFileSync, saveToFile } from '../common/fs.js';
 import { childProcessSpawn } from '../common/process.js';
@@ -88,16 +88,48 @@ export async function exec(connectConfig, cmd) {
  * @param {import('ssh2').ConnectConfig} connectConfig 
  * @param {string} cwd
  * @param {string[]} args
+ * @param {types.progressCallback=} progressCb
  */
-export async function ixcdv(connectConfig, cwd, args) {
+export async function ixcdv(connectConfig, cwd, args, progressCb) {
     if (!isNullishOrEmptyString(cwd)) {
         cwd = ` cd ${cwd} ;`
     } else {
         cwd = '';
     }
     const cmd = `source ~/.nvm/nvm.sh ;${cwd} ixcdv ${args.join(" ")}`;
+
+    /** @type {((s:string) => void) | undefined} */
+    let stdOutCallback = undefined;
+    if (progressCb && false) {
+        stdOutCallback = (s) => {
+            const elts = s.split(' | ');
+            for (let i = 0; i < elts.length; ++i) {
+                const e = elts[i];
+                if (e.indexOf('%') > 0) {
+                    const s = removeSuffix('%', e.trim());
+                    const p = stringToPositiveInteger(s);
+                    assert(p !== undefined);
+
+                    if (i + 2 < elts.length) {
+                        let name = elts[i + 2].trim();
+                        const p = name.indexOf('sms.1337.standard');
+                        if (p >= 0) {
+                            name = 'sms.1337.standard';
+                        }
+                        const value = {
+                            type: "sms",
+                            state: elts[i + 1].trim(),
+                            context: { name: elts[i + 2].trim() },
+                        }
+                        progressCb({ count: p, value, total: 100 })
+                    }
+                }
+            }
+        }
+    }
+
     // Must use shell ssh to get a readable output
-    return _exec_shell_ssh_progress(connectConfig, cmd);
+    return _exec_shell_ssh_progress(connectConfig, cmd, stdOutCallback);
 }
 
 /**
@@ -218,14 +250,15 @@ async function _exec_node_ssh2(connectConfig, cmd) {
  * @param {string} cmd
  */
 export async function execProgress(connectConfig, cmd) {
-    return _exec_shell_ssh_progress(connectConfig, cmd);
+    return _exec_shell_ssh_progress(connectConfig, cmd, undefined);
 }
 /**
 * Execute ssh command using `ssh` unix tool
 * @param {import('ssh2').ConnectConfig & { privateKeyFile?: string }} connectConfig 
 * @param {string} cmd
+* @param {((s:string) => void) | undefined} stdOutCallback
 */
-async function _exec_shell_ssh_progress(connectConfig, cmd) {
+async function _exec_shell_ssh_progress(connectConfig, cmd, stdOutCallback) {
     assert(connectConfig.username);
     assert(connectConfig.host);
     assert(connectConfig.port);
@@ -240,9 +273,11 @@ async function _exec_shell_ssh_progress(connectConfig, cmd) {
             `${connectConfig.username}@${connectConfig.host}`,
             "-p", `${connectConfig.port}`,
             "-i", `${connectConfig.privateKeyFile}`,
+            "-q",
             cmd
         ],
         env,
+        stdOutCallback,
         { strict: true });
 }
 
@@ -302,10 +337,11 @@ async function _exec_shell_ssh_get(connectConfig, cmd) {
 * @param {!string} dir 
 * @param {!string[]} args 
 * @param {?Object.<string,string>} env 
+* @param {((s:string) => void) | undefined} stdOutCallback
 * @param {types.Strict=} options
 * @returns {types.PromiseOkOrCodeError}
 */
-export async function sshProgress(dir, args, env, options = { strict: true }) {
+async function sshProgress(dir, args, env, stdOutCallback, options = { strict: true }) {
     if (!dirExists(dir)) {
         return fail(errorDirDoesNotExist(dir), options);
     }
@@ -315,7 +351,8 @@ export async function sshProgress(dir, args, env, options = { strict: true }) {
         mergeProcessEnv: true,
         stdout: {
             return: false,
-            print: true
+            print: true,
+            callback: stdOutCallback
         },
         stderr: {
             return: false,
@@ -325,6 +362,11 @@ export async function sshProgress(dir, args, env, options = { strict: true }) {
             cwd: dir
         }
     };
+
+    if (stdOutCallback) {
+        opts.stdout.print = false;
+        opts.stderr.print = false;
+    }
 
     if (env) {
         opts.spawnOptions.env = env;

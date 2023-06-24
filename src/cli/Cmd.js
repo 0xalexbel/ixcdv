@@ -12,6 +12,9 @@ export class Cmd {
     /** @type {boolean} */
     #debugMode = false;
 
+    /** @type {boolean} */
+    static JsonProgress = false;
+
     /**
      * @param {any} commandOptions 
      * @param {any} error 

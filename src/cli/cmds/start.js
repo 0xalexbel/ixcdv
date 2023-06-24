@@ -144,13 +144,18 @@ function startProgress({ count, total, value }) {
         return;
     }
 
+    if (Cmd.JsonProgress) {
+        console.log(`{ count:${count}, total:${total}, state:${state}, name:${name} }`);
+        return;
+    }
+
     if (!StartCmd.multiBar) {
         StartCmd.multiBar = new cliProgress.MultiBar({
             hideCursor: true,
             synchronousUpdate: true,
             clearOnComplete: true,
             autopadding: true,
-            format: ' {bar} | {percentage}% | {state} | {name}',
+            format: '{bar} | {percentage}% | {state} | {name}',
         }, cliProgress.Presets.shades_classic);
         assert(!StartCmd.progressBars);
         StartCmd.progressBars = {};

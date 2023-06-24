@@ -169,9 +169,9 @@ export class AbstractMachine {
     /**
      * @param {string} hub 
      * @param {number} index 
-     * @param {types.StartReturn} index 
+     * @param {types.progressCallback=} progressCb
      */
-    async ixcdvStartWorker(hub, index) {
+    async ixcdvStartWorker(hub, index, progressCb) {
         if (this.isMaster) {
             // cannot target master ??
             throw new CodeError('Cannot perform any ssh command targeting the master machine');
@@ -183,7 +183,31 @@ export class AbstractMachine {
         const okOrErr = await ssh.ixcdv(
             sshConf,
             this.#ixcdvWorkspaceDirectory,
-            ["start", "worker", "--hub", hub, "--index", `${index}`, "--no-dependencies"]);
+            ["start", "worker", "--hub", hub, "--index", `${index}`, "--no-dependencies", "--jsonprogress"],
+            progressCb);
+        return okOrErr;
+    }
+
+    /**
+     * @param {string} type 
+     * @param {string} hub 
+     * @param {types.progressCallback=} progressCb
+     */
+    async ixcdvStart(type, hub, progressCb) {
+        if (this.isMaster) {
+            // cannot target master ??
+            throw new CodeError('Cannot perform any ssh command targeting the master machine');
+        }
+        if (! await this.isRunning()) {
+            throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
+        }
+        const sshConf = this.sshConfig;
+        const okOrErr = await ssh.ixcdv(
+            sshConf,
+            this.#ixcdvWorkspaceDirectory,
+            ["start", type, "--hub", hub, "--no-dependencies"],
+            progressCb);
+
         return okOrErr;
     }
 

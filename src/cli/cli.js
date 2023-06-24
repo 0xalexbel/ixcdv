@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { Cmd } from './Cmd.js';
 import { processEndActiveSockets } from '../common/process.js';
 import { stringToPositiveInteger } from '../common/string.js';
 import { DEFAULT_MNEMONIC } from '../services/default-config.js';
@@ -17,6 +18,8 @@ async function execCmd(cmd, ...args) {
     const opts = program.optsWithGlobals();
     // --debug option
     const debugMode = (opts.debug === true);
+    // --jsonprogress option
+    Cmd.JsonProgress = (opts.jsonprogress === true);
     // --config option
     const dir = (opts.config) ? opts.config : process.cwd();
     let cmdModule = null;
@@ -578,4 +581,5 @@ These files are required by the iExec sdk. If 'chain.json' or 'iexec.json' is mi
 
 program.option('--config <directory>', `Folder where the '${PROD_CONFIG_BASENAME}' file is located.\nThis option is ignored when used in conjonction with the 'init' command.`);
 program.option('--debug', `Enable ${PROD_NAME} debug mode (development only).`);
+program.option('--jsonprogress', `Output progress message as json (development only).`);
 program.parse();
