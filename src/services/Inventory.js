@@ -265,6 +265,7 @@ export class Inventory {
 
     /**
      * @param {{
+     *      machine?: string | 'local' | 'default',
      *      hub?: string,
      *      workerIndex: number,
      *      onlyDependencies?: boolean

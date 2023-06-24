@@ -55,7 +55,8 @@ export class InventoryRun {
             const machine = this._inv.getConfigNameRunningMachine(name);
             assert(machine);
             const ic = this._inv.getConfig(name);
-            assert(ic.type === 'sms');
+            //@ts-ignore
+            assert(ic.type === 'sms' || ic.type === 'worker');
             const res = await ssh.ixcdv(
                 machine.sshConfig,
                 machine.ixcdvWorkspaceDirectory,
@@ -65,7 +66,7 @@ export class InventoryRun {
             }
             return { name, startReturn: { ok: true } };
         }
-        
+
         const instance = await this._inv.newInstanceFromName(name);
         const startReturn = await instance.start({
             createDir: true,

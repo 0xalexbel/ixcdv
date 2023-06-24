@@ -758,14 +758,26 @@ export class InventoryDB {
      * @param {srvTypes.InventoryNonWorkerConfig} ic 
      */
     isConfigRunningLocally(ic) {
-        const configMachine = this.getConfigRunningMachineName(ic);
+        let configMachine = this.getConfigRunningMachineName(ic);
+        if (configMachine === 'defaultHostname') {
+            configMachine = this.getDefaultRunningMachineName();
+        }
         const localMachine = this.getLocalRunningMachineName();
         return (configMachine === localMachine);
     }
 
-    isMaster() {
+    /**
+     * Returns `true` if the current machine is the master machine
+     */
+    isLocalMaster() {
         const localMachine = this.getLocalRunningMachineName();
         return (localMachine === 'master');
+    }
+    /**
+     * Returns `true` if the current machine is a slave machine
+     */
+    isLocalSlave() {
+        return !this.isLocalMaster();
     }
 
     /**
@@ -773,7 +785,7 @@ export class InventoryDB {
      */
     async remoteStopAll(kill) {
         // stop any other running services on remote machines as well
-        if (this.isMaster()) {
+        if (this.isLocalMaster()) {
             const allMachines = this.allMachinesArray;
             for (let i = 0; i < allMachines.length; ++i) {
                 const machine = allMachines[i];
@@ -793,6 +805,28 @@ export class InventoryDB {
     isConfigNameRunningLocally(name) {
         const ic = this.getConfig(name);
         return this.isConfigRunningLocally(ic);
+    }
+
+    /**
+     * @param {string | 'local' | 'default'} name 
+     */
+    isLocalMachineName(name) {
+        const machine = this.getMachine(name);
+        const localMachineName = this.getLocalRunningMachineName();
+        if (localMachineName === machine.name) {
+            return true;
+        }    
+        return false;
+    }
+    /**
+     * @param {AbstractMachine} machine
+     */
+    isLocalMachine(machine) {
+        const localMachineName = this.getLocalRunningMachineName();
+        if (localMachineName === machine.name) {
+            return true;
+        }    
+        return false;
     }
 
     /**

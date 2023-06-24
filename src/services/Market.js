@@ -134,6 +134,7 @@ export class Market extends AbstractService {
      */
     static async deepCopyConfig(config, resolvePlaceholders, placeholders, relativeToDirectory) {
         const configCopy = { ...config };
+        configCopy.api = { ...config.api };
         configCopy.mongo = { ...config.mongo };
         configCopy.redis = { ...config.redis };
         assert(configCopy.type === 'market');

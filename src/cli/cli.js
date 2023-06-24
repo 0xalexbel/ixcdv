@@ -110,6 +110,7 @@ installCmd.description(`Installs a new ${PROD_NAME} workspace in the current wor
     .summary(`Installs a new ${PROD_NAME} workspace.`)
     .option('--name <name>', 'Only installs the config with a given name')
     .option('--type <type>', 'Only installs configs with a specific type <"all"|"iexecsdk">')
+    .option('--machine <machine>', 'Machine name where the installation should be executed <name|"local"|"default">')
     .option('--vars <vars...>', 'Specify key/value pairs <key>=<value>')
     .action((options) => {
         execCmd('install', options);
@@ -149,7 +150,7 @@ cmd = machineCmd.command('upload-config');
 cmd.description("Upload 'ixcdv-config.json' file to the specified machine.")
     .argument('<name>', 'Machine name')
     .action((name, options) => {
-        execCmd('machine', 'print-config', { name, options: { ...options, upload : true } });
+        execCmd('machine', 'print-config', { name, options: { ...options, upload: true } });
     });
 cmd = machineCmd.command('start');
 cmd.description("Boot the specified machine.")
@@ -177,6 +178,7 @@ uninstallCmd.description(`Uninstalls a ${PROD_NAME} workspace in the current wor
 
 addChainAndHubOptions(testCmd);
 testCmd.description('Runs a test app on the specified chain.')
+    .option('--machine <machine>', "Machine where the workers are running.")
     .option('--restart', "Restart all services before launching the test.")
     .option('--reset', "Reset before launching the test.")
     .option('--dataset-file <file>', "Run the test using a custom dataset file.")
@@ -469,6 +471,7 @@ cmd = startCmd.command('worker');
 addChainAndHubOptions(cmd);
 cmd.description('Starts a given number of Worker services.')
     .option('--count <count>', 'Number of workers to start (default=1)')
+    .option('--machine <machine>', 'Machine on which the workers are running')
     .action((options) => {
         execCmd('start', 'worker', options);
     });

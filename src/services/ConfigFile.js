@@ -626,7 +626,6 @@ export class ConfigFile {
             if (!sharedResultProxyMongoConf) {
                 newResultProxyMongoConf = this.#genResultProxyMongoConf(
                     __allLocalhostPorts,
-                    defaultHostname,
                     chainName,
                     resultproxyConf,
                     dir);
@@ -674,7 +673,7 @@ export class ConfigFile {
             if (!sharedBlockchainAdapterMongoConf) {
                 newBlockchainAdapterMongoConf = this.#genBlockchainAdapterMongoConf(
                     __allLocalhostPorts,
-                    defaultHostname,
+                    "${defaultHostname}",
                     chainName,
                     blockchainadapterConf,
                     dir);
@@ -727,7 +726,7 @@ export class ConfigFile {
             if (!sharedCoreMongoConf) {
                 newCoreMongoConf = this.#genCoreMongoConf(
                     __allLocalhostPorts,
-                    defaultHostname,
+                    "${defaultHostname}",
                     chainName,
                     coreConf,
                     dir);
@@ -1256,23 +1255,21 @@ export class ConfigFile {
 
     /**
      * @param {Set<number>} allLocalhostPorts 
-     * @param {string} defaultHostname 
      * @param {string} chain 
      * @param {srvTypes.ResultProxyConfig} resultproxyConf 
      * @param {string} dir 
      */
-    static #genResultProxyMongoConf(allLocalhostPorts, defaultHostname, chain, resultproxyConf, dir) {
-        assert(!isNullishOrEmptyString(defaultHostname));
-
+    static #genResultProxyMongoConf(allLocalhostPorts, chain, resultproxyConf, dir) {
         const runDir = computeChainRunDir(dir, chain, resultproxyConf.type);
         const dbDir = computeChainDBDir(dir, chain, resultproxyConf.type);
 
-        let mongoHostname = defaultHostname;
+        let mongoHostname = "${defaultHostname}";
         // management = resultproxyConf.port + 1
         let mongoPort = resultproxyConf.port + 2;
         assert(!allLocalhostPorts.has(mongoPort));
 
         if (resultproxyConf.mongoHost) {
+            // will xform to lowercase
             const { hostname, port } = stringToHostnamePort(resultproxyConf.mongoHost);
             if (!hostname) {
                 throw new CodeError(`Invalid chains.${chain}.resultproxy.mongoHost property.`);
@@ -1280,7 +1277,10 @@ export class ConfigFile {
             if (!port) {
                 throw new CodeError(`Invalid chains.${chain}.resultproxy.mongoHost property.`);
             }
-            mongoHostname = hostname;
+            // Keep vars intact !
+            if (mongoHostname.toLowerCase() !== hostname) {
+                mongoHostname = hostname;
+            }
             mongoPort = port;
         } else {
             resultproxyConf.mongoHost = mongoHostname + ':' + mongoPort.toString();
@@ -1325,7 +1325,10 @@ export class ConfigFile {
             if (!port) {
                 throw new CodeError(`Invalid chains.${chain}.blockchainadapter.mongoHost property.`);
             }
-            mongoHostname = hostname;
+            // Keep vars case
+            if (mongoHostname.toLowerCase() !== hostname) {
+                mongoHostname = hostname;
+            }
             mongoPort = port;
         } else {
             blockchainadapterConf.mongoHost = mongoHostname + ':' + mongoPort.toString();
@@ -1370,7 +1373,10 @@ export class ConfigFile {
             if (!port) {
                 throw new CodeError(`Invalid chains.${chain}.core.mongoHost property.`);
             }
-            mongoHostname = hostname;
+            // Keep vars case
+            if (mongoHostname.toLowerCase() !== hostname) {
+                mongoHostname = hostname;
+            }
             mongoPort = port;
         } else {
             coreConf.mongoHost = mongoHostname + ':' + mongoPort.toString();

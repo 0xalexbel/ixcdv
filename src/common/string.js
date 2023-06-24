@@ -274,6 +274,12 @@ export function placeholdersReplace(str, placeholders) {
 export function placeholdersPropertyReplace(object, property, placeholders) {
     if (object[property] && typeof object[property] === 'string') {
         object[property] = placeholdersReplace(object[property], placeholders);
+        if (object[property].indexOf("${") >= 0) {
+            object[property] = placeholdersReplace(object[property], placeholders);
+            if (object[property].indexOf("${") >= 0) {
+                throw new CodeError('Too many variables indirections');
+            }
+        }
     }
 }
 

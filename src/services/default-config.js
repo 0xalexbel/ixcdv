@@ -119,7 +119,7 @@ function addQemuMachine(machines, name) {
         name,
         qemuConfig: {
             cpu: 'host',
-            hda: './machines/qemu/ubuntu20.04/ubuntu-20-04-server.qcow2',
+            hda: `./machines/qemu/ubuntu20.04/${name}-ubuntu-20-04-server.qcow2`,
             memory: '4G'
         },
         sshConfig: {
@@ -155,6 +155,7 @@ export const DEFAULT_CONFIG = (
     }
 
     const c = {
+        vars: {},
         shared: {},
         default: '',
         chains: {},
@@ -180,6 +181,8 @@ export const DEFAULT_CONFIG = (
     addMarket(c.shared, ENTERPRISE, firstChainId, countChains);
     addMarket(c.shared, NATIVE, firstChainId, countChains);
     addQemuMachine(c.machines, 'node1');
+    //@ts-ignore
+    c.vars['node1'] = '127.0.0.1';
 
     c.default = computeChainName(firstChainId + 0, STANDARD);
 

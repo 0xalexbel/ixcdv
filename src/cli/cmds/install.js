@@ -111,7 +111,7 @@ export default class InstallCmd extends Cmd {
                     console.log(`${progress}/${progressTotal} Install iexec-sdk`);
                 });
             } else if (type === 'worker') {
-                await inventory.installWorkers('local', (name, type, progress, progressTotal) => {
+                await inventory.installWorkers(options.machine, (name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install workers : ${name}`);
                 });
             } else if (type === 'ganache') {

@@ -99,6 +99,7 @@ export class AbstractMachine {
         };
     }
     get name() { return this.#name; }
+    get isMaster() { return (this.#name === 'master'); }
     get gatewayIp() { return this.#gatewayIp; }
     get ixcdvWorkspaceDirectory() { return this.#ixcdvWorkspaceDirectory; }
 
@@ -120,6 +121,10 @@ export class AbstractMachine {
     }
 
     async ixcdvStopAll() {
+        if (this.isMaster) {
+            // cannot target master ??
+            throw new CodeError('Cannot perform any ssh command targeting the master machine');
+        }
         if (! await this.isRunning()) {
             throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
         }
@@ -130,7 +135,26 @@ export class AbstractMachine {
             ["stop", "all"]);
     }
 
+    async ixcdvInstallWorkers() {
+        if (this.isMaster) {
+            // cannot target master ??
+            throw new CodeError('Cannot perform any ssh command targeting the master machine');
+        }
+        if (! await this.isRunning()) {
+            throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
+        }
+        const sshConf = this.sshConfig;
+        await ssh.ixcdv(
+            sshConf,
+            this.#ixcdvWorkspaceDirectory,
+            ["install", "--type", "worker"]);
+    }
+
     async ixcdvKillAll() {
+        if (this.isMaster) {
+            // cannot target master ??
+            throw new CodeError('Cannot perform any ssh command targeting the master machine');
+        }
         if (! await this.isRunning()) {
             throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
         }
@@ -145,6 +169,10 @@ export class AbstractMachine {
      * @param {object} ixcdvConfigJSON 
      */
     async uploadIxcdvConfigJSON(ixcdvConfigJSON) {
+        if (this.isMaster) {
+            // cannot target master ??
+            throw new CodeError('Cannot perform any ssh command targeting the master machine');
+        }
         if (typeof ixcdvConfigJSON !== 'object' || !ixcdvConfigJSON) {
             throw new CodeError(`Invalid ${PROD_CONFIG_BASENAME} content`);
         }
@@ -184,6 +212,9 @@ export class QemuMachine extends AbstractMachine {
         assert(args);
         super(rootDir, args); //compiler
         this.#qemuConfig = { ...args.qemuConfig };
+        if (this.isMaster) {
+            throw new CodeError('Master cannot be a qemu machine');
+        }
     }
 
     toJSON() {

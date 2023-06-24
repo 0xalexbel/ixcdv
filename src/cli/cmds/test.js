@@ -73,10 +73,10 @@ export default class TestCmd extends Cmd {
             if (options.reset) {
                 await ResetAllCmd.exec(inventory, null);
             } else if (options.restart) {
-                await StopAllCmd.exec(false, null);
+                await StopAllCmd.exec(false, inventory, null);
             }
             // Start 1 worker + all the default chain
-            await StartCmd.exec(inventory, 'worker', { count: 1, hub: hubAlias });
+            await StartCmd.exec(inventory, 'worker', { count: 1, machine: options.machine, hub: hubAlias });
 
             let inputFiles = [
                 "https://gist.githubusercontent.com/0xalexbel/e45c442a044d5c56669936e33f344a79/raw/18b97677eea153671e7f81a33155a4a233a749db/helloworld.txt"

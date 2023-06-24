@@ -134,22 +134,24 @@ export class InventoryInstall {
             // @ts-ignore
             return fromServiceType[ic.type].install(ic.unsolved);
         } else {
-            if (this._inv.getLocalRunningMachineName() !== 'master') {
+            // forward install command to remote machine via ssh
+            const targetMachine = this._inv.getConfigRunningMachine(ic);
+            // the target is a remote machine
+            // our machine must be the master !
+            if (!this._inv.isLocalMaster()) {
                 throw new CodeError('Cannot perform any ssh install from a slave machine');
             }
-            // forward install command to remote machine via ssh
-            const machine = this._inv.getConfigRunningMachine(ic);
-            if (!machine) {
-                throw new CodeError(`No machine availabled for config ${ic.name}`);
+            if (!targetMachine) {
+                throw new CodeError(`No machine available for config ${ic.name}`);
             }
 
             // must copy shared/db/ganache.1337/ixcdv-ganache-poco-config.json
             // if needed
-            assert(machine.sshConfig.username);
+            assert(targetMachine.sshConfig.username);
             const remoteGanacheAddr = path.join(
                 '/home',
-                machine.sshConfig.username,
-                machine.ixcdvWorkspaceDirectory,
+                targetMachine.sshConfig.username,
+                targetMachine.ixcdvWorkspaceDirectory,
                 'shared/db/ganache.1337/ixcdv-ganache-poco-config.json');
 
             //@ts-ignore
@@ -157,20 +159,21 @@ export class InventoryInstall {
             const ganacheConf = this._inv.getGanacheConfigFromHubAlias(ic.resolved.hub);
             assert(ganacheConf);
 
-            if (!(await ssh.exists(machine.sshConfig, remoteGanacheAddr)).exists) {
-                await ssh.mkDirP(machine.sshConfig, path.dirname(remoteGanacheAddr));
+            if (!(await ssh.exists(targetMachine.sshConfig, remoteGanacheAddr)).exists) {
+                await ssh.mkDirP(targetMachine.sshConfig, path.dirname(remoteGanacheAddr));
                 //./shared/db/ganache.1337/ixcdv-ganache-poco-config.json
-                await ssh.scp(machine.sshConfig,
-                    path.join(machine.rootDir, `shared/db/ganache.${ganacheConf.resolved.config.chainid}/ixcdv-ganache-poco-config.json`),
+                await ssh.scp(targetMachine.sshConfig,
+                    path.join(targetMachine.rootDir, `shared/db/ganache.${ganacheConf.resolved.config.chainid}/ixcdv-ganache-poco-config.json`),
                     path.dirname(remoteGanacheAddr));
                 //./shared/db/ganache.1337/DBUUID
-                await ssh.scp(machine.sshConfig,
-                    path.join(machine.rootDir, `shared/db/ganache.${ganacheConf.resolved.config.chainid}/DBUUID`),
+                await ssh.scp(targetMachine.sshConfig,
+                    path.join(targetMachine.rootDir, `shared/db/ganache.${ganacheConf.resolved.config.chainid}/DBUUID`),
                     path.dirname(remoteGanacheAddr));
             }
+            
             await ssh.ixcdv(
-                machine.sshConfig,
-                machine.ixcdvWorkspaceDirectory,
+                targetMachine.sshConfig,
+                targetMachine.ixcdvWorkspaceDirectory,
                 ["install", "--name", ic.name]);
         }
     }
@@ -179,10 +182,21 @@ export class InventoryInstall {
      * @param {string | 'local' | 'default'} machineName 
      */
     async #installWorkers(machineName) {
-        this._inv.getMachine
-        // Must use unsolved !
-        const repository = this._inv.getWorkersRepository().unsolved;
-        return fromServiceType['worker'].install({ repository });
+        const targetMachine = this._inv.getMachine(machineName);
+        // is the target machine the local machine ?
+        if (this._inv.isLocalMachine(targetMachine)) {
+            // Must use unsolved !
+            const repository = this._inv.getWorkersRepository().unsolved;
+            return fromServiceType['worker'].install({ repository });
+        } else {
+            // the target is a remote machine
+            // our machine must be the master !
+            if (!this._inv.isLocalMaster()) {
+                throw new CodeError('Cannot perform any ssh install from a slave machine');
+            }
+            // run ixcdv cli cmd on target machine
+            await targetMachine.ixcdvInstallWorkers();
+        }
     }
 
     async #installIExecSdk() {
