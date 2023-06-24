@@ -145,7 +145,7 @@ function startProgress({ count, total, value }) {
     }
 
     if (Cmd.JsonProgress) {
-        console.log(`{ count:${count}, total:${total}, state:${state}, name:${name}, type:${type} }`);
+        console.log(`{ "count":${count}, "total":${total}, "state":"${state}", "name":"${name}", "type":"${type}" }`);
         return;
     }
 

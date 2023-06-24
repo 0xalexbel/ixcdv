@@ -105,7 +105,12 @@ export async function ixcdv(connectConfig, cwd, args, progressCb) {
             const openPos = s.indexOf('{');
             const closePos = s.indexOf('}');
             if (openPos >= 0 && closePos >= 0 && openPos < closePos) {
-                const o = JSON.parse(s.substring(openPos, closePos + 1));
+                if (closePos === s.length - 1) {
+                    s = s.substring(openPos);
+                } else {
+                    s = s.substring(openPos, closePos + 1);
+                }
+                const o = JSON.parse(s);
                 const value = {
                     type: o.type,
                     state: o.state,
