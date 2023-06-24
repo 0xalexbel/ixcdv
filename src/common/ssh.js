@@ -100,30 +100,18 @@ export async function ixcdv(connectConfig, cwd, args, progressCb) {
 
     /** @type {((s:string) => void) | undefined} */
     let stdOutCallback = undefined;
-    if (progressCb && false) {
+    if (progressCb) {
         stdOutCallback = (s) => {
-            const elts = s.split(' | ');
-            for (let i = 0; i < elts.length; ++i) {
-                const e = elts[i];
-                if (e.indexOf('%') > 0) {
-                    const s = removeSuffix('%', e.trim());
-                    const p = stringToPositiveInteger(s);
-                    assert(p !== undefined);
-
-                    if (i + 2 < elts.length) {
-                        let name = elts[i + 2].trim();
-                        const p = name.indexOf('sms.1337.standard');
-                        if (p >= 0) {
-                            name = 'sms.1337.standard';
-                        }
-                        const value = {
-                            type: "sms",
-                            state: elts[i + 1].trim(),
-                            context: { name: elts[i + 2].trim() },
-                        }
-                        progressCb({ count: p, value, total: 100 })
-                    }
+            const openPos = s.indexOf('{');
+            const closePos = s.indexOf('}');
+            if (openPos >= 0 && closePos >= 0 && openPos < closePos) {
+                const o = JSON.parse(s.substring(openPos, closePos + 1));
+                const value = {
+                    type: o.type,
+                    state: o.state,
+                    context: { name: o.name },
                 }
+                progressCb({ count: o.count, value, total: o.total })
             }
         }
     }

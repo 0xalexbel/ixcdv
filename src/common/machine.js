@@ -205,7 +205,7 @@ export class AbstractMachine {
         const okOrErr = await ssh.ixcdv(
             sshConf,
             this.#ixcdvWorkspaceDirectory,
-            ["start", type, "--hub", hub, "--no-dependencies"],
+            ["start", type, "--hub", hub, "--no-dependencies", "--jsonprogress"],
             progressCb);
 
         return okOrErr;
