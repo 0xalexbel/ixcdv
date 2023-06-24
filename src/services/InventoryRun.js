@@ -291,7 +291,7 @@ export class InventoryRun {
      */
     async startWorker(options) {
         if (!options.machine) {
-            options.machine = 'default';
+            options.machine = 'local';
         }
         const hub = this._inv.guessHubAlias(options);
         if (isNullishOrEmptyString(hub)) {
@@ -329,26 +329,17 @@ export class InventoryRun {
 
         if (!onlyDependencies) {
             const machineName = this._inv.resolveMachineName(options.machine);
-            // remote
-            if (!this._inv.isLocalMachineName(machineName)) {
-                const machine = this._inv.getMachine(machineName);
-                assert(machine);
-                assert(options.hub);
-                const res = await ssh.ixcdv(
-                    machine.sshConfig,
-                    machine.ixcdvWorkspaceDirectory,
-                    ["start", "worker", "--hub", options.hub, "--no-dependencies"]);
-                if (!res.ok) {
-                    throw res.error;
-                }
-                allResults.push({ name: workerName, instance:null, startReturn:res });
-            } else {
+
+            let instance = null;
+            let startReturn;
+
+            if (this._inv.isLocalMachineName(machineName)) {
                 // Local
-                const instance = await this._inv.newWorkerInstance(
+                instance = await this._inv.newWorkerInstance(
                     options.machine,
                     hub,
                     options.workerIndex);
-                const startReturn = await instance.start({
+                startReturn = await instance.start({
                     createDir: true,
                     env: { marker: this._inv.rootDir },
                     progressCb: options.progressCb,
@@ -358,8 +349,14 @@ export class InventoryRun {
                         name: workerName
                     }
                 });
-                allResults.push({ name: workerName, instance, startReturn });
+            } else {
+                // Remote
+                const machine = this._inv.getMachine(machineName);
+                assert(machine);
+                startReturn = await machine.ixcdvStartWorker(hub, options.workerIndex);
             }
+            
+            allResults.push({ name: workerName, instance, startReturn });
         } else {
             const ic = this._inv.getWorkerConfig(
                 options.machine,

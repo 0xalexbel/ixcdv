@@ -166,6 +166,27 @@ export class AbstractMachine {
     }
 
     /**
+     * @param {string} hub 
+     * @param {number} index 
+     * @param {types.StartReturn} index 
+     */
+    async ixcdvStartWorker(hub, index) {
+        if (this.isMaster) {
+            // cannot target master ??
+            throw new CodeError('Cannot perform any ssh command targeting the master machine');
+        }
+        if (! await this.isRunning()) {
+            throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
+        }
+        const sshConf = this.sshConfig;
+        const okOrErr = await ssh.ixcdv(
+            sshConf,
+            this.#ixcdvWorkspaceDirectory,
+            ["start", "worker", "--hub", hub, "--index", `${index}`, "--no-dependencies"]);
+        return okOrErr;
+    }
+
+    /**
      * @param {object} ixcdvConfigJSON 
      */
     async uploadIxcdvConfigJSON(ixcdvConfigJSON) {

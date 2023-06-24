@@ -1,5 +1,6 @@
 import assert from 'assert';
-import { isNullishOrEmptyString, removePrefix } from './string.js';
+import { isNullishOrEmptyString, removePrefix, stringToPositiveInteger } from './string.js';
+import { isPositiveInteger } from './number.js';
 
 /**
  * @param {*} v1 
@@ -168,4 +169,22 @@ export function getRepoServiceType(repoName) {
         case 'iexec-blockchain-adapter-api': return "blockchainadapter";
         default: assert(false);
     }
+}
+
+/**
+ * @param {*} v 
+ */
+export function toPositiveInteger(v) {
+    if (v === null || v === undefined) {
+        return undefined;
+    }
+    if (typeof v === 'number') {
+        if (!isPositiveInteger(v)) {
+            return undefined;
+        }
+    }
+    if (typeof v === 'string') {
+        return stringToPositiveInteger(v);
+    }
+    return undefined;
 }

@@ -175,6 +175,36 @@ export class InventoryDB {
     get allMachinesArray() { return Array.from(this.#allMachines.values()); }
 
     /**
+     * @param {string} machineName 
+     */
+    #machineNameToPlaceholder(machineName) {
+        let unsolvedHostname;
+        if (machineName === 'default') {
+            return "${defaultHostname}";
+        } else if (machineName === 'local') {
+            return "${localHostname}";
+        }
+        return `\${${machineName}}`;
+    }
+
+    /**
+     * @param {string} machineName 
+     */
+    #machineNameToUnsolvedResolvedHostname(machineName) {
+        let unsolvedHostname = this.#machineNameToPlaceholder(machineName);
+        let resolvedHostname = placeholdersReplace(
+            unsolvedHostname,
+            this.#globalPlaceholders);
+        if (resolvedHostname.indexOf('${') >= 0) {
+            resolvedHostname = placeholdersReplace(
+                resolvedHostname,
+                this.#globalPlaceholders);
+        }
+        assert(resolvedHostname.indexOf("${") < 0);
+        return { resolvedHostname, unsolvedHostname };
+    }
+
+    /**
      * @param {string} name 
      * @param {string} host 
      * @param {srvTypes.NonWorkerServiceConfig} config 
@@ -346,22 +376,7 @@ export class InventoryDB {
             throw new CodeError('Missing workers repository');
         }
 
-        let unsolvedHostname = `\${${machineName}}`;
-        if (machineName === 'default') {
-            unsolvedHostname = "${defaultHostname}";
-        }
-        if (machineName === 'local') {
-            unsolvedHostname = "${localHostname}";
-        }
-        let resolvedHostname = placeholdersReplace(
-            unsolvedHostname, 
-            this.#globalPlaceholders);
-        if (resolvedHostname.indexOf('${') >= 0) {
-            resolvedHostname = placeholdersReplace(
-                resolvedHostname,
-                this.#globalPlaceholders);
-        }
-        assert(resolvedHostname);
+        const { resolvedHostname, unsolvedHostname } = this.#machineNameToUnsolvedResolvedHostname(machineName);
 
         const hubData = this.#hubAliasToHubData.get(hubStr);
         if (!hubData) {
@@ -795,7 +810,8 @@ export class InventoryDB {
      * @param {boolean} kill 
      */
     async remoteStopAll(kill) {
-        // stop any other running services on remote machines as well
+        // is the current marchine we are running on 
+        // the master machine ??
         if (this.isLocalMaster()) {
             const allMachines = this.allMachinesArray;
             for (let i = 0; i < allMachines.length; ++i) {
@@ -826,7 +842,7 @@ export class InventoryDB {
         const localMachineName = this.getLocalRunningMachineName();
         if (localMachineName === machineName) {
             return true;
-        }    
+        }
         return false;
     }
     /**
@@ -836,7 +852,7 @@ export class InventoryDB {
         const localMachineName = this.getLocalRunningMachineName();
         if (localMachineName === machine.name) {
             return true;
-        }    
+        }
         return false;
     }
 

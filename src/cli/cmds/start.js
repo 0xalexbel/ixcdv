@@ -5,7 +5,7 @@ import cliProgress from 'cli-progress';
 import { Inventory } from '../../services/Inventory.js';
 import { stringToPositiveInteger } from '../../common/string.js';
 import { CodeError } from '../../common/error.js';
-import { sleep } from '../../common/utils.js';
+import { sleep, toPositiveInteger } from '../../common/utils.js';
 
 export default class StartCmd extends Cmd {
 
@@ -64,21 +64,24 @@ export default class StartCmd extends Cmd {
 
         if (serviceType === 'worker') {
             let count = 1;
+            let index = 0;
+            
             if (options?.count !== undefined) {
-                let c;
-                if (typeof options.count === 'string') {
-                    c = stringToPositiveInteger(options.count);
-                    if (c === undefined) {
-                        throw new CodeError(`Invalid count option '${options.count}'`);
-                    }
-                } else if (typeof options.count === 'number') {
-                    c = options.count;
-                } else {
+                //@ts-ignore
+                count = toPositiveInteger(options.count);
+                if (count === undefined) {
                     throw new CodeError(`Invalid count option '${options.count}'`);
                 }
-                count = c;
             }
-
+            
+            if (options?.index !== undefined) {
+                //@ts-ignore
+                index = toPositiveInteger(options.index);
+                if (index === undefined) {
+                    throw new CodeError(`Invalid index option '${options.index}'`);
+                }
+            }
+            
             if (!options.noDependencies) {
                 await inventory.start({
                     ...options,
@@ -88,7 +91,7 @@ export default class StartCmd extends Cmd {
             }
 
             const promises = [];
-            for (let i = 0; i < count; ++i) {
+            for (let i = index; i < count; ++i) {
                 const p = inventory.startWorker({
                     ...options,
                     noDependencies: true,
