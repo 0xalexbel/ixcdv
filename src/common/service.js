@@ -228,8 +228,9 @@ export class Service extends AbstractService {
      * @return {boolean} 
      */
     isLocal() {
-        const h = this.#hostname;
-        return (h === 'localhost' || h === '127.0.0.1');
+        // const h = this.#hostname;
+        // return (h === 'localhost' || h === '127.0.0.1');
+        return true;
     }
 
     /** @virtual */

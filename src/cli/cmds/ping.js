@@ -33,6 +33,7 @@ export default class PingCmd extends Cmd {
             //hostfwd
             //guestfwd
             // curl http://localhost:8545/ -X POST -H "Content-Type: application/json" --data '{"method":"eth_accounts","id":1,"jsonrpc":"2.0"}'
+            // curl http://ixcdv-master:8545/ -X POST -H "Content-Type: application/json" --data '{"method":"eth_accounts","id":1,"jsonrpc":"2.0"}'
 
             if (type === 'ganache') {
                 const ic = inventory._inv.guessConfig({ type, ...options });
