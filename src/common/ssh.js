@@ -103,20 +103,20 @@ export async function ixcdv(connectConfig, cwd, args, progressCb) {
     if (progressCb) {
         stdOutCallback = (s) => {
             const openPos = s.indexOf('{');
-            const closePos = s.indexOf('}');
+            const closePos = s.lastIndexOf('}');
             if (openPos >= 0 && closePos >= 0 && openPos < closePos) {
                 if (closePos === s.length - 1) {
                     s = s.substring(openPos);
                 } else {
                     s = s.substring(openPos, closePos + 1);
                 }
-                const o = JSON.parse(s);
-                const value = {
-                    type: o.type,
-                    state: o.state,
-                    context: { name: o.name },
+                let o;
+                try {
+                    o = JSON.parse(s);
+                } catch {}
+                if (o) {
+                    progressCb(o);
                 }
-                progressCb({ count: o.count, value, total: o.total })
             }
         }
     }

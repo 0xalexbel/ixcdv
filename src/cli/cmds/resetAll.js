@@ -56,6 +56,9 @@ export default class ResetAllCmd extends Cmd {
         // stop all running config services
         await inventory.resetAll({ progressCb: resetAllProgress });
 
+        // stop any other running services on remote machines as well
+        await inventory?._inv.remoteResetAll(resetAllProgress);
+
         ResetAllCmd.progressBar?.stop();
     }
 }

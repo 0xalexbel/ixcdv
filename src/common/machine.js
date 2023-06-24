@@ -121,7 +121,10 @@ export class AbstractMachine {
         this.#hostfwdPorts.push(port);
     }
 
-    async ixcdvStopAll() {
+    /**
+     * @param {types.progressCallback=} progressCb
+     */
+    async ixcdvStopAll(progressCb) {
         if (this.isMaster) {
             // cannot target master ??
             throw new CodeError('Cannot perform any ssh command targeting the master machine');
@@ -133,10 +136,14 @@ export class AbstractMachine {
         await ssh.ixcdv(
             sshConf,
             this.#ixcdvWorkspaceDirectory,
-            ["stop", "all"]);
+            ["stop", "all", "--jsonprogress"], 
+            progressCb);
     }
 
-    async ixcdvInstallWorkers() {
+    /**
+     * @param {types.progressCallback=} progressCb
+     */
+    async ixcdvResetAll(progressCb) {
         if (this.isMaster) {
             // cannot target master ??
             throw new CodeError('Cannot perform any ssh command targeting the master machine');
@@ -148,10 +155,14 @@ export class AbstractMachine {
         await ssh.ixcdv(
             sshConf,
             this.#ixcdvWorkspaceDirectory,
-            ["install", "--type", "worker"]);
+            ["reset", "all", "--jsonprogress"], 
+            progressCb);
     }
 
-    async ixcdvKillAll() {
+    /**
+     * @param {types.progressCallback=} progressCb
+     */
+    async ixcdvInstallWorkers(progressCb) {
         if (this.isMaster) {
             // cannot target master ??
             throw new CodeError('Cannot perform any ssh command targeting the master machine');
@@ -163,7 +174,27 @@ export class AbstractMachine {
         await ssh.ixcdv(
             sshConf,
             this.#ixcdvWorkspaceDirectory,
-            ["kill", "all"]);
+            ["install", "--type", "worker", "--jsonprogress"],
+            progressCb);
+    }
+
+    /**
+     * @param {types.progressCallback=} progressCb
+     */
+    async ixcdvKillAll(progressCb) {
+        if (this.isMaster) {
+            // cannot target master ??
+            throw new CodeError('Cannot perform any ssh command targeting the master machine');
+        }
+        if (! await this.isRunning()) {
+            throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
+        }
+        const sshConf = this.sshConfig;
+        await ssh.ixcdv(
+            sshConf,
+            this.#ixcdvWorkspaceDirectory,
+            ["kill", "all", "--jsonprogress"],
+            progressCb);
     }
 
     /**

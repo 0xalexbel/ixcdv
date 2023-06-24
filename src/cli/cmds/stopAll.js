@@ -83,7 +83,7 @@ export default class StopAllCmd extends Cmd {
         }
 
         // stop any other running services on remote machines as well
-        await inventory?._inv.remoteStopAll(kill);
+        await inventory?._inv.remoteStopAll(kill, stopProgress);
 
         endProgress('all services stopped');
     }

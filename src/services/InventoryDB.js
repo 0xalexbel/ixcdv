@@ -808,8 +808,9 @@ export class InventoryDB {
 
     /**
      * @param {boolean} kill 
+     * @param {types.progressCallback=} progressCb
      */
-    async remoteStopAll(kill) {
+    async remoteStopAll(kill, progressCb) {
         // is the current marchine we are running on 
         // the master machine ??
         if (this.isLocalMaster()) {
@@ -817,10 +818,25 @@ export class InventoryDB {
             for (let i = 0; i < allMachines.length; ++i) {
                 const machine = allMachines[i];
                 if (kill) {
-                    await machine.ixcdvKillAll();
+                    await machine.ixcdvKillAll(progressCb);
                 } else {
-                    await machine.ixcdvStopAll();
+                    await machine.ixcdvStopAll(progressCb);
                 }
+            }
+        }
+    }
+
+    /**
+     * @param {types.progressCallback=} progressCb
+     */
+    async remoteResetAll(progressCb) {
+        // is the current marchine we are running on 
+        // the master machine ??
+        if (this.isLocalMaster()) {
+            const allMachines = this.allMachinesArray;
+            for (let i = 0; i < allMachines.length; ++i) {
+                const machine = allMachines[i];
+                await machine.ixcdvResetAll(progressCb);
             }
         }
     }
