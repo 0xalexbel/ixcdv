@@ -658,7 +658,8 @@ export class MongoService extends ServerService {
             dbDir = await DBDirectory.load({ type: 'mongo', directory: dir });
         } catch { }
 
-        if (!dbDir) {
+        // remote ?
+        if (!dbDir || !dbDir.DBDir) {
             return null;
         }
 

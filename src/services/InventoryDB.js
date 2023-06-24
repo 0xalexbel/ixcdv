@@ -331,11 +331,12 @@ export class InventoryDB {
     }
 
     /**
+     * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index
      * @returns {srvTypes.InventoryWorkerConfig}
      */
-    getWorkerConfig(hub, index) {
+    getWorkerConfig(machineName, hub, index) {
         const hubStr = DevContractRef.toHubAlias(hub);
         if (!isPositiveInteger(index)) {
             throw new CodeError(`Invalid worker index ${index}`);
@@ -344,6 +345,12 @@ export class InventoryDB {
             !this.#workersRepository.resolved) {
             throw new CodeError('Missing workers repository');
         }
+
+        const machine = this.getMachine(machineName);
+        machineName = machine.name;
+        const unsolvedHostname = `\${${machineName}}`;
+        const resolvedHostname = this.#globalPlaceholders[unsolvedHostname];
+        assert(resolvedHostname);
 
         const hubData = this.#hubAliasToHubData.get(hubStr);
         if (!hubData) {
@@ -385,7 +392,6 @@ export class InventoryDB {
         const workerCfg = {
             type: "worker",
             port: hubData.workers.portRange.from + index,
-            hostname: 'localhost',
             logFile: path.join(workersDir, workerName, workerName + '.log'),
             pidFile: path.join(workersDir, workerName, workerName + '.pid'),
             directory: path.join(workersDir, workerName, 'exec'),
@@ -405,10 +411,12 @@ export class InventoryDB {
             hub: hubStr,
             unsolved: {
                 ...workerCfg,
+                hostname: unsolvedHostname,
                 repository: this.#workersRepository.unsolved
             },
             resolved: {
                 ...workerCfg,
+                hostname: resolvedHostname,
                 repository: this.#workersRepository.resolved
             },
         };
@@ -717,11 +725,12 @@ export class InventoryDB {
     }
 
     /**
+     * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
      */
-    async newWorkerInstance(hub, index) {
-        const conf = this.getWorkerConfig(hub, index).resolved;
+    async newWorkerInstance(machineName, hub, index) {
+        const conf = this.getWorkerConfig(machineName, hub, index).resolved;
         assert(conf);
         return WorkerService.newInstance(conf, this);
     }
@@ -843,14 +852,33 @@ export class InventoryDB {
     }
 
     /**
-     * @param {string} machineName
+     * Returns the name of the default machine 
+     */
+    getDefaultRunningMachineName() {
+        const unsolvedDefaultHostname = this.#globalPlaceholders["${defaultHostname}"];
+
+        // Must be a placeholder
+        assert(unsolvedDefaultHostname);
+        assert(unsolvedDefaultHostname.startsWith('${'));
+        assert(unsolvedDefaultHostname.endsWith('}'));
+
+        return removePrefix("${", removeSuffix("}", unsolvedDefaultHostname));
+    }
+
+    /**
+     * @param {string | 'local' | 'default'} machineName
      */
     getMachine(machineName) {
+        if (machineName === 'local') {
+            machineName = this.getLocalRunningMachineName();
+        } else if (machineName === 'default') {
+            machineName = this.getDefaultRunningMachineName();
+        }
         throwIfNullishOrEmptyString(machineName);
-
         const m = this.#allMachines.get(machineName);
-        assert(m, `Unknown machine name ${machineName}`);
-
+        if (!m) {
+            throw new CodeError(`Unknown machine name '${machineName}'`);
+        }
         return m;
     }
 
@@ -991,6 +1019,7 @@ export class InventoryDB {
      *      chain?: string
      *      chainid?: number | string
      *      hub?: string,
+     *      machine?: string | 'local' | 'default',
      *      workerIndex?: number,
      *      type?: srvTypes.ServiceType | 'iexecsdk',
      * }} options 
@@ -1009,7 +1038,15 @@ export class InventoryDB {
             }
             assert(options.workerIndex >= 0);
             assert(options.hub);
-            return this.getWorkerConfig(options.hub, options.workerIndex)
+            if (!options.machine) {
+                options.machine = 'default';
+            }
+            const machine = this.getMachine(options.machine);
+
+            return this.getWorkerConfig(
+                machine.name,
+                options.hub,
+                options.workerIndex);
         }
 
         /**
@@ -1123,11 +1160,12 @@ export class InventoryDB {
     }
 
     /**
+     * @param {string | 'local' | 'default'} machineName 
      * @param {string} hub 
      * @param {number} index 
      */
-    workerDependencies(hub, index) {
-        return Dependencies.fromWorkerIndex(hub, index, this);
+    workerDependencies(machineName, hub, index) {
+        return Dependencies.fromWorkerIndex(machineName, hub, index, this);
     }
 
     /**
@@ -1567,7 +1605,7 @@ export class InventoryDB {
             throw new CodeError(`Missing result proxy url in hub '${resolved.hub}'`);
         }
         resolved.resultProxyUrl = resolvedResultProxyUrl;
-    
+
         const resolvedBlockchainAdapterUrl = this.getHubServiceUrl('blockchainadapter', resolved.hub);
         if (!resolvedBlockchainAdapterUrl) {
             throw new CodeError(`Missing blockchain adapter url in hub '${resolved.hub}'`);

@@ -279,18 +279,20 @@ export class Inventory {
     }
 
     /**
+     * @param {string | 'local' | 'default'} workersMachineName
      * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk' | 'teeworkerprecompute' | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
-    async installAll(callbackfn) {
+    async installAll(workersMachineName, callbackfn) {
         const install = new InventoryInstall(this._inv);
-        return install.installAll(callbackfn);
+        return install.installAll(workersMachineName, callbackfn);
     }
     /**
+     * @param {string | 'local' | 'default'} machineName
      * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk' | 'teeworkerprecompute' | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
-    async installWorkers(callbackfn) {
+    async installWorkers(machineName, callbackfn) {
         const install = new InventoryInstall(this._inv);
-        return install.installWorkers(1, 1, callbackfn);
+        return install.installWorkers(machineName, 1, 1, callbackfn);
     }
     /**
      * @param {((name:string, type: srvTypes.ServiceType, progress:number, progressTotal:number) => (void))=} callbackfn 

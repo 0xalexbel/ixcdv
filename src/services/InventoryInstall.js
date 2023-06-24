@@ -21,9 +21,10 @@ export class InventoryInstall {
     }
 
     /**
+     * @param {string | 'local' | 'default'} workersMachineName
      * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk' | 'teeworkerprecompute' | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
-    async installAll(callbackfn) {
+    async installAll(workersMachineName, callbackfn) {
         const ics = [...this._inv];
         const nInstalls = ics.length + 4;
         for (let i = 0; i < ics.length; ++i) {
@@ -31,7 +32,7 @@ export class InventoryInstall {
             assert(ic.type !== 'worker');
             await this.install(ic.name, (i + 1), nInstalls, callbackfn);
         }
-        await this.installWorkers(ics.length + 1, nInstalls, callbackfn);
+        await this.installWorkers(workersMachineName, ics.length + 1, nInstalls, callbackfn);
         await this.installIExecSdk(ics.length + 2, nInstalls, callbackfn);
         await this.installTeeWorkerPreCompute(ics.length + 3, nInstalls, callbackfn);
         await this.installTeeWorkerPostCompute(ics.length + 3, nInstalls, callbackfn);
@@ -46,6 +47,8 @@ export class InventoryInstall {
      */
     async install(name, progress, progressTotal, callbackfn) {
         const ic = this._inv.getConfig(name);
+        // @ts-ignore
+        assert(ic.type !== 'worker');
         callbackfn?.(ic.name, ic.type, progress, progressTotal);
         return this.#installInventoryConfig(ic);
     }
@@ -83,13 +86,14 @@ export class InventoryInstall {
     }
 
     /**
+     * @param {string | 'local' | 'default'} machineName
      * @param {number} progress
      * @param {number} progressTotal
      * @param {((name:string, type: srvTypes.ServiceType | 'worker', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
-    async installWorkers(progress, progressTotal, callbackfn) {
-        callbackfn?.('', 'worker', progress, progressTotal);
-        return this.#installWorkers();
+    async installWorkers(machineName, progress, progressTotal, callbackfn) {
+        callbackfn?.(machineName, 'worker', progress, progressTotal);
+        return this.#installWorkers(machineName);
     }
 
     /**
@@ -171,7 +175,11 @@ export class InventoryInstall {
         }
     }
 
-    async #installWorkers() {
+    /**
+     * @param {string | 'local' | 'default'} machineName 
+     */
+    async #installWorkers(machineName) {
+        this._inv.getMachine
         // Must use unsolved !
         const repository = this._inv.getWorkersRepository().unsolved;
         return fromServiceType['worker'].install({ repository });

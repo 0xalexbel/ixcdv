@@ -524,17 +524,18 @@ export class Dependencies {
     }
 
     /**
+     * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
      * @param {InventoryDB} inventory 
      */
-    #addWorkerFromIndex(hub, index, inventory) {
+    #addWorkerFromIndex(machineName, hub, index, inventory) {
         assert(this.#typeIndexToNameConfigs.length === ORDERED_SERVICE_TYPES.length);
         const type = 'worker';
 
         const name = InventoryDB.computeWorkerName(hub, index);
 
-        const config = inventory.getWorkerConfig(hub, index).resolved;
+        const config = inventory.getWorkerConfig(machineName, hub, index).resolved;
         assert(config);
         assert(config.type === type);
         assert(config.port);
@@ -560,13 +561,14 @@ export class Dependencies {
     }
 
     /**
+     * @param {string | 'local' | 'default'} machineName 
      * @param {string} hub 
      * @param {number} index 
      * @param {InventoryDB} inventory 
      */
-    static fromWorkerIndex(hub, index, inventory) {
+    static fromWorkerIndex(machineName, hub, index, inventory) {
         const dependencies = new Dependencies();
-        dependencies.#addWorkerFromIndex(hub, index, inventory);
+        dependencies.#addWorkerFromIndex(machineName, hub, index, inventory);
         return dependencies;
     }
 

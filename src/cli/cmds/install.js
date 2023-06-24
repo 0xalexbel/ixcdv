@@ -97,7 +97,7 @@ export default class InstallCmd extends Cmd {
                 });
             } else if (type === 'all') {
                 installWallets = true;
-                await inventory.installAll((name, type, progress, progressTotal) => {
+                await inventory.installAll('local', (name, type, progress, progressTotal) => {
                     if (type === 'worker') {
                         console.log(`${progress}/${progressTotal} Install workers`);
                     } else if (type === 'iexecsdk') {
@@ -111,7 +111,7 @@ export default class InstallCmd extends Cmd {
                     console.log(`${progress}/${progressTotal} Install iexec-sdk`);
                 });
             } else if (type === 'worker') {
-                await inventory.installWorkers((name, type, progress, progressTotal) => {
+                await inventory.installWorkers('local', (name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install workers : ${name}`);
                 });
             } else if (type === 'ganache') {

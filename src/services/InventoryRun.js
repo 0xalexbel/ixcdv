@@ -14,7 +14,7 @@ import { RedisService } from './RedisService.js';
 import { DB_SERVICE_TYPES } from './base-internal.js';
 import { CodeError } from '../common/error.js';
 import { pathIsPOSIXPortable, rmFileSync } from '../common/fs.js';
-import { isNullishOrEmptyString } from '../common/string.js';
+import { hostnamePortToString, isNullishOrEmptyString } from '../common/string.js';
 import { isPositiveInteger } from '../common/number.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
 import { IpfsService } from '../ipfs/IpfsService.js';
@@ -280,6 +280,7 @@ export class InventoryRun {
 
     /**
      * @param {{
+     *      machine?: string | 'local' | 'default',
      *      hub?: string,
      *      workerIndex: number,
      *      onlyDependencies?: boolean
@@ -288,6 +289,9 @@ export class InventoryRun {
      * }} options  
      */
     async startWorker(options) {
+        if (!options.machine) {
+            options.machine = 'default';
+        }
         const hub = this._inv.guessHubAlias(options);
         if (isNullishOrEmptyString(hub)) {
             throw new CodeError(`Invalid worker hub`);
@@ -307,7 +311,10 @@ export class InventoryRun {
         const allResults = [];
         const workerName = InventoryDB.computeWorkerName(hub, options.workerIndex);
         if (!noDependencies) {
-            const dependencies = this._inv.workerDependencies(hub, options.workerIndex);
+            const dependencies = this._inv.workerDependencies(
+                options.machine, 
+                hub, 
+                options.workerIndex);
             for (let i = 0; i < ORDERED_SERVICE_TYPE_GROUPS.length; ++i) {
                 // groups are sequential, NOT parallel
                 const result = await this.#startNamesFromNonWorkerTypes(
@@ -320,7 +327,10 @@ export class InventoryRun {
         }
 
         if (!onlyDependencies) {
-            const instance = await this._inv.newWorkerInstance(hub, options.workerIndex);
+            const instance = await this._inv.newWorkerInstance(
+                options.machine, 
+                hub, 
+                options.workerIndex);
             const startReturn = await instance.start({
                 createDir: true,
                 env: { marker: this._inv.rootDir },
@@ -333,7 +343,10 @@ export class InventoryRun {
             });
             allResults.push({ name: workerName, instance, startReturn });
         } else {
-            const ic = this._inv.getWorkerConfig(hub, options.workerIndex);
+            const ic = this._inv.getWorkerConfig(
+                options.machine, 
+                hub, 
+                options.workerIndex);
 
             // To prevent error mis-detection in vscode prelaunch tasks
             // ========================================================
@@ -499,29 +512,32 @@ export class InventoryRun {
             }
             const coreConf = ic.resolved;
             assert(coreConf.type === 'core');
-            const coreUrl = 'http://' + (coreConf.hostname ?? 'localhost') + ":" + coreConf.port.toString();
+            assert(coreConf.hostname);
+            const coreUrl = 'http://' + hostnamePortToString(coreConf, undefined);
             workerFilters = { coreUrl };
         }
         return WorkerService.stopAll(workerFilters, options ?? {});
     }
 
     /**
+     * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
      * @param {types.StopOptionsWithContext=} options
      */
-    async stopWorker(hub, index, options) {
-        return this.#stopWorker(hub, index, { count: 0, total: 1 }, options);
+    async stopWorker(machineName, hub, index, options) {
+        return this.#stopWorker(machineName, hub, index, { count: 0, total: 1 }, options);
     }
 
     /**
+     * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
      * @param {{count:number, total:number}} counter
      * @param {types.StopOptionsWithContext=} options
      */
-    async #stopWorker(hub, index, counter, options) {
-        const instance = await this._inv.newWorkerInstance(hub, index);
+    async #stopWorker(machineName, hub, index, counter, options) {
+        const instance = await this._inv.newWorkerInstance(machineName, hub, index);
         assert(instance);
 
         const workerName = InventoryDB.computeWorkerName(hub, index);
