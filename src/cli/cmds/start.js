@@ -91,7 +91,7 @@ export default class StartCmd extends Cmd {
             }
 
             const promises = [];
-            for (let i = index; i < count; ++i) {
+            for (let i = index; i < index + count; ++i) {
                 const p = inventory.startWorker({
                     ...options,
                     noDependencies: true,
