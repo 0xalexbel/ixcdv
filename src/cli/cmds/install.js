@@ -182,6 +182,11 @@ function installProgress({ count, total, value }) {
     const name = value[0];
     const parsedVersion = value[1].parsedVersion;
 
+    if (Cmd.JsonProgress) {
+        console.log(JSON.stringify({ count, total, value:[name, { parsedVersion }] }));
+        return;
+    }
+
     let msg = 'check system requirements...';
     if (name) {
         msg = `check ${name} : ${parsedVersion}`;

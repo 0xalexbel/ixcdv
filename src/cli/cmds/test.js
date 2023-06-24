@@ -303,6 +303,11 @@ function testProgress({ count, total, value }) {
     const name = value.id;
     const state = value.status;
 
+    if (Cmd.JsonProgress) {
+        console.log(JSON.stringify({ count, total, value:{ id:name, status:state } }));
+        return;
+    }
+
     if (!TestCmd.multiBar) {
         TestCmd.multiBar = new cliProgress.MultiBar({
             hideCursor: true,

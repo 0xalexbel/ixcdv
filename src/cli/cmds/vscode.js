@@ -190,6 +190,11 @@ function startProgress({ count, total, value }) {
         return;
     }
 
+    if (Cmd.JsonProgress) {
+        console.log(JSON.stringify({ count, total, value:{ type, state, context:{ name } } }));
+        return;
+    }
+
     if (!VSCodeCmd.multiBar) {
         VSCodeCmd.multiBar = new cliProgress.MultiBar({
             hideCursor: true,

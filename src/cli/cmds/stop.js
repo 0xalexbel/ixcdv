@@ -47,6 +47,11 @@ function stopProgress({ count, total, value }) {
     const name = value?.context?.name;
     const type = value?.type;
 
+    if (Cmd.JsonProgress) {
+        console.log(JSON.stringify({ count, total, value:{ type, context:{ name } } }));
+        return;
+    }
+
     if (count === 0 && total > 1) {
         if (!StopCmd.progressBar) {
             StopCmd.progressBar = new cliProgress.SingleBar({

@@ -30,23 +30,23 @@ export default class UninstallCmd extends Cmd {
             const rl = readline.createInterface({
                 input: process.stdin,
                 output: process.stdout
-              });
-              
+            });
+
             const answer = await rl.question(`uninstall ${cliDir} workspace (Y/n)? `);
             rl.close();
             if (answer !== 'Y') {
                 throw new Error();
             }
 
-            await StopAllCmd.exec(false, null);
+            await StopAllCmd.exec(false, inventory, null);
 
             /** @type {string[]} */
-            let folders= [ 'chains', 'src' ];
+            let folders = ['chains', 'src'];
 
             if (options.keepGanache) {
                 folders.push('shared/db/ipfs');
                 folders.push('shared/markets');
-            }  else {
+            } else {
                 folders.push('shared');
             }
 
@@ -73,6 +73,11 @@ function uninstallProgress({ count, total, value }) {
 
     const name = value[0];
     const parsedVersion = value[1].parsedVersion;
+
+    if (Cmd.JsonProgress) {
+        console.log(JSON.stringify({ count, total, value: [name, { parsedVersion }] }));
+        return;
+    }
 
     let msg = 'check system requirements...';
     if (name) {

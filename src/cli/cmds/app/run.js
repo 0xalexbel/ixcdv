@@ -93,7 +93,7 @@ export default class AppRunCmd extends Cmd {
             if (options.reset) {
                 await ResetAllCmd.exec(inventory, null);
             } else if (options.restart) {
-                await StopAllCmd.exec(false, null);
+                await StopAllCmd.exec(false, inventory, null);
             }
             // Start 'numWorkers' worker + all the specified chain services
             await StartCmd.exec(inventory, 'worker', { count: numWorkers, hub: hubAlias });
@@ -199,6 +199,11 @@ function testProgress({ count, total, value }) {
 
     const name = value.id;
     const state = value.status;
+
+    if (Cmd.JsonProgress) {
+        console.log(JSON.stringify({ count, total, value:{ id:name, status:state } }));
+        return;
+    }
 
     if (!AppRunCmd.multiBar) {
         AppRunCmd.multiBar = new cliProgress.MultiBar({

@@ -78,6 +78,11 @@ function resetAllProgress({ count, total, value }) {
         msg = `${type}`;
     }
 
+    if (Cmd.JsonProgress) {
+        console.log(JSON.stringify({ count, total, value: { type, context: { name } } }));
+        return;
+    }
+
     if (count === 0 && total > 1) {
         if (!ResetAllCmd.progressBar) {
             ResetAllCmd.progressBar = new cliProgress.SingleBar({
