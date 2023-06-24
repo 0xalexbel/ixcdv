@@ -1,6 +1,8 @@
 import assert from 'assert';
 import { isNullishOrEmptyString, removePrefix, stringToPositiveInteger } from './string.js';
 import { isPositiveInteger } from './number.js';
+import { readFileLineByLineSync, readFileSync, saveToFileSync } from './fs.js';
+import { CodeError } from './error.js';
 
 /**
  * @param {*} v1 
@@ -155,7 +157,7 @@ export function parseGitUrl(gitUrl) {
  */
 export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
-}                
+}
 
 /**
  * @param {string} repoName 
@@ -187,4 +189,93 @@ export function toPositiveInteger(v) {
         return stringToPositiveInteger(v);
     }
     return undefined;
+}
+
+/**
+ * @param {string[]} hostnames 
+ * @param {string[]} ips 
+ */
+export function addToEtcHostsFile(hostnames, ips) {
+    assert(hostnames.length === ips.length);
+
+    const etchostsStr = readFileSync("/etc/hosts", { strict: true });
+    if (!etchostsStr) {
+        throw new CodeError("Unable to read '/etc/hosts'");
+    }
+    const new_etchostsStr = addToEtcHostsStr(hostnames, ips, etchostsStr);
+    if (!etchostsStr) {
+        throw new CodeError("Unable to read '/etc/hosts'");
+    }
+    assert(new_etchostsStr.length >= etchostsStr.length);
+    saveToFileSync(new_etchostsStr, "/etc", "hosts");
+}
+
+/**
+ * @param {string[]} hostnames 
+ * @param {string[]} ips 
+ * @param {string} etchostsStr 
+ */
+export function addToEtcHostsStr(hostnames, ips, etchostsStr) {
+    if (!hostnames || hostnames.length === 0) {
+        return etchostsStr;
+    }
+    if (!ips || ips.length === 0) {
+        return etchostsStr;
+    }
+    if (hostnames.length !== ips.length) {
+        throw new CodeError('Invalid args');
+    }
+    const lines = etchostsStr.split('\n');
+    assert(lines);
+    let addHostnames = [];
+    let addIps = [];
+    for (let i = 0; i < hostnames.length; ++i) {
+        const hostname = hostnames[i];
+        const ip = ips[i];
+        let found = false;
+        for (let j = 0; j < lines.length; ++j) {
+            const line = lines[j].trim();
+
+            let hasIp = false;
+            let hasHostname = false;
+
+            // look for ip
+            let pos = line.indexOf(ip + " ");
+            if (pos === 0) {
+                hasIp = true;
+            }
+
+            pos = line.indexOf(" ");
+            // remainings 
+            let str = line.substring(pos).trim();
+            pos = str.indexOf(hostname);
+            if (pos < 0 || pos > 0 || str.length > hostname.length) {
+                hasHostname = false;
+            } else {
+                hasHostname = true;
+            }
+
+            if (hasHostname && hasIp) {
+                found = true;
+                break;
+            }
+
+            if (hasHostname && !hasIp) {
+                throw new CodeError(`Could not automatically add '${ip} ${hostname}' to /etc/hosts. Please add the line manually.`);
+            }
+        }
+        if (!found) {
+            addHostnames.push(hostname);
+            addIps.push(ip);
+        }
+    }
+    if (addHostnames.length === 0) {
+        return etchostsStr;
+    }
+    lines.push("# Added by ixcdv");
+    for (let i = 0; i < addHostnames.length; ++i) {
+        lines.push(`${addIps[i]} ${addHostnames[i]}`);
+    }
+    lines.push("# End of section");
+    return lines.join('\n');
 }

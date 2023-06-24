@@ -11,15 +11,6 @@ sudo apt install -y wget curl unzip zip git apt-transport-https
 
 echo ""
 echo "=================================================="
-echo "=          Install ${IXCDV_JDK}                ="
-echo "=================================================="
-echo ""
-
-# JDK
-sudo apt install -y ${IXCDV_JDK}
-
-echo ""
-echo "=================================================="
 echo "=              Install docker                    ="
 echo "=================================================="
 echo ""
@@ -40,6 +31,16 @@ sdk version
 
 echo ""
 echo "=================================================="
+echo "=          Install ${IXCDV_JDK}                ="
+echo "=================================================="
+echo ""
+
+# # JDK
+# sudo apt install -y ${IXCDV_JDK}
+sdk install java 11.0.19-tem
+
+echo ""
+echo "=================================================="
 echo "=            Install gradle ${IXCDV_GRADLE_VERSION}                ="
 echo "=================================================="
 echo ""
@@ -54,13 +55,18 @@ echo "=================================================="
 echo ""
 
 # nodejs
-curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+curl -sL https://deb.nodesource.com/setup_${IXCDV_NODE_VERSION} -o /tmp/nodesource_setup.sh
+sudo bash /tmp/nodesource_setup.sh
+sudo apt install nodejs
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+# # nodejs + nvm
+# curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
 
-nvm install ${IXCDV_NODE_VERSION}
+# export NVM_DIR="$HOME/.nvm"
+# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# nvm install ${IXCDV_NODE_VERSION}
 
 echo ""
 echo "=================================================="

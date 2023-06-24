@@ -21,6 +21,9 @@ export default class StartCmd extends Cmd {
     /** @type {cliProgress.MultiBar} */
     static multiBar;
 
+    /** @type {boolean} */
+    static jsonmode = true;
+
     /**
      * @param {string} cliDir 
      * @param {srvTypes.ServiceType} serviceType 

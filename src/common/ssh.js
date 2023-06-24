@@ -75,6 +75,17 @@ export async function mkDirP(connectConfig, remotePath) {
 
 /**
  * @param {import('ssh2').ConnectConfig} connectConfig 
+ * @param {string} cmd
+ */
+export async function exec(connectConfig, cmd) {
+    throwIfNullishOrEmptyString(connectConfig.privateKey);
+    throwIfNullishOrEmptyString(cmd);
+    const res = await _exec_shell_ssh_get(connectConfig, cmd);
+    return res.ok;
+}
+
+/**
+ * @param {import('ssh2').ConnectConfig} connectConfig 
  * @param {string} cwd
  * @param {string[]} args
  */

@@ -8,6 +8,7 @@ import { isNullishOrEmptyString } from './string.js';
 import * as ssh from './ssh.js';
 import { PROD_CONFIG_BASENAME } from './consts.js';
 import { assertIsStrictlyPositiveInteger } from './number.js';
+import { addToEtcHostsStr } from './utils.js';
 
 /* ----------------------- AbstractMachine Class -------------------------- */
 
@@ -200,7 +201,33 @@ export class AbstractMachine {
         if (! await this.isRunning()) {
             throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
         }
+
         const sshConf = this.sshConfig;
+
+        // Update /etc/hosts
+        // =================
+        // add :
+        // 10.0.2.2 ixcdv-master
+        // 127.0.0.1 ixcdv-node1
+
+        const etchosts = await ssh.cat(sshConf, "/etc/hosts");
+        if (!etchosts || etchosts.length === 0) {
+            throw new CodeError(`Unable to retrieve /etc/hosts from machine ${this.#name}.`);
+        }
+        // @ts-ignore
+        assert(ixcdvConfigJSON.vars);
+
+        const masterIp = this.gatewayIp;
+        const myIp = "127.0.0.1"; //keep ipv4 for QEMU
+
+        assert(masterIp);
+
+        const new_etchosts = addToEtcHostsStr(["ixcdv-master", `ixcdv-${this.#name}`], [masterIp, myIp], etchosts);
+        if (new_etchosts !== etchosts) {
+            await ssh.scpString(sshConf, new_etchosts, "/tmp/ixcdv-etc-hosts");
+            await ssh.exec(sshConf, "sudo cp /tmp/ixcdv-etc-hosts /etc/hosts ; rm -rf /tmp/ixcdv-etc-hosts");
+        }
+
         const ok = await ssh.mkDirP(sshConf, this.#ixcdvWorkspaceDirectory);
         await ssh.scpString(
             sshConf,
