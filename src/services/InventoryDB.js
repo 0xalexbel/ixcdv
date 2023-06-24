@@ -17,7 +17,7 @@ import { CoreService } from './Core.js';
 import { DEFAULT_WALLET_INDEX } from './default-config.js';
 import { IpfsService } from '../ipfs/IpfsService.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
-import { hostnamePortToString, isNullishOrEmptyString, placeholdersPropertyReplace, removePrefix, removeSuffix, stringIsPOSIXPortable, stringToHostnamePort, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
+import { hostnamePortToString, isNullishOrEmptyString, placeholdersPropertyReplace, placeholdersReplace, removePrefix, removeSuffix, stringIsPOSIXPortable, stringToHostnamePort, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
 import { CodeError, throwIfNullish } from '../common/error.js';
 import { ContratRefFromString, DevContractRef, PoCoContractRef, PoCoHubRef } from '../common/contractref.js';
 import { isPositiveInteger, throwIfNotStrictlyPositiveInteger } from '../common/number.js';
@@ -346,10 +346,21 @@ export class InventoryDB {
             throw new CodeError('Missing workers repository');
         }
 
-        const machine = this.getMachine(machineName);
-        machineName = machine.name;
-        const unsolvedHostname = `\${${machineName}}`;
-        const resolvedHostname = this.#globalPlaceholders[unsolvedHostname];
+        let unsolvedHostname = `\${${machineName}}`;
+        if (machineName === 'default') {
+            unsolvedHostname = "${defaultHostname}";
+        }
+        if (machineName === 'local') {
+            unsolvedHostname = "${localHostname}";
+        }
+        let resolvedHostname = placeholdersReplace(
+            unsolvedHostname, 
+            this.#globalPlaceholders);
+        if (resolvedHostname.indexOf('${') >= 0) {
+            resolvedHostname = placeholdersReplace(
+                resolvedHostname,
+                this.#globalPlaceholders);
+        }
         assert(resolvedHostname);
 
         const hubData = this.#hubAliasToHubData.get(hubStr);
@@ -811,9 +822,9 @@ export class InventoryDB {
      * @param {string | 'local' | 'default'} name 
      */
     isLocalMachineName(name) {
-        const machine = this.getMachine(name);
+        const machineName = this.resolveMachineName(name);
         const localMachineName = this.getLocalRunningMachineName();
-        if (localMachineName === machine.name) {
+        if (localMachineName === machineName) {
             return true;
         }    
         return false;
@@ -903,17 +914,25 @@ export class InventoryDB {
      * @param {string | 'local' | 'default'} machineName
      */
     getMachine(machineName) {
+        machineName = this.resolveMachineName(machineName);
+        const m = this.#allMachines.get(machineName);
+        if (!m) {
+            throw new CodeError(`Unknown machine name '${machineName}'`);
+        }
+        return m;
+    }
+
+    /**
+     * @param {string | 'local' | 'default'} machineName
+     */
+    resolveMachineName(machineName) {
         if (machineName === 'local') {
             machineName = this.getLocalRunningMachineName();
         } else if (machineName === 'default') {
             machineName = this.getDefaultRunningMachineName();
         }
         throwIfNullishOrEmptyString(machineName);
-        const m = this.#allMachines.get(machineName);
-        if (!m) {
-            throw new CodeError(`Unknown machine name '${machineName}'`);
-        }
-        return m;
+        return machineName;
     }
 
     /**

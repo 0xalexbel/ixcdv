@@ -313,8 +313,8 @@ export class InventoryRun {
         const workerName = InventoryDB.computeWorkerName(hub, options.workerIndex);
         if (!noDependencies) {
             const dependencies = this._inv.workerDependencies(
-                options.machine, 
-                hub, 
+                options.machine,
+                hub,
                 options.workerIndex);
             for (let i = 0; i < ORDERED_SERVICE_TYPE_GROUPS.length; ++i) {
                 // groups are sequential, NOT parallel
@@ -328,25 +328,42 @@ export class InventoryRun {
         }
 
         if (!onlyDependencies) {
-            const instance = await this._inv.newWorkerInstance(
-                options.machine, 
-                hub, 
-                options.workerIndex);
-            const startReturn = await instance.start({
-                createDir: true,
-                env: { marker: this._inv.rootDir },
-                progressCb: options.progressCb,
-                context: {
-                    hub,
-                    workerIndex: options.workerIndex,
-                    name: workerName
+            const machineName = this._inv.resolveMachineName(options.machine);
+            // remote
+            if (!this._inv.isLocalMachineName(machineName)) {
+                const machine = this._inv.getMachine(machineName);
+                assert(machine);
+                assert(options.hub);
+                const res = await ssh.ixcdv(
+                    machine.sshConfig,
+                    machine.ixcdvWorkspaceDirectory,
+                    ["start", "worker", "--hub", options.hub, "--no-dependencies"]);
+                if (!res.ok) {
+                    throw res.error;
                 }
-            });
-            allResults.push({ name: workerName, instance, startReturn });
+                allResults.push({ name: workerName, instance:null, startReturn:res });
+            } else {
+                // Local
+                const instance = await this._inv.newWorkerInstance(
+                    options.machine,
+                    hub,
+                    options.workerIndex);
+                const startReturn = await instance.start({
+                    createDir: true,
+                    env: { marker: this._inv.rootDir },
+                    progressCb: options.progressCb,
+                    context: {
+                        hub,
+                        workerIndex: options.workerIndex,
+                        name: workerName
+                    }
+                });
+                allResults.push({ name: workerName, instance, startReturn });
+            }
         } else {
             const ic = this._inv.getWorkerConfig(
-                options.machine, 
-                hub, 
+                options.machine,
+                hub,
                 options.workerIndex);
 
             // To prevent error mis-detection in vscode prelaunch tasks

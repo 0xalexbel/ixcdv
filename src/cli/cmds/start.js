@@ -79,11 +79,13 @@ export default class StartCmd extends Cmd {
                 count = c;
             }
 
-            await inventory.start({
-                ...options,
-                type: 'core',
-                progressCb: startProgress
-            });
+            if (!options.noDependencies) {
+                await inventory.start({
+                    ...options,
+                    type: 'core',
+                    progressCb: startProgress
+                });
+            }
 
             const promises = [];
             for (let i = 0; i < count; ++i) {
