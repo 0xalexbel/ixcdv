@@ -181,7 +181,7 @@ uninstallCmd.description(`Uninstalls a ${PROD_NAME} workspace in the current wor
 
 addChainAndHubOptions(testCmd);
 testCmd.description('Runs a test app on the specified chain.')
-    .option('--machine <machine>', "Machine where the workers are running.")
+    .option('--workers-machine <machine>', "Machine where the workers are running.")
     .option('--restart', "Restart all services before launching the test.")
     .option('--reset', "Reset before launching the test.")
     .option('--dataset-file <file>', "Run the test using a custom dataset file.")

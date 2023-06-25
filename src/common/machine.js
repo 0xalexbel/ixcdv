@@ -280,7 +280,7 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         const okOrErr = await ssh.ixcdv(
             sshConf,
-            ["start", type, "--hub", hub, "--no-dependencies"],
+            ["start", type, "--hub", hub, "--no-dependencies", "--debug"],
             { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
 
