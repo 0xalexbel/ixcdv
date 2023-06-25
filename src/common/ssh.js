@@ -87,7 +87,7 @@ export async function exec(connectConfig, cmd) {
 /**
  * @param {import('ssh2').ConnectConfig} connectConfig 
  * @param {string[]} args
- * @param {{ cwd? : string, sudo? : boolean }} options
+ * @param {{ cwd? : string, sudo? : boolean, standardProgress?: boolean }} options
  * @param {types.progressCallback=} progressCb
  */
 export async function ixcdv(connectConfig, args, options, progressCb) {
@@ -96,8 +96,11 @@ export async function ixcdv(connectConfig, args, options, progressCb) {
         cwd = `cd ${options.cwd}`
     }
 
-    // do not use progress bar UI on a remote machine
-    args.push("--jsonprogress");
+    if (options.standardProgress !== true) {
+        // do not use progress bar UI on a remote machine
+        args.push("--jsonprogress");
+    }
+
     options.sudo = true;
 
     const cmds = [];

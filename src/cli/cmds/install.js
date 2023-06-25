@@ -37,9 +37,9 @@ export default class InstallCmd extends Cmd {
             if (options.onlyName) {
                 onlyName = options.onlyName;
             }
-            let workersMachine= 'local';
+            let workersMachine = 'local';
             if (options.workersMachine) {
-                workersMachine= options.workersMachine;
+                workersMachine = options.workersMachine;
             }
 
             const vars = this.parseVars(options);
@@ -82,8 +82,12 @@ export default class InstallCmd extends Cmd {
             // Only performed by master
             inventory._inv.masterToAllSlavesUploadIxcdvConfigJSON();
 
-            // First stop (gently)
-            await StopAllCmd.exec(false /* only gentle stop */, inventory, null);
+            // If the command is sent by the master and executed on a slave machine
+            // the stop all command below has already been executed.
+            if (inventory._inv.isLocalMaster()) {
+                // First stop (gently)
+                await StopAllCmd.exec(false /* only gentle stop */, inventory, null);
+            }
 
             if (hasVars) {
                 await inventory.saveConfigFile({ directory: configDir, overrideExistingFile: true });

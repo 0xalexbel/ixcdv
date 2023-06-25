@@ -200,7 +200,7 @@ export class AbstractMachine {
         await ssh.ixcdv(
             sshConf,
             ["install", "--only-name", name],
-            { cwd: this.#ixcdvWorkspaceDirectory },
+            { cwd: this.#ixcdvWorkspaceDirectory, standardProgress:true },
             progressCb);
     }
 
@@ -219,7 +219,7 @@ export class AbstractMachine {
         await ssh.ixcdv(
             sshConf,
             ["install", "--only-type", "worker"],
-            { cwd: this.#ixcdvWorkspaceDirectory },
+            { cwd: this.#ixcdvWorkspaceDirectory, standardProgress: true },
             progressCb);
     }
 
