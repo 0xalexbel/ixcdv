@@ -1309,6 +1309,22 @@ export class InventoryDB {
     }
 
     /**
+     * @returns {srvTypes.InventoryGanacheConfig[] | undefined}
+     */
+    getGanacheConfigs() {
+        const ganacheNames = this.#typeToNames.get('ganache');
+        if (!ganacheNames || ganacheNames.length === 0) {
+            return undefined;
+        }
+        const ics = [];
+        for (let i = 0; i < ganacheNames.length; ++i) {
+            const ic = this.getGanacheConfig(ganacheNames[i]);
+            ics.push(ic);
+        }
+        return ics;
+    }
+
+    /**
      * @param {string} hubAlias 
      * @returns {srvTypes.InventoryGanacheConfig | undefined}
      */

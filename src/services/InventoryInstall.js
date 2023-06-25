@@ -131,18 +131,23 @@ export class InventoryInstall {
 
     /**
      * @param {AbstractMachine} targetMachine 
-     * @param {string} hubAlias 
      */
-    async #remotePreInstall(targetMachine, hubAlias) {
-        const ganacheConf = this._inv.getGanacheConfigFromHubAlias(hubAlias);
-        assert(ganacheConf);
-        const ganacheLocalDBDir = ganacheConf.resolved.directory;
-        const ganacheDBRelDir = toRelativePath(targetMachine.rootDir, ganacheLocalDBDir);
+    async #remotePreInstall(targetMachine) {
+        const ics = this._inv.getGanacheConfigs();
+        if (!ics || ics.length === 0) {
+            return;
+        }
+        for (let i = 0; i < ics.length; ++i) {
+            const ganacheConf = ics[i];
+            assert(ganacheConf);
+            const ganacheLocalDBDir = ganacheConf.resolved.directory;
+            const ganacheDBRelDir = toRelativePath(targetMachine.rootDir, ganacheLocalDBDir);
 
-        // must copy shared/db/ganache.1337/ixcdv-ganache-poco-config.json
-        await targetMachine.copyIxcdvFile(GanachePoCoService.configFileBasename(), ganacheDBRelDir, true);
-        // must copy shared/db/ganache.1337/DBUUID
-        await targetMachine.copyIxcdvFile(GanachePoCoService.DBUUIDBasename(), ganacheDBRelDir, true);
+            // must copy shared/db/ganache.1337/ixcdv-ganache-poco-config.json
+            await targetMachine.copyIxcdvFile(GanachePoCoService.configFileBasename(), ganacheDBRelDir, true);
+            // must copy shared/db/ganache.1337/DBUUID
+            await targetMachine.copyIxcdvFile(GanachePoCoService.DBUUIDBasename(), ganacheDBRelDir, true);
+        }
     }
 
     /**
@@ -180,10 +185,9 @@ export class InventoryInstall {
             assert(ic.type === 'sms' || ic.type === 'worker');
 
             // Copy various required files on the remote machine
-            // - ixcdv-config.json
             // - ixcdv-ganache-poco-config.json
             // - ...
-            await this.#remotePreInstall(targetMachine, ic.resolved.hub);
+            await this.#remotePreInstall(targetMachine);
 
             await targetMachine.ixcdvInstall(ic.name, undefined);
         }
@@ -206,7 +210,12 @@ export class InventoryInstall {
             if (!this._inv.isLocalMaster()) {
                 throw new CodeError('Cannot perform any ssh install from a slave machine');
             }
-            
+
+            // Copy various required files on the remote machine
+            // - ixcdv-ganache-poco-config.json
+            // - ...
+            await this.#remotePreInstall(targetMachine);
+
             // run ixcdv cli cmd on target machine
             await targetMachine.ixcdvInstallWorkers();
         }
