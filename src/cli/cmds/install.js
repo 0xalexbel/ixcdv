@@ -75,18 +75,20 @@ export default class InstallCmd extends Cmd {
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir, vars);
 
-            const allMachines = inventory._inv.allMachinesArray;
-            for (let i= 0 ; i < allMachines.length; ++i) {
-                const machineConfigJSON = await inventory.toMachineConfigJSON(allMachines[i]);
-                console.log(`Uploading ${PROD_CONFIG_BASENAME} to ${allMachines[i].name}`);
-                await allMachines[i].uploadIxcdvConfigJSON(machineConfigJSON);
+            if (inventory._inv.isLocalMaster()) {
+                const allMachines = inventory._inv.allMachinesArray;
+                for (let i = 0; i < allMachines.length; ++i) {
+                    const machineConfigJSON = await inventory.toMachineConfigJSON(allMachines[i]);
+                    console.log(`Uploading ${PROD_CONFIG_BASENAME} to ${allMachines[i].name}`);
+                    await allMachines[i].uploadIxcdvConfigJSON(machineConfigJSON);
+                }
             }
 
             // First stop (gently)
             await StopAllCmd.exec(false /* only gentle stop */, inventory, null);
 
             if (hasVars) {
-                await inventory.saveConfigFile({ directory:configDir, overrideExistingFile: true });
+                await inventory.saveConfigFile({ directory: configDir, overrideExistingFile: true });
             }
 
             let installWallets = false;
@@ -190,7 +192,7 @@ function installProgress({ count, total, value }) {
     const parsedVersion = value[1].parsedVersion;
 
     if (Cmd.JsonProgress) {
-        console.log(JSON.stringify({ count, total, value:[name, { parsedVersion }] }));
+        console.log(JSON.stringify({ count, total, value: [name, { parsedVersion }] }));
         return;
     }
 
