@@ -138,8 +138,11 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         const localFile = path.join(this.rootDir, ixcdvRelDir, filename);
         const remoteDir = path.join(this.ixcdvWorkspaceAbsoluteDirectory, ixcdvRelDir);
+        // it's a file not a dir !!!!
+        // test dir 
+        // rmrf mkdirp
         if (override || !(await ssh.exists(sshConf, path.join(remoteDir, filename))).exists) {
-            await ssh.mkDirP(sshConf, path.dirname(remoteDir));
+            await ssh.mkDirP(sshConf, remoteDir);
             await ssh.scp(sshConf,
                 localFile,
                 remoteDir);
