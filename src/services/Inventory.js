@@ -292,6 +292,7 @@ export class Inventory {
      * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk' | 'teeworkerprecompute' | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
     async installWorkers(machineName, callbackfn) {
+        assert(machineName);
         const install = new InventoryInstall(this._inv);
         return install.installWorkers(machineName, 1, 1, callbackfn);
     }

@@ -28,6 +28,7 @@ export class InventoryInstall {
      * @param {((name:string, type: srvTypes.ServiceType | 'iexecsdk' | 'teeworkerprecompute' | 'teeworkerpostcompute', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
     async installAll(workersMachineName, callbackfn) {
+        assert(workersMachineName);
         const ics = [...this._inv];
         const nInstalls = ics.length + 4;
         for (let i = 0; i < ics.length; ++i) {
@@ -95,6 +96,7 @@ export class InventoryInstall {
      * @param {((name:string, type: srvTypes.ServiceType | 'worker', progress:number, progressTotal:number) => (void))=} callbackfn 
      */
     async installWorkers(machineName, progress, progressTotal, callbackfn) {
+        assert(machineName);
         callbackfn?.(machineName, 'worker', progress, progressTotal);
         return this.#installWorkers(machineName);
     }
