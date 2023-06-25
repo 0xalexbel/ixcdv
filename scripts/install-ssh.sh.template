@@ -13,15 +13,43 @@ if [[ ! -f "./${IXCDV_KEY}" ]]; then
     ssh-keygen -b 2048 -t rsa -q -N "" -f "./${IXCDV_KEY}"
 fi
 
+# [localhost]:2222 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCtaj8dJoi6kOvq83Vn6N9Wt5AahzQbZ5Md/CRStFUyead/nKsk20a7Wm0UFSvr9d6CJkBYOFsPjO0ilgAPgCP8=
+echo "================================================="
+echo "=                    STEP 1                     =" 
+echo "================================================="
+echo "Copy ssh pub key to the remote machine ${IXCDV_USER}@${IXCDV_HOST} port ${IXCDV_PORT}:"
+echo ""
+
 # copy key to guest
 scp -P ${IXCDV_PORT} "./${IXCDV_KEY}.pub" ${IXCDV_USER}@${IXCDV_HOST}:/home/${IXCDV_USER}/.ssh/
+
+echo ""
+echo "================================================="
+echo "=                    STEP 2                     =" 
+echo "================================================="
+echo "Add ssh pub key to .ssh/authorized_keys on the remote machine ${IXCDV_USER}@${IXCDV_HOST} port ${IXCDV_PORT}:"
+echo ""
 
 # run 'cat .ssh/qemukey.pub >> .ssh/authorized_keys'
 ssh ${IXCDV_USER}@${IXCDV_HOST} -p ${IXCDV_PORT} "cat .ssh/${IXCDV_KEY}.pub >> .ssh/authorized_keys"
 
+echo ""
+echo "================================================="
+echo "=                    STEP 3                     =" 
+echo "================================================="
+echo "Disable sudo password for user: ${IXCDV_USER} on the remote machine"
+echo ""
+
 # disable sudo pass for USER
 readonly IXCDV_CMD="echo '${IXCDV_USER} ALL=(ALL:ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/${IXCDV_USER}"
 ssh -t ${IXCDV_USER}@${IXCDV_HOST} -p ${IXCDV_PORT} ${IXCDV_CMD}
+
+echo ""
+echo "================================================="
+echo "=                    STEP 4                     =" 
+echo "================================================="
+echo "Restart ssh server on the remote machine"
+echo ""
 
 # run 'sudo /etc/init.d/ssh restart'
 ssh -t ${IXCDV_USER}@${IXCDV_HOST} -p ${IXCDV_PORT} 'sudo /etc/init.d/ssh restart'

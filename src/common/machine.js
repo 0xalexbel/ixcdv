@@ -3,7 +3,7 @@ import assert from 'assert';
 import path from 'path';
 import { CodeError, pureVirtualError } from './error.js';
 import { qemuSystemI386, qemuSystemI386IsRunning } from '../qemu/qemu-system-i386-api.js';
-import { fileExists, readFileSync, toAbsolutePath } from './fs.js';
+import { fileExists, readFileSync, toAbsolutePath, toRelativePath } from './fs.js';
 import { isNullishOrEmptyString } from './string.js';
 import * as ssh from './ssh.js';
 import { PROD_CONFIG_BASENAME } from './consts.js';
@@ -103,6 +103,14 @@ export class AbstractMachine {
     get isMaster() { return (this.#name === 'master'); }
     get gatewayIp() { return this.#gatewayIp; }
     get ixcdvWorkspaceDirectory() { return this.#ixcdvWorkspaceDirectory; }
+    get ixcdvWorkspaceAbsoluteDirectory() {
+        assert(this.#sshConfig.username);
+        assert(!path.isAbsolute(this.#ixcdvWorkspaceDirectory));
+        return path.join(
+            '/home',
+            this.#sshConfig.username,
+            this.#ixcdvWorkspaceDirectory);
+    }
 
     async isRunning() {
         return true;
@@ -122,6 +130,23 @@ export class AbstractMachine {
     }
 
     /**
+     * @param {string} filename 
+     * @param {string} ixcdvRelDir 
+     * @param {boolean} override 
+     */
+    async copyIxcdvFile(filename, ixcdvRelDir, override) {
+        const sshConf = this.sshConfig;
+        const localFile = path.join(this.rootDir, ixcdvRelDir, filename);
+        const remoteDir = path.join(this.ixcdvWorkspaceAbsoluteDirectory, ixcdvRelDir);
+        if (override || !(await ssh.exists(sshConf, path.join(remoteDir, filename))).exists) {
+            await ssh.mkDirP(sshConf, path.dirname(remoteDir));
+            await ssh.scp(sshConf,
+                localFile,
+                remoteDir);
+        }
+    }
+
+    /**
      * @param {types.progressCallback=} progressCb
      */
     async ixcdvStopAll(progressCb) {
@@ -135,8 +160,8 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         await ssh.ixcdv(
             sshConf,
-            this.#ixcdvWorkspaceDirectory,
-            ["stop", "all", "--jsonprogress"], 
+            ["stop", "all"],
+            { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
     }
 
@@ -154,8 +179,28 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         await ssh.ixcdv(
             sshConf,
-            this.#ixcdvWorkspaceDirectory,
-            ["reset", "all", "--jsonprogress"], 
+            ["reset", "all"],
+            { cwd: this.#ixcdvWorkspaceDirectory },
+            progressCb);
+    }
+
+    /**
+     * @param {string} name
+     * @param {types.progressCallback=} progressCb
+     */
+    async ixcdvInstall(name, progressCb) {
+        if (this.isMaster) {
+            // cannot target master ??
+            throw new CodeError('Cannot perform any ssh command targeting the master machine');
+        }
+        if (! await this.isRunning()) {
+            throw new CodeError(`machine ${this.#name} is not running or 'ixcdv-config.json' has been edited (forward ports must be updated).`);
+        }
+        const sshConf = this.sshConfig;
+        await ssh.ixcdv(
+            sshConf,
+            ["install", "--name", name],
+            { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
     }
 
@@ -173,8 +218,8 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         await ssh.ixcdv(
             sshConf,
-            this.#ixcdvWorkspaceDirectory,
-            ["install", "--type", "worker", "--jsonprogress"],
+            ["install", "--type", "worker"],
+            { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
     }
 
@@ -192,8 +237,8 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         await ssh.ixcdv(
             sshConf,
-            this.#ixcdvWorkspaceDirectory,
-            ["kill", "all", "--jsonprogress"],
+            ["kill", "all"],
+            { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
     }
 
@@ -213,8 +258,8 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         const okOrErr = await ssh.ixcdv(
             sshConf,
-            this.#ixcdvWorkspaceDirectory,
-            ["start", "worker", "--hub", hub, "--index", `${index}`, "--no-dependencies", "--jsonprogress"],
+            ["start", "worker", "--hub", hub, "--index", `${index}`, "--no-dependencies"],
+            { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
         return okOrErr;
     }
@@ -235,8 +280,8 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         const okOrErr = await ssh.ixcdv(
             sshConf,
-            this.#ixcdvWorkspaceDirectory,
-            ["start", type, "--hub", hub, "--no-dependencies", "--jsonprogress"],
+            ["start", type, "--hub", hub, "--no-dependencies"],
+            { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
 
         return okOrErr;
@@ -271,6 +316,7 @@ export class AbstractMachine {
         }
         // @ts-ignore
         assert(ixcdvConfigJSON.vars);
+        assert(this.#name !== 'master'); // prevent future collision ?
 
         const masterIp = this.gatewayIp;
         const myIp = "127.0.0.1"; //keep ipv4 for QEMU
@@ -337,6 +383,7 @@ export class QemuMachine extends AbstractMachine {
         const isRunning = await qemuSystemI386IsRunning(
             this.qemuHda,
             this.#qemuConfig.cpu,
+            this.#qemuConfig.memory,
             this.sshConfig.port,
             this.hostfwdPorts);
         return isRunning;
@@ -352,6 +399,7 @@ export class QemuMachine extends AbstractMachine {
         await qemuSystemI386(
             this.qemuHda,
             this.#qemuConfig.cpu,
+            this.#qemuConfig.memory,
             this.sshConfig.port,
             this.hostfwdPorts,
             { strict: true });

@@ -4,6 +4,7 @@ import * as ERROR_CODES from "../common/error-codes.js";
 import * as types from '../common/common-types.js';
 import * as pathlib from 'path';
 import assert from 'assert';
+import net from 'net';
 import { Multiaddr } from 'multiaddr';
 import { envVarName } from '../common/consts.js';
 import { ipfsInit, isValidIpfsDir, IPFS_LOCALHOST_IPV4, ipfsTestPublish, ipfsAddQ } from './ipfs-api.js';
@@ -15,6 +16,7 @@ import { genSetMBashScript } from "../common/bash.js";
 import { parseSingleEnvVar } from "../common/utils.js";
 import { isNullishOrEmptyString, placeholdersPropertyReplace, throwIfNullishOrEmptyString } from "../common/string.js";
 import { isStrictlyPositiveInteger, throwIfNotStrictlyPositiveInteger } from "../common/number.js";
+import { hostname } from "os";
 
 /**
  * @typedef {types.ServerServiceArgs & 
@@ -277,42 +279,51 @@ export class IpfsService extends ServerService {
     /**
      * Throws an exception if failed.
      * @param {{
-     *     directory:string
+     *     directory: string
+     *     hostname: string
      *     gatewayPort: number
      *     apiPort: number,
      * }} params
      */
-    static async reinstall({ directory, gatewayPort, apiPort }) {
+    static async reinstall({ directory, hostname, gatewayPort, apiPort }) {
         throwIfNullishOrEmptyString(directory);
+        throwIfNullishOrEmptyString(hostname);
         throwIfNotStrictlyPositiveInteger(gatewayPort);
         throwIfNotStrictlyPositiveInteger(apiPort);
 
         directory = resolveAbsolutePath(directory);
 
         await rmrfDir(directory, { strict: true });
-        await IpfsService.install({ directory, gatewayPort, apiPort });
+        await IpfsService.install({ directory, hostname, gatewayPort, apiPort });
     }
 
     /**
      * Throws an exception if failed.
      * @param {{
-     *     directory:string
+     *     directory: string
+     *     hostname: string
      *     gatewayPort: number
      *     apiPort: number,
      * }} params
      */
-    static async install({ directory, gatewayPort, apiPort }) {
+    static async install({ directory, hostname, gatewayPort, apiPort }) {
         throwIfNullishOrEmptyString(directory);
+        throwIfNullishOrEmptyString(hostname);
         throwIfNotStrictlyPositiveInteger(gatewayPort);
         throwIfNotStrictlyPositiveInteger(apiPort);
 
+        assert(hostname);
+        if (hostname === 'localhost') {
+            hostname = IPFS_LOCALHOST_IPV4;
+        }
+    
         directory = resolveAbsolutePath(directory);
 
         const exists = dirExists(directory);
         if (!exists) {
             // will create directory
             // throws an exception if failed (directory is auto-deleted)
-            await ipfsInit(directory, gatewayPort, apiPort);
+            await ipfsInit(directory, hostname, gatewayPort, apiPort);
         }
 
         if (!isValidIpfsDir(directory)) {
@@ -321,8 +332,13 @@ export class IpfsService extends ServerService {
                 ERROR_CODES.IPFS_ERROR);
         }
 
-        const gatwayPortMultiAddrStr = `/ip4/${IPFS_LOCALHOST_IPV4}/tcp/${gatewayPort.toString()}`;
-        const apiMultiAddrStr = `/ip4/${IPFS_LOCALHOST_IPV4}/tcp/${apiPort.toString()}`;
+        let prefix = 'dns4';
+        if (net.isIPv4(hostname)) {
+            prefix = 'ip4';
+        }
+
+        const gatwayPortMultiAddrStr = `/${prefix}/${hostname}/tcp/${gatewayPort.toString()}`;
+        const apiMultiAddrStr = `/${prefix}/${hostname}/tcp/${apiPort.toString()}`;
 
         const configFile = pathlib.join(directory, 'config');
         let config = await readObjectFromJSONFile(configFile);

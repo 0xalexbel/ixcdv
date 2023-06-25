@@ -500,6 +500,8 @@ export class MongoService extends ServerService {
         directory = resolveAbsolutePath(directory);
         throwIfDirDoesNotExist(directory);
 
+        // never use 'localhost'
+        assert(options.hostname);
         const hostname = options.hostname ?? 'localhost';
 
         // Only one instance can run on a given directory.

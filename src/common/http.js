@@ -131,12 +131,17 @@ export function httpGETStatusCode(url) {
 export function httpHEAD(url) {
 
     /** @type {string} */
-    const urlStr = toURLString(url);
+    let urlStr = toURLString(url);
 
     // return new pending promise
     return new Promise((resolve, reject) => {
         // select http or https module, depending on reqested url
         const lib = urlStr.startsWith('https') ? https : http;
+
+        const aa = "http://ixcdv-node1:13300/secrets/web2?ownerAddress=0x2F136F42D301179C3Bb7e4F5c0A7DE53Ed94C660&secretName=iexec-result-iexec-ipfs-token";
+        if (urlStr === aa) {
+            urlStr = "http://127.0.0.1:13300/secrets/web2?ownerAddress=0x2F136F42D301179C3Bb7e4F5c0A7DE53Ed94C660&secretName=iexec-result-iexec-ipfs-token";
+        }
 
         const req_options = { method: 'HEAD', agent: false };
         const request = lib.request(urlStr, req_options, (response) => {

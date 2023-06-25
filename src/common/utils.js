@@ -184,6 +184,7 @@ export function toPositiveInteger(v) {
         if (!isPositiveInteger(v)) {
             return undefined;
         }
+        return v;
     }
     if (typeof v === 'string') {
         return stringToPositiveInteger(v);

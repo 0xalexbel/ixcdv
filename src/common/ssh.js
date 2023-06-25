@@ -2,9 +2,9 @@ import assert from 'assert';
 import path from 'path';
 import { Client } from 'ssh2';
 import * as sftp from 'ssh2-sftp-client';
-import { isNullishOrEmptyString, removeSuffix, stringToPositiveInteger, throwIfNullishOrEmptyString } from './string.js';
+import { isNullishOrEmptyString, throwIfNullishOrEmptyString } from './string.js';
 import { CodeError, fail } from '../common/error.js';
-import { dirExists, errorDirDoesNotExist, generateTmpPathname, rmrfDir, rmFileSync, saveToFile } from '../common/fs.js';
+import { dirExists, errorDirDoesNotExist, generateTmpPathname, rmFileSync, saveToFile } from '../common/fs.js';
 import { childProcessSpawn } from '../common/process.js';
 import * as types from '../common/common-types.js';
 
@@ -86,17 +86,41 @@ export async function exec(connectConfig, cmd) {
 
 /**
  * @param {import('ssh2').ConnectConfig} connectConfig 
- * @param {string} cwd
  * @param {string[]} args
+ * @param {{ cwd? : string, sudo? : boolean }} options
  * @param {types.progressCallback=} progressCb
  */
-export async function ixcdv(connectConfig, cwd, args, progressCb) {
-    if (!isNullishOrEmptyString(cwd)) {
-        cwd = ` cd ${cwd} ;`
-    } else {
-        cwd = '';
+export async function ixcdv(connectConfig, args, options, progressCb) {
+    let cwd;
+    if (!isNullishOrEmptyString(options.cwd)) {
+        cwd = `cd ${options.cwd}`
     }
-    const cmd = `source ~/.nvm/nvm.sh ;${cwd} ixcdv ${args.join(" ")}`;
+
+    // do not use progress bar UI on a remote machine
+    args.push("--jsonprogress");
+    options.sudo = true;
+
+    const cmds = [];
+    const useNVM = false;
+    if (useNVM) {
+        cmds.push("source ~/.nvm/nvm.sh");
+    }
+    if (cwd) {
+        cmds.push(cwd);
+    }
+    if (options.sudo === true) {
+        if (useNVM) {
+            cmds.push("IXCDV_CLI=$(which ixcdv)");
+            cmds.push("IXCDV_NJS=$(which node)");
+            cmds.push(`sudo "\${IXCDV_NJS}" "\${IXCDV_CLI}" ${args.join(" ")}`);
+        } else {
+            cmds.push(`sudo ixcdv ${args.join(" ")}`);
+        }
+    } else {
+        cmds.push(`ixcdv ${args.join(" ")}`);
+    }
+
+    const cmd = cmds.join(' ; ');
 
     /** @type {((s:string) => void) | undefined} */
     let stdOutCallback = undefined;
@@ -113,7 +137,7 @@ export async function ixcdv(connectConfig, cwd, args, progressCb) {
                 let o;
                 try {
                     o = JSON.parse(s);
-                } catch {}
+                } catch { }
                 if (o) {
                     progressCb(o);
                 }

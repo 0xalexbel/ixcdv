@@ -5,7 +5,7 @@ import { MIN_GANACHE_VERSION, checkMinGanacheVersion, getSysReq } from "../../co
 import { sleep } from "../../common/utils.js";
 import { CodeError } from "../../common/error.js";
 import { Inventory } from "../../services/Inventory.js";
-import { PROD_BIN, PROD_NAME } from "../../common/consts.js";
+import { PROD_BIN, PROD_CONFIG_BASENAME, PROD_NAME } from "../../common/consts.js";
 import { isNullishOrEmptyString } from "../../common/string.js";
 
 export default class InstallCmd extends Cmd {
@@ -74,6 +74,13 @@ export default class InstallCmd extends Cmd {
 
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir, vars);
+
+            const allMachines = inventory._inv.allMachinesArray;
+            for (let i= 0 ; i < allMachines.length; ++i) {
+                const machineConfigJSON = await inventory.toMachineConfigJSON(allMachines[i]);
+                console.log(`Uploading ${PROD_CONFIG_BASENAME} to ${allMachines[i].name}`);
+                await allMachines[i].uploadIxcdvConfigJSON(machineConfigJSON);
+            }
 
             // First stop (gently)
             await StopAllCmd.exec(false /* only gentle stop */, inventory, null);

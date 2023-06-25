@@ -4,6 +4,7 @@ import * as types from '../common/common-types.js';
 import * as ERROR_CODES from "../common/error-codes.js";
 import * as path from 'path';
 import assert from 'assert';
+import net from 'net';
 import { ipfsGet } from './ipfs-process.js';
 import * as ipfs from './ipfs.js';
 import { randomBytes } from 'crypto';
@@ -238,13 +239,19 @@ export function isValidIpfsDir(dir) {
 
 /**
  * @param {string} dir 
+ * @param {string} hostname
  * @param {number} gatewayPort 
  * @param {number} apiPort 
  */
-export async function ipfsInit(dir, gatewayPort, apiPort) {
+export async function ipfsInit(dir, hostname, gatewayPort, apiPort) {
     throwIfDirAlreadyExists(dir);
     throwIfNotStrictlyPositiveInteger(gatewayPort);
     throwIfNotStrictlyPositiveInteger(apiPort);
+
+    assert(hostname);
+    if (hostname === 'localhost') {
+        hostname = IPFS_LOCALHOST_IPV4;
+    }
 
     try {
         mkDirP(dir, { strict: true });
@@ -260,9 +267,14 @@ export async function ipfsInit(dir, gatewayPort, apiPort) {
         // Executes 'ipfs init'
         await ipfs.init(dir, [], { "IPFS_PATH": dir }, { strict: true });
 
+        let prefix = 'dns4';
+        if (net.isIPv4(hostname)) {
+            prefix = 'ip4';
+        }
+
         // Setup local host+ports
-        const gatwayMultiAddr = `/ip4/${IPFS_LOCALHOST_IPV4}/tcp/${gatewayPort.toString()}`;
-        const apiMultiAddr = `/ip4/${IPFS_LOCALHOST_IPV4}/tcp/${apiPort.toString()}`;
+        const gatwayMultiAddr = `/${prefix}/${hostname}/tcp/${gatewayPort.toString()}`;
+        const apiMultiAddr = `/${prefix}/${hostname}/tcp/${apiPort.toString()}`;
 
         const configFile = path.join(dir, 'config');
         // Load config and save the new mutliaddresses
@@ -299,8 +311,8 @@ export async function ipfsInit(dir, gatewayPort, apiPort) {
         const peerID = config.Identity.PeerID;
 
         // Add local bootstrap
-        const ipConf = IPFS_LOCALHOST_IPV4;
-        const boostrapAddr = `/ip4/${ipConf}/tcp/4001/p2p/${peerID}`;
+        const ipConf = hostname;
+        const boostrapAddr = `/${prefix}/${ipConf}/tcp/4001/p2p/${peerID}`;
         await ipfsBootstrapAdd(dir, boostrapAddr, { strict: true });
     } catch (err) {
         await rmrf(dir);

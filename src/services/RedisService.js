@@ -483,6 +483,8 @@ export class RedisService extends ServerService {
         directory = resolveAbsolutePath(directory);
         throwIfDirDoesNotExist(directory);
 
+        // Never user 'localhost'
+        assert(options.hostname);
         const hostname = options.hostname ?? 'localhost';
 
         // Only one instance can run on a given directory.

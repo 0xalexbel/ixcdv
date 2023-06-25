@@ -1,6 +1,6 @@
 import * as srvTypes from './services-types-internal.js';
 import assert from 'assert';
-import path from 'path';
+import path, { relative } from 'path';
 import { fromServiceType, InventoryDB } from "./InventoryDB.js";
 import { installPackage } from '../pkgmgr/pkg.js';
 import { resolveAbsolutePath, throwIfFileDoesNotExist, toRelativePath } from '../common/fs.js';
@@ -8,6 +8,9 @@ import { computeDockerChecksumAndMultiaddr } from '../contracts/app-generator.js
 import { removeSuffix } from '../common/string.js';
 import { CodeError } from '../common/error.js';
 import * as ssh from '../common/ssh.js';
+import { GanachePoCoService } from '../poco/GanachePoCoService.js';
+import { ConfigFile } from './ConfigFile.js';
+import { AbstractMachine } from '../common/machine.js';
 
 export class InventoryInstall {
     /** @type {InventoryDB} */
@@ -125,11 +128,39 @@ export class InventoryInstall {
     }
 
     /**
+     * @param {AbstractMachine} targetMachine 
+     * @param {string} hubAlias 
+     */
+    async #remotePreInstall(targetMachine, hubAlias) {
+        const ganacheConf = this._inv.getGanacheConfigFromHubAlias(hubAlias);
+        assert(ganacheConf);
+        const ganacheLocalDBDir = ganacheConf.resolved.directory;
+        const ganacheDBRelDir = toRelativePath(targetMachine.rootDir, ganacheLocalDBDir);
+
+        // must copy ./ixcdv-poco-config.json
+        await targetMachine.copyIxcdvFile(ConfigFile.basename(), "./", true);
+        // must copy shared/db/ganache.1337/ixcdv-ganache-poco-config.json
+        await targetMachine.copyIxcdvFile(GanachePoCoService.configFileBasename(), ganacheDBRelDir, true);
+        // must copy shared/db/ganache.1337/DBUUID
+        await targetMachine.copyIxcdvFile(GanachePoCoService.DBUUIDBasename(), ganacheDBRelDir, true);
+    }
+
+    /**
      * @param {srvTypes.InventoryConfig} ic 
      */
     async #installInventoryConfig(ic) {
         assert(ic.type !== 'worker');
         if (this._inv.isConfigRunningLocally(ic)) {
+            // Special case for ipfs, the resolved hostname is needed at
+            // install time
+            if (ic.type === 'ipfs') {
+                // Must use unsolved !
+                return fromServiceType[ic.type].install({
+                    ...ic.unsolved,
+                    //@ts-ignore
+                    hostname: ic.resolved.hostname
+                });
+            }
             // Must use unsolved !
             // @ts-ignore
             return fromServiceType[ic.type].install(ic.unsolved);
@@ -145,36 +176,16 @@ export class InventoryInstall {
                 throw new CodeError(`No machine available for config ${ic.name}`);
             }
 
-            // must copy shared/db/ganache.1337/ixcdv-ganache-poco-config.json
-            // if needed
-            assert(targetMachine.sshConfig.username);
-            const remoteGanacheAddr = path.join(
-                '/home',
-                targetMachine.sshConfig.username,
-                targetMachine.ixcdvWorkspaceDirectory,
-                'shared/db/ganache.1337/ixcdv-ganache-poco-config.json');
-
             //@ts-ignore
             assert(ic.type === 'sms' || ic.type === 'worker');
-            const ganacheConf = this._inv.getGanacheConfigFromHubAlias(ic.resolved.hub);
-            assert(ganacheConf);
 
-            if (!(await ssh.exists(targetMachine.sshConfig, remoteGanacheAddr)).exists) {
-                await ssh.mkDirP(targetMachine.sshConfig, path.dirname(remoteGanacheAddr));
-                //./shared/db/ganache.1337/ixcdv-ganache-poco-config.json
-                await ssh.scp(targetMachine.sshConfig,
-                    path.join(targetMachine.rootDir, `shared/db/ganache.${ganacheConf.resolved.config.chainid}/ixcdv-ganache-poco-config.json`),
-                    path.dirname(remoteGanacheAddr));
-                //./shared/db/ganache.1337/DBUUID
-                await ssh.scp(targetMachine.sshConfig,
-                    path.join(targetMachine.rootDir, `shared/db/ganache.${ganacheConf.resolved.config.chainid}/DBUUID`),
-                    path.dirname(remoteGanacheAddr));
-            }
-            
-            await ssh.ixcdv(
-                targetMachine.sshConfig,
-                targetMachine.ixcdvWorkspaceDirectory,
-                ["install", "--name", ic.name]);
+            // Copy various required files on the remote machine
+            // - ixcdv-config.json
+            // - ixcdv-ganache-poco-config.json
+            // - ...
+            await this.#remotePreInstall(targetMachine, ic.resolved.hub);
+
+            await targetMachine.ixcdvInstall(ic.name, undefined);
         }
     }
 
@@ -182,18 +193,20 @@ export class InventoryInstall {
      * @param {string | 'local' | 'default'} machineName 
      */
     async #installWorkers(machineName) {
-        const targetMachine = this._inv.getMachine(machineName);
+        const targetMachineName = this._inv.resolveMachineName(machineName);
         // is the target machine the local machine ?
-        if (this._inv.isLocalMachine(targetMachine)) {
+        if (this._inv.isLocalMachineName(targetMachineName)) {
             // Must use unsolved !
             const repository = this._inv.getWorkersRepository().unsolved;
             return fromServiceType['worker'].install({ repository });
         } else {
+            const targetMachine = this._inv.getMachine(targetMachineName);
             // the target is a remote machine
             // our machine must be the master !
             if (!this._inv.isLocalMaster()) {
                 throw new CodeError('Cannot perform any ssh install from a slave machine');
             }
+            
             // run ixcdv cli cmd on target machine
             await targetMachine.ixcdvInstallWorkers();
         }

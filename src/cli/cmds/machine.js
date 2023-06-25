@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { copyFile } from 'fs/promises';
 import { QemuMachine } from '../../common/machine.js';
 import * as ssh from '../../common/ssh.js';
+import { hostnamePortToString } from '../../common/string.js';
 
 export default class MachineCmd extends Cmd {
 
@@ -73,7 +74,7 @@ export default class MachineCmd extends Cmd {
 
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir, vars);
-            
+
             const machine = inventory._inv.getMachine(machineName);
             if (!machine) {
                 throw new CodeError(`Unknown machine name ${machineName}`);
@@ -164,6 +165,7 @@ ssh ${machine.sshConfig.username}@${machine.sshConfig.host} -p ${machine.sshConf
 
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir, vars);
+            const dockerHost = hostnamePortToString(inventory._inv.getDockerHost(), undefined);
 
             const machine = inventory._inv.getMachine(machineName);
             if (!machine) {
@@ -181,9 +183,35 @@ ssh ${machine.sshConfig.username}@${machine.sshConfig.host} -p ${machine.sshConf
                 const scriptFile = path.join(scriptsDir, "install-tools.sh.template");
                 await copyFile(scriptFile, tmpFile);
 
+                assert(machine.sshConfig.username);
+
                 await replaceInFile(
-                    ["{{ gradle_version }}", "{{ node_version }}", "{{ jdk }}"],
-                    ["7.4.2", "19.9", "11"],
+                    [
+                        "{{ user }}", 
+                        "{{ slave-hostname }}", 
+                        "{{ slave-ip }}", 
+                        "{{ master-hostname }}", 
+                        "{{ master-ip }}", 
+                        "{{ gradle_version }}", 
+                        "{{ node_major_version }}", 
+                        "{{ jdk }}", 
+                        "{{ docker-registry }}", 
+                        "{{ ixcdv-git }}", 
+                        "{{ ixcdv-git-branch }}"
+                    ],
+                    [
+                        machine.sshConfig.username, // user
+                        `ixcdv-${machine.name}`, //salve hostname
+                        "127.0.0.1", //salve ip
+                        "ixcdv-master", //master hostname
+                        machine.gatewayIp, //master ip
+                        "7.4.2", //gradle version
+                        "19", //node version
+                        "11", //jdk
+                        `${dockerHost}`, //docker registry
+                        "https://github.com/0xalexbel/ixcdv.git", 
+                        "develop"
+                    ],
                     tmpFile);
 
                 await ssh.scp(machine.sshConfig, tmpFile, `/home/${machine.sshConfig.username}/install-tools.sh`);

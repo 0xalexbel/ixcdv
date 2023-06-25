@@ -1,9 +1,17 @@
 #!/bin/bash
 
+readonly IXCDV_USER={{ user }}
+readonly IXCDV_SLAVE_HOSTNAME={{ slave-hostname }}
+readonly IXCDV_SLAVE_IP={{ slave-ip }}
+readonly IXCDV_MASTER_HOSTNAME={{ master-hostname }}
+readonly IXCDV_MASTER_IP={{ master-ip }}
 readonly IXCDV_GRADLE_VERSION={{ gradle_version }}
-readonly IXCDV_NODE_VERSION={{ node_version }}
+readonly IXCDV_NODE_MAJOR_VERSION={{ node_major_version }}
 readonly IXCDV_JDK=openjdk-{{ jdk }}-jdk
 readonly IXCDV_JRE=openjdk-{{ jdk }}-jre-headless
+readonly IXCDV_DOCKER_REGISTRY={{ docker-registry }}
+readonly IXCDV_GIT={{ ixcdv-git }}
+readonly IXCDV_GIT_BRANCH={{ ixcdv-git-branch }}
 
 sudo apt update
 
@@ -15,8 +23,22 @@ echo "=              Install docker                    ="
 echo "=================================================="
 echo ""
 
+
 # docker
 sudo apt install -y docker.io
+
+# create a docker group (required on Ubuntu)
+sudo groupadd docker
+# add user to docker group
+sudo usermod -aG docker ${IXCDV_USER}
+
+# add /etc/docker/daemon.json
+# { 
+#    "insecure-registries":["ixcdv-master:5008"]
+# }
+sudo echo "{\"insecure-registries\":[\"${IXCDV_DOCKER_REGISTRY}\"]}" > /tmp/ixcdv-docker-daemon.json
+sudo mv /tmp/ixcdv-docker-daemon.json /etc/docker/daemon.json
+sudo systemctl restart docker
 
 echo ""
 echo "=================================================="
@@ -36,8 +58,8 @@ echo "=================================================="
 echo ""
 
 # # JDK
-# sudo apt install -y ${IXCDV_JDK}
-sdk install java 11.0.19-tem
+sudo apt install -y ${IXCDV_JDK}
+# sdk install java 11.0.19-tem
 
 echo ""
 echo "=================================================="
@@ -50,14 +72,14 @@ sdk install gradle ${IXCDV_GRADLE_VERSION}
 
 echo ""
 echo "=================================================="
-echo "=            Install node ${IXCDV_NODE_VERSION}               ="
+echo "=            Install node ${IXCDV_NODE_MAJOR_VERSION}               ="
 echo "=================================================="
 echo ""
 
 # nodejs
-curl -sL https://deb.nodesource.com/setup_${IXCDV_NODE_VERSION} -o /tmp/nodesource_setup.sh
-sudo bash /tmp/nodesource_setup.sh
-sudo apt install nodejs
+
+curl -fsSL https://deb.nodesource.com/setup_${IXCDV_NODE_MAJOR_VERSION}.x | sudo -E bash - && \
+sudo apt-get install -y nodejs
 
 # # nodejs + nvm
 # curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
@@ -76,7 +98,8 @@ echo ""
 
 # ganache
 cd $HOME
-npm install -g ganache
+#npm install -g ganache
+sudo npm install -g ganache
 
 echo ""
 echo "=================================================="
@@ -86,5 +109,23 @@ echo ""
 
 # truffle
 cd $HOME
-npm install -g truffle
+#npm install -g truffle
+sudo npm install -g truffle
 
+echo ""
+echo "=================================================="
+echo "=                  Install ixcdv                 ="
+echo "=================================================="
+echo ""
+
+# ixcdv
+cd $HOME
+if [[ -n "${IXCDV_GIT_BRANCH}" ]] 
+then 
+    git clone "${IXCDV_GIT}" --branch "${IXCDV_GIT_BRANCH}"
+else 
+    git clone "${IXCDV_GIT}"
+fi
+cd ixcdv
+npm install
+sudo npm install -g .

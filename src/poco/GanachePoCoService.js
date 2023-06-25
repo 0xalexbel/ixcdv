@@ -60,6 +60,9 @@ export class GanachePoCoService extends GanacheService {
     /** @type {boolean} */
     static #guardConstructing = false;
 
+    static configFileBasename() { return CONFIG_FILE_BASENAME; }
+    static DBUUIDBasename() { return DBUUID_BASENAME; }
+
     /** @type {string} */
     #storageDir;
 
