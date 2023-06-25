@@ -26,6 +26,7 @@ import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
 import { getGitHubRepo, getLatestVersion } from '../git/git-api.js';
 import { NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
 import { AbstractMachine } from '../common/machine.js';
+import { inventoryToMachineConfigJSON } from './ConfigFile.js';
 
 const FIRST_WORKER_WALLET_INDEX = DEFAULT_WALLET_INDEX['worker'];
 
@@ -825,6 +826,17 @@ export class InventoryDB {
             }
         }
     }
+
+    async masterToAllSlavesUploadIxcdvConfigJSON() {
+        if (this.isLocalMaster()) {
+            const allMachines = this.allMachinesArray;
+            for (let i = 0; i < allMachines.length; ++i) {
+                const machineConfigJSON = await inventoryToMachineConfigJSON(this, allMachines[i]);
+                await allMachines[i].uploadIxcdvConfigJSON(machineConfigJSON);
+            }
+        }
+    }
+
 
     /**
      * @param {types.progressCallback=} progressCb

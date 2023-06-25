@@ -21,22 +21,25 @@ export default class InstallCmd extends Cmd {
      */
     async cliExec(cliDir, options) {
         try {
-            let type = 'all';
-            let name;
-            if (options.type) {
-                if (options.type !== 'iexecsdk' &&
-                    options.type !== 'worker' &&
-                    options.type !== 'sms' &&
-                    options.type !== 'ganache' &&
-                    options.type !== 'teeworkerprecompute' &&
-                    options.type !== 'teeworkerpostcompute' &&
-                    options.type !== 'all') {
+            let onlyType = 'all';
+            let onlyName;
+            if (options.onlyType) {
+                if (options.onlyType !== 'iexecsdk' &&
+                    options.onlyType !== 'worker' &&
+                    options.onlyType !== 'sms' &&
+                    options.onlyType !== 'ganache' &&
+                    options.onlyType !== 'teeworkerprecompute' &&
+                    options.onlyType !== 'teeworkerpostcompute') {
                     throw new CodeError(`Unsupported type option ${options.type}`);
                 }
-                type = options.type;
+                onlyType = options.type;
             }
-            if (options.name) {
-                name = options.name;
+            if (options.onlyName) {
+                onlyName = options.onlyName;
+            }
+            let workersMachine= 'local';
+            if (options.workersMachine) {
+                workersMachine= options.workersMachine;
             }
 
             const vars = this.parseVars(options);
@@ -75,14 +78,9 @@ export default class InstallCmd extends Cmd {
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir, vars);
 
-            if (inventory._inv.isLocalMaster()) {
-                const allMachines = inventory._inv.allMachinesArray;
-                for (let i = 0; i < allMachines.length; ++i) {
-                    const machineConfigJSON = await inventory.toMachineConfigJSON(allMachines[i]);
-                    console.log(`Uploading ${PROD_CONFIG_BASENAME} to ${allMachines[i].name}`);
-                    await allMachines[i].uploadIxcdvConfigJSON(machineConfigJSON);
-                }
-            }
+            // Upload 'ixcdv-config.json' to all remote machines
+            // Only performed by master
+            inventory._inv.masterToAllSlavesUploadIxcdvConfigJSON();
 
             // First stop (gently)
             await StopAllCmd.exec(false /* only gentle stop */, inventory, null);
@@ -93,20 +91,20 @@ export default class InstallCmd extends Cmd {
 
             let installWallets = false;
 
-            if (name !== null && name !== undefined) {
-                const ic = inventory._inv.getConfig(name);
+            if (onlyName !== null && onlyName !== undefined) {
+                const ic = inventory._inv.getConfig(onlyName);
                 if (!ic) {
-                    throw new CodeError(`Unknown inventory config name : '${name}'`);
+                    throw new CodeError(`Unknown inventory config name : '${onlyName}'`);
                 }
                 if (ic.type === 'ganache') {
                     installWallets = true;
                 }
-                await inventory.installSingleConfig(name, (name, type, progress, progressTotal) => {
+                await inventory.installSingleConfig(onlyName, (name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install ${name}`);
                 });
-            } else if (type === 'all') {
+            } else if (onlyType === 'all') {
                 installWallets = true;
-                await inventory.installAll('local', (name, type, progress, progressTotal) => {
+                await inventory.installAll(workersMachine, (name, type, progress, progressTotal) => {
                     if (type === 'worker') {
                         console.log(`${progress}/${progressTotal} Install workers`);
                     } else if (type === 'iexecsdk') {
@@ -115,31 +113,28 @@ export default class InstallCmd extends Cmd {
                         console.log(`${progress}/${progressTotal} Install ${type} : ${name}`);
                     }
                 });
-            } else if (type === 'iexecsdk') {
+            } else if (onlyType === 'iexecsdk') {
                 await inventory.installIExecSdk((name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install iexec-sdk`);
                 });
-            } else if (type === 'worker') {
-                if (!options.machine) {
-                    options.machine = 'local';
-                }
-                await inventory.installWorkers(options.machine, (name, type, progress, progressTotal) => {
+            } else if (onlyType === 'worker') {
+                await inventory.installWorkers(workersMachine, (name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install workers : ${name}`);
                 });
-            } else if (type === 'ganache') {
+            } else if (onlyType === 'ganache') {
                 installWallets = true;
                 await inventory.installGanache((name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install ganache : ${name}`);
                 });
-            } else if (type === 'sms') {
+            } else if (onlyType === 'sms') {
                 await inventory.installSms((name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install sms : ${name}`);
                 });
-            } else if (type === 'teeworkerprecompute') {
+            } else if (onlyType === 'teeworkerprecompute') {
                 await inventory.installTeeWorkerPreCompute((name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install tee-worker-pre-compute`);
                 });
-            } else if (type === 'teeworkerpostcompute') {
+            } else if (onlyType === 'teeworkerpostcompute') {
                 await inventory.installTeeWorkerPostCompute((name, type, progress, progressTotal) => {
                     console.log(`${progress}/${progressTotal} Install tee-worker-post-compute`);
                 });

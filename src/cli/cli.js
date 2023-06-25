@@ -111,9 +111,9 @@ By default all the chainids are sharing the same following mnemonic: "${DEFAULT_
 
 installCmd.description(`Installs a new ${PROD_NAME} workspace in the current working directory (or in the folder specified using the global '--config' option). The command will fail if the install directory does contain a valid '${PROD_CONFIG_BASENAME}' file. Use the '${PROD_BIN} init' command to generate a new config file.`)
     .summary(`Installs a new ${PROD_NAME} workspace.`)
-    .option('--name <name>', 'Only installs the config with a given name')
-    .option('--type <type>', 'Only installs configs with a specific type <"all"|"iexecsdk">')
-    .option('--machine <machine>', 'Machine name where the installation should be executed <name|"local"|"default">')
+    .option('--only-name <name>', 'Only installs the config with a given name')
+    .option('--only-type <type>', 'Only installs configs with a specific type <"all"|"iexecsdk">')
+    .option('--workers-machine <machine>', 'Machine name where the workers should be installed')
     .option('--vars <vars...>', 'Specify key/value pairs <key>=<value>')
     .action((options) => {
         execCmd('install', options);

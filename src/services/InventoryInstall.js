@@ -9,7 +9,7 @@ import { removeSuffix } from '../common/string.js';
 import { CodeError } from '../common/error.js';
 import * as ssh from '../common/ssh.js';
 import { GanachePoCoService } from '../poco/GanachePoCoService.js';
-import { ConfigFile } from './ConfigFile.js';
+import { ConfigFile, inventoryToMachineConfigJSON } from './ConfigFile.js';
 import { AbstractMachine } from '../common/machine.js';
 
 export class InventoryInstall {
@@ -139,8 +139,6 @@ export class InventoryInstall {
         const ganacheLocalDBDir = ganacheConf.resolved.directory;
         const ganacheDBRelDir = toRelativePath(targetMachine.rootDir, ganacheLocalDBDir);
 
-        // must copy ./ixcdv-poco-config.json
-        await targetMachine.copyIxcdvFile(ConfigFile.basename(), "./", true);
         // must copy shared/db/ganache.1337/ixcdv-ganache-poco-config.json
         await targetMachine.copyIxcdvFile(GanachePoCoService.configFileBasename(), ganacheDBRelDir, true);
         // must copy shared/db/ganache.1337/DBUUID

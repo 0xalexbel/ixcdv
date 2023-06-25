@@ -199,7 +199,7 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         await ssh.ixcdv(
             sshConf,
-            ["install", "--name", name],
+            ["install", "--only-name", name],
             { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
     }

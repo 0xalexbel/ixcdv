@@ -1480,6 +1480,18 @@ export class ConfigFile {
 
 /**
  * @param {InventoryDB} inventory 
+ * @param {AbstractMachine} machine 
+ */
+export async function inventoryToMachineConfigJSON(inventory, machine) {
+    const configJSON = await inventoryToConfigFile(inventory, inventory.rootDir);
+    assert(configJSON.vars);
+    configJSON.vars["master"] = machine.gatewayIp;
+    configJSON.vars["localHostname"] = '${' + machine.name + '}';
+    return configJSON;
+}
+
+/**
+ * @param {InventoryDB} inventory 
  * @param {string} dir 
  */
 export async function inventoryToConfigFile(inventory, dir) {
@@ -1498,7 +1510,7 @@ export async function inventoryToConfigFile(inventory, dir) {
     const machines = {};
     const allMachines = inventory.allMachines;
     allMachines.forEach((machine, name) => {
-        machines[name] = machine.toJSON();        
+        machines[name] = machine.toJSON();
     });
 
     /** 
