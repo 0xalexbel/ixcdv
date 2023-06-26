@@ -1,7 +1,8 @@
+import * as types from './types.js';
 import assert from 'assert';
 import { isNullishOrEmptyString, removePrefix, stringToPositiveInteger } from './string.js';
 import { isPositiveInteger } from './number.js';
-import { readFileLineByLineSync, readFileSync, saveToFileSync } from './fs.js';
+import { readFileSync, saveToFileSync } from './fs.js';
 import { CodeError } from './error.js';
 
 /**
@@ -344,4 +345,24 @@ export function addToEtcHostsStr(hostnames, ips, etchostsStr) {
     }
     lines.push("# End of section");
     return lines.join('\n');
+}
+
+/**
+ * @param {any} tee
+ * @returns {types.SgxDriverMode}
+ */
+export function teeToSgxDriverMode(tee) {
+    if (isNullishOrEmptyString(tee)) {
+        return 'none';
+    }
+    if (tee === 'none') {
+        return 'none';
+    }
+    if (tee === 'gramine') {
+        return "native";
+    }
+    if (tee === "scone") {
+        return "legacy";
+    }
+    throw new CodeError(`Unknown tee mode : '${tee}', expecting 'none' | 'gramine' | 'scone'`);
 }

@@ -527,7 +527,7 @@ export class Dependencies {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
-     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
+     * @param {types.SgxDriverMode} sgxDriverMode 
      * @param {InventoryDB} inventory 
      */
     #addWorkerFromIndex(machineName, hub, index, sgxDriverMode, inventory) {
@@ -565,7 +565,7 @@ export class Dependencies {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string} hub 
      * @param {number} index 
-     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
+     * @param {types.SgxDriverMode} sgxDriverMode 
      * @param {InventoryDB} inventory 
      */
     static fromWorkerIndex(machineName, hub, index, sgxDriverMode, inventory) {

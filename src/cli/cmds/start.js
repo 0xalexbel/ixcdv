@@ -5,7 +5,7 @@ import cliProgress from 'cli-progress';
 import { Inventory } from '../../services/Inventory.js';
 import { stringToPositiveInteger } from '../../common/string.js';
 import { CodeError } from '../../common/error.js';
-import { sleep, toPositiveInteger } from '../../common/utils.js';
+import { sleep, teeToSgxDriverMode, toPositiveInteger } from '../../common/utils.js';
 
 export default class StartCmd extends Cmd {
 
@@ -97,6 +97,7 @@ export default class StartCmd extends Cmd {
             for (let i = index; i < index + count; ++i) {
                 const p = inventory.startWorker({
                     ...options,
+                    sgxDriverMode: teeToSgxDriverMode(options.tee),
                     noDependencies: true,
                     workerIndex: i,
                     progressCb: startProgress

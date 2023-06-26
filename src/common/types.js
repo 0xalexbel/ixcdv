@@ -6,6 +6,8 @@
  * @typedef {"app" | "dataset" | "workerpool" | "request"} iExecObjectType
  */
 
+/** @typedef {'none' | 'native' | 'legacy'} SgxDriverMode */
+
 import { PoCoHubRef } from './contractref.js';
 
 /**

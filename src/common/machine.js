@@ -248,9 +248,10 @@ export class AbstractMachine {
     /**
      * @param {string} hub 
      * @param {number} index 
+     * @param {types.SgxDriverMode} sgxDriverMode 
      * @param {types.progressCallback=} progressCb
      */
-    async ixcdvStartWorker(hub, index, progressCb) {
+    async ixcdvStartWorker(hub, index, sgxDriverMode, progressCb) {
         if (this.isMaster) {
             // cannot target master ??
             throw new CodeError('Cannot perform any ssh command targeting the master machine');
@@ -261,7 +262,7 @@ export class AbstractMachine {
         const sshConf = this.sshConfig;
         const okOrErr = await ssh.ixcdv(
             sshConf,
-            ["start", "worker", "--hub", hub, "--index", `${index}`, "--no-dependencies"],
+            ["start", "worker", "--hub", hub, "--index", `${index}`, "--tee", sgxDriverMode, "--no-dependencies"],
             { cwd: this.#ixcdvWorkspaceDirectory },
             progressCb);
         return okOrErr;

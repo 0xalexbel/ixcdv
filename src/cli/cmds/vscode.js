@@ -40,7 +40,7 @@ export default class VSCodeCmd extends Cmd {
      *      type?: srvTypes.ServiceType | 'iexecsdk'
      *      hub?: string
      *      workerIndex?: number
-     *      sgxDriverMode?: srvTypes.SgxDriverMode
+     *      sgxDriverMode?: types.SgxDriverMode
      *      out?: string
      * }} options 
      */

@@ -232,8 +232,6 @@ export const toNonWorkerServiceType = t => /** @type {NonWorkerServiceType} */(/
  * }} CoreConfig
  */
 
-/** @typedef {'none' | 'native' | 'legacy'} SgxDriverMode */
-
 /**   
  * - coreUrl (optional: if undefined, pick a running service)
  * @typedef {types.ServerServiceArgs & {
@@ -246,7 +244,7 @@ export const toNonWorkerServiceType = t => /** @type {NonWorkerServiceType} */(/
  *      coreUrl?: string
  *      dockerHost: string
  *      walletIndex: number
- *      sgxDriverMode: SgxDriverMode
+ *      sgxDriverMode: types.SgxDriverMode
  * }} WorkerConfig
  */
 

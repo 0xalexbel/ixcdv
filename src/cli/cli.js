@@ -476,6 +476,7 @@ cmd.description('Starts a given number of Worker services.')
     .option('--count <count>', 'Number of workers to start (default=1)')
     .option('--index <index>', 'First index of <count> workers to start (default=0)')
     .option('--machine <machine>', 'Machine on which the workers are running')
+    .option('--tee <gramine|scone|none>', 'Start worker using tee mode "gramine" or "scone", (default="none")')
     .option('--no-dependencies', "Do not start any service dependency")
     .action((options) => {
         execCmd('start', 'worker', options);

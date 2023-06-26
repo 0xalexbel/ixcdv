@@ -366,7 +366,7 @@ export class InventoryDB {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index
-     * @param {srvTypes.SgxDriverMode} sgxDriverMode
+     * @param {types.SgxDriverMode} sgxDriverMode
      * @returns {srvTypes.InventoryWorkerConfig}
      */
     getWorkerConfig(machineName, hub, index, sgxDriverMode) {
@@ -757,7 +757,7 @@ export class InventoryDB {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
-     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
+     * @param {types.SgxDriverMode} sgxDriverMode 
      */
     async newWorkerInstance(machineName, hub, index, sgxDriverMode) {
         const conf = this.getWorkerConfig(machineName, hub, index, sgxDriverMode).resolved;
@@ -1134,7 +1134,7 @@ export class InventoryDB {
      *      machine?: string | 'local' | 'default',
      *      workerIndex?: number,
      *      type?: srvTypes.ServiceType | 'iexecsdk',
-     *      sgxDriverMode?: srvTypes.SgxDriverMode 
+     *      sgxDriverMode?: types.SgxDriverMode 
      * }} options 
      */
     guessConfig(options) {
@@ -1277,7 +1277,7 @@ export class InventoryDB {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string} hub 
      * @param {number} index 
-     * @param {srvTypes.SgxDriverMode} sgxDriverMode
+     * @param {types.SgxDriverMode} sgxDriverMode
      */
     workerDependencies(machineName, hub, index, sgxDriverMode) {
         return Dependencies.fromWorkerIndex(machineName, hub, index, sgxDriverMode, this);

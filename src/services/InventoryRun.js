@@ -297,7 +297,7 @@ export class InventoryRun {
      *      machine?: string | 'local' | 'default',
      *      hub?: string,
      *      workerIndex: number,
-     *      sgxDriverMode: srvTypes.SgxDriverMode,
+     *      sgxDriverMode: types.SgxDriverMode,
      *      onlyDependencies?: boolean
      *      noDependencies?: boolean
      *      progressCb?: types.progressCallback
@@ -369,7 +369,7 @@ export class InventoryRun {
                 // Remote
                 const machine = this._inv.getMachine(machineName);
                 assert(machine);
-                startReturn = await machine.ixcdvStartWorker(hub, options.workerIndex);
+                startReturn = await machine.ixcdvStartWorker(hub, options.workerIndex, options.sgxDriverMode);
             }
 
             allResults.push({ name: workerName, instance, startReturn });
@@ -555,7 +555,7 @@ export class InventoryRun {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
-     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
+     * @param {types.SgxDriverMode} sgxDriverMode 
      * @param {types.StopOptionsWithContext=} options
      */
     async stopWorker(machineName, hub, index, sgxDriverMode, options) {
@@ -566,7 +566,7 @@ export class InventoryRun {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
-     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
+     * @param {types.SgxDriverMode} sgxDriverMode 
      * @param {{count:number, total:number}} counter
      * @param {types.StopOptionsWithContext=} options
      */
