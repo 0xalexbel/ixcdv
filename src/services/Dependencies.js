@@ -527,15 +527,16 @@ export class Dependencies {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
+     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
      * @param {InventoryDB} inventory 
      */
-    #addWorkerFromIndex(machineName, hub, index, inventory) {
+    #addWorkerFromIndex(machineName, hub, index, sgxDriverMode, inventory) {
         assert(this.#typeIndexToNameConfigs.length === ORDERED_SERVICE_TYPES.length);
         const type = 'worker';
 
         const name = InventoryDB.computeWorkerName(hub, index);
 
-        const config = inventory.getWorkerConfig(machineName, hub, index).resolved;
+        const config = inventory.getWorkerConfig(machineName, hub, index, sgxDriverMode).resolved;
         assert(config);
         assert(config.type === type);
         assert(config.port);
@@ -564,11 +565,12 @@ export class Dependencies {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string} hub 
      * @param {number} index 
+     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
      * @param {InventoryDB} inventory 
      */
-    static fromWorkerIndex(machineName, hub, index, inventory) {
+    static fromWorkerIndex(machineName, hub, index, sgxDriverMode, inventory) {
         const dependencies = new Dependencies();
-        dependencies.#addWorkerFromIndex(machineName, hub, index, inventory);
+        dependencies.#addWorkerFromIndex(machineName, hub, index, sgxDriverMode, inventory);
         return dependencies;
     }
 

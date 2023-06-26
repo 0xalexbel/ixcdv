@@ -781,7 +781,8 @@ export async function generateChainVSCodeWorkspace(
             const ic = inventory._inv.getWorkerConfig(
                 'local', 
                 chainHub, 
-                i);
+                i,
+                'none');
             assert(ic.resolved);
             assert(ic.resolved.type === 'worker');
             workers.push(ic);

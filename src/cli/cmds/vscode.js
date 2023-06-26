@@ -40,6 +40,7 @@ export default class VSCodeCmd extends Cmd {
      *      type?: srvTypes.ServiceType | 'iexecsdk'
      *      hub?: string
      *      workerIndex?: number
+     *      sgxDriverMode?: srvTypes.SgxDriverMode
      *      out?: string
      * }} options 
      */
@@ -140,6 +141,7 @@ export default class VSCodeCmd extends Cmd {
                     await inventory.startWorker({
                         hub: options.hub,
                         workerIndex: options.workerIndex,
+                        sgxDriverMode: options.sgxDriverMode ?? 'none',
                         onlyDependencies: true,
                         progressCb: startProgress
                     });

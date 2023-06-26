@@ -383,6 +383,7 @@ export class SmsService extends SpringHubServerService {
             assert(v8);
             const tee = ymlFullTeeConfig.tee;
             const worker = tee.worker;
+            //@ts-ignore
             if (profile === 'scone') {
                 const scone = tee.scone;
                 // If not specified, set dummy values
@@ -421,6 +422,7 @@ export class SmsService extends SpringHubServerService {
         } else {
             // v7
             assert(v7);
+            //@ts-ignore
             assert(profile === 'scone');
             const tee = ymlFullConfig['tee.workflow'];
             assert(tee);

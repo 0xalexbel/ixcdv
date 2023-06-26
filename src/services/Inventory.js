@@ -268,6 +268,7 @@ export class Inventory {
      *      machine?: string | 'local' | 'default',
      *      hub?: string,
      *      workerIndex: number,
+     *      sgxDriverMode: srvTypes.SgxDriverMode,
      *      onlyDependencies?: boolean
      *      noDependencies?: boolean
      *      types?: srvTypes.OptionalServiceTypes<boolean>

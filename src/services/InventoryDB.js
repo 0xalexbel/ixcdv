@@ -366,9 +366,10 @@ export class InventoryDB {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index
+     * @param {srvTypes.SgxDriverMode} sgxDriverMode
      * @returns {srvTypes.InventoryWorkerConfig}
      */
-    getWorkerConfig(machineName, hub, index) {
+    getWorkerConfig(machineName, hub, index, sgxDriverMode) {
         const hubStr = DevContractRef.toHubAlias(hub);
         if (!isPositiveInteger(index)) {
             throw new CodeError(`Invalid worker index ${index}`);
@@ -756,9 +757,10 @@ export class InventoryDB {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
+     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
      */
-    async newWorkerInstance(machineName, hub, index) {
-        const conf = this.getWorkerConfig(machineName, hub, index).resolved;
+    async newWorkerInstance(machineName, hub, index, sgxDriverMode) {
+        const conf = this.getWorkerConfig(machineName, hub, index, sgxDriverMode).resolved;
         assert(conf);
         return WorkerService.newInstance(conf, this);
     }
@@ -1132,6 +1134,7 @@ export class InventoryDB {
      *      machine?: string | 'local' | 'default',
      *      workerIndex?: number,
      *      type?: srvTypes.ServiceType | 'iexecsdk',
+     *      sgxDriverMode?: srvTypes.SgxDriverMode 
      * }} options 
      */
     guessConfig(options) {
@@ -1156,7 +1159,8 @@ export class InventoryDB {
             return this.getWorkerConfig(
                 machine.name,
                 options.hub,
-                options.workerIndex);
+                options.workerIndex,
+                options.sgxDriverMode ?? 'none');
         }
 
         /**
@@ -1273,9 +1277,10 @@ export class InventoryDB {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string} hub 
      * @param {number} index 
+     * @param {srvTypes.SgxDriverMode} sgxDriverMode
      */
-    workerDependencies(machineName, hub, index) {
-        return Dependencies.fromWorkerIndex(machineName, hub, index, this);
+    workerDependencies(machineName, hub, index, sgxDriverMode) {
+        return Dependencies.fromWorkerIndex(machineName, hub, index, sgxDriverMode, this);
     }
 
     /**

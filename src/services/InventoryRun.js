@@ -58,7 +58,7 @@ export class InventoryRun {
         if (!this._inv.isConfigNameRunningLocally(name)) {
             const machine = this._inv.getConfigNameRunningMachine(name);
             assert(machine);
-            
+
             const ic = this._inv.getConfig(name);
             //@ts-ignore
             const hub = ic.resolved.hub;
@@ -297,6 +297,7 @@ export class InventoryRun {
      *      machine?: string | 'local' | 'default',
      *      hub?: string,
      *      workerIndex: number,
+     *      sgxDriverMode: srvTypes.SgxDriverMode,
      *      onlyDependencies?: boolean
      *      noDependencies?: boolean
      *      progressCb?: types.progressCallback
@@ -328,7 +329,8 @@ export class InventoryRun {
             const dependencies = this._inv.workerDependencies(
                 options.machine,
                 hub,
-                options.workerIndex);
+                options.workerIndex,
+                options.sgxDriverMode);
             for (let i = 0; i < ORDERED_SERVICE_TYPE_GROUPS.length; ++i) {
                 // groups are sequential, NOT parallel
                 const result = await this.#startNamesFromNonWorkerTypes(
@@ -351,7 +353,8 @@ export class InventoryRun {
                 instance = await this._inv.newWorkerInstance(
                     options.machine,
                     hub,
-                    options.workerIndex);
+                    options.workerIndex,
+                    options.sgxDriverMode);
                 startReturn = await instance.start({
                     createDir: true,
                     env: { marker: this._inv.rootDir },
@@ -374,7 +377,8 @@ export class InventoryRun {
             const ic = this._inv.getWorkerConfig(
                 options.machine,
                 hub,
-                options.workerIndex);
+                options.workerIndex,
+                options.sgxDriverMode);
 
             // To prevent error mis-detection in vscode prelaunch tasks
             // ========================================================
@@ -551,21 +555,23 @@ export class InventoryRun {
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
+     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
      * @param {types.StopOptionsWithContext=} options
      */
-    async stopWorker(machineName, hub, index, options) {
-        return this.#stopWorker(machineName, hub, index, { count: 0, total: 1 }, options);
+    async stopWorker(machineName, hub, index, sgxDriverMode, options) {
+        return this.#stopWorker(machineName, hub, index, sgxDriverMode, { count: 0, total: 1 }, options);
     }
 
     /**
      * @param {string | 'local' | 'default'} machineName 
      * @param {string | PoCoHubRef} hub 
      * @param {number} index 
+     * @param {srvTypes.SgxDriverMode} sgxDriverMode 
      * @param {{count:number, total:number}} counter
      * @param {types.StopOptionsWithContext=} options
      */
-    async #stopWorker(machineName, hub, index, counter, options) {
-        const instance = await this._inv.newWorkerInstance(machineName, hub, index);
+    async #stopWorker(machineName, hub, index, sgxDriverMode, counter, options) {
+        const instance = await this._inv.newWorkerInstance(machineName, hub, index, sgxDriverMode);
         assert(instance);
 
         const workerName = InventoryDB.computeWorkerName(hub, index);
