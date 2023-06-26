@@ -150,7 +150,8 @@ export class Inventory {
     async toMachineConfigJSON(machine) {
         const configJSON = await inventoryToConfigFile(this._inv, this._inv.rootDir);
         assert(configJSON.vars);
-        configJSON.vars["master"] = machine.gatewayIp;
+        assert(configJSON.vars["master"] === 'ixcdv-master');
+        configJSON.vars["master"] = "ixcdv-master" //machine.gatewayIp;
         configJSON.vars["localHostname"] = '${' + machine.name + '}';
         return configJSON;
     }
