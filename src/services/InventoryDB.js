@@ -430,7 +430,7 @@ export class InventoryDB {
             springConfigLocation: path.join(workersDir, workerName),
             repository: '',
             walletIndex: FIRST_WORKER_WALLET_INDEX + index,
-            sgxDriverMode: 'none',
+            sgxDriverMode,
             ymlConfig: {}
         };
 

@@ -304,9 +304,6 @@ export class InventoryRun {
      * }} options  
      */
     async startWorker(options) {
-        console.log("=============================");
-        console.log(JSON.stringify(options, null, 2));
-        console.log("=============================");
         if (!options.machine) {
             options.machine = 'local';
         }
