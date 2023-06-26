@@ -193,6 +193,71 @@ export function toPositiveInteger(v) {
 }
 
 /**
+ * @param {string} etchosts 
+ */
+export function parseEtchosts(etchosts) {
+    const lines = etchosts.split('\n');
+    /** @type {{ip:string, hostname:string}[]} */
+    const out = [];
+    for (let i = 0; i < lines.length; ++i) {
+        let l = lines[i].trim();
+        if (l.charAt(0) === '#') {
+            continue;
+        }
+        let ws = l.indexOf(' ');
+        let ts = l.indexOf('\t');
+        if (ws < 0 && ts < 0) {
+            continue;
+        }
+        if (ts >= 0 && (ts < ws || ws < 0)) {
+            ws = ts;
+        }
+        assert(ws >= 0);
+
+        const ip = l.substring(0, ws);
+        l = l.substring(ws).trim();
+        ws = l.indexOf(' ');
+        ts = l.indexOf('\t');
+
+        let hostname;
+        if (ws < 0 && ts < 0) {
+            hostname = l;
+        } else {
+            if (ts >= 0 && (ts < ws || ws < 0)) {
+                ws = ts;
+            }
+            assert(ws >= 0);
+            hostname = l.substring(0, ws).trim();
+        }
+        assert(hostname);
+        out.push({ ip, hostname });
+    }
+    return out;
+}
+
+export function parseEtchostsFile() {
+    const etchosts = readFileSync("/etc/hosts", { strict: true });
+    if (!etchosts) {
+        throw new CodeError("Unable to read '/etc/hosts'");
+    }
+    return parseEtchosts(etchosts);
+}
+
+/**
+ * @param {{ip:string, hostname:string}[]} etchosts 
+ * @param {string} hostname 
+ */
+export function etchostsIndexOf(etchosts, hostname) {
+    for (let i = 0; i < etchosts.length; ++i) {
+        if (etchosts[i].hostname === hostname) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+/**
  * @param {string[]} hostnames 
  * @param {string[]} ips 
  */

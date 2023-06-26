@@ -27,6 +27,7 @@ import { getGitHubRepo, getLatestVersion } from '../git/git-api.js';
 import { NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
 import { AbstractMachine } from '../common/machine.js';
 import { inventoryToMachineConfigJSON } from './ConfigFile.js';
+import { etchostsIndexOf, parseEtchostsFile } from '../common/utils.js';
 
 const FIRST_WORKER_WALLET_INDEX = DEFAULT_WALLET_INDEX['worker'];
 
@@ -829,14 +830,26 @@ export class InventoryDB {
 
     async masterToAllSlavesUploadIxcdvConfigJSON() {
         if (this.isLocalMaster()) {
+            const masterEtchosts = parseEtchostsFile();
+            const masterIndex = etchostsIndexOf(masterEtchosts, 'ixcdv-master');
+            if (masterIndex < 0) {
+                throw new CodeError("Master : Missing line '127.0.0.1 ixcdv-master' in /etc/hosts.");
+            }
             const allMachines = this.allMachinesArray;
             for (let i = 0; i < allMachines.length; ++i) {
                 const machineConfigJSON = await inventoryToMachineConfigJSON(this, allMachines[i]);
+                const slaveIndex = etchostsIndexOf(masterEtchosts, `ixcdv-${allMachines[i].name}`);
+                if (slaveIndex < 0) {
+                    let ip = allMachines[i].sshConfig.host;
+                    if (ip === 'localhost') {
+                        ip = '127.0.0.1';
+                    }
+                    throw new CodeError(`Master : Missing line '${ip} ixcdv-${allMachines[i].name}' in /etc/hosts.`);
+                }
                 await allMachines[i].uploadIxcdvConfigJSON(machineConfigJSON);
             }
         }
     }
-
 
     /**
      * @param {types.progressCallback=} progressCb

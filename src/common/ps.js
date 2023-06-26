@@ -86,6 +86,10 @@ export async function psGrepPIDAndArgs(grepPattern) {
     assertNonEmptyString(grepPattern);
 
     try {
+        let p = grepPattern.indexOf('+');
+        if (p >= 0) {
+            grepPattern = grepPattern.split('+').join('.*');
+        }
         const { stdout, stderr } = await exec_promise(`ps -A -o pid= -o command= | grep -v grep | grep -E \'${grepPattern}\'`);
         if (isNullishOrEmptyString(stdout)) {
             return /* undefined */
