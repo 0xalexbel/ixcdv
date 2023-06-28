@@ -5,15 +5,15 @@ import StopAllCmd from './stopAll.js';
 import ResetAllCmd from './resetAll.js';
 import StartCmd from './start.js';
 import cliProgress from 'cli-progress';
-import { getTmpDir, mkDirP, readFile, rmrfDir, saveToFileSync } from '../../common/fs.js';
+import { getTemplatesDir, getTmpDir, mkDirP, readFile, readFileSync, replaceInFile, rmrf, rmrfDir, saveToFileSync } from '../../common/fs.js';
 import { Inventory } from '../../services/Inventory.js';
 import { runIexecApp, waitUntilTaskCompleted } from '../../services/Exec.js';
 import { CodeError } from '../../common/error.js';
 import { downloadAndUnzipZipFile } from '../../common/zip.js';
 import { Task } from '../../contracts/Task.js';
-import { dockerAppName } from '../../common/consts.js';
 import { isNullishOrEmptyString } from '../../common/string.js';
-import * as cTypes from '../../contracts/contracts-types-internal.js';
+import { computeAppDockerInfo, graminizeDockerRepo } from '../../contracts/app-generator.js';
+import { copyFileSync } from 'fs';
 
 export default class TestCmd extends Cmd {
 
@@ -43,22 +43,52 @@ export default class TestCmd extends Cmd {
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir, vars);
 
-            // Generate temporary test app
-            const appName = dockerAppName('test');
-            const appDir = path.join(getTmpDir(), "/test/app");
-            await generateTmpTestApp(appDir);
+            const tee = (options.tee === true);
 
-            let datasetFile;
-            if (!isNullishOrEmptyString(options.datasetFile)) {
-                if (path.isAbsolute(options.datasetFile)) {
-                    datasetFile = options.datasetFile;
-                } else {
-                    datasetFile = path.join(process.cwd(), options.datasetFile);
-                }
+            // Generate temporary test app
+            const appDir = path.join(getTmpDir(), "/test/app");
+            await rmrfDir(appDir);
+
+            let appDockerfile;
+            let appDockerRepo;
+            let appDockerTag = '1.0.0';
+            let appName;
+
+            if (tee) {
+                await generateTmpJsTestAppPackage(appDir);
+                const appDockerInfo = await computeAppDockerInfo(
+                    appDir, /* app directory */
+                    {
+                        ...options,
+                        dockerRepoDir: 'ixcdv',
+                        dockerUrl: inventory._inv.getDockerUrl()
+                    });
+                appDockerfile = appDockerInfo.dockerfileGramine;
+                appDockerRepo = appDockerInfo.dockerRepoGramine;
+                appName = appDockerInfo.nameGramine;
             } else {
-                // Generate temporary test dataset
-                datasetFile = path.join(getTmpDir(), "/test/dataset/hello.txt");
-                await generateTmpHelloDataset(datasetFile);
+                appDockerfile = await generateTmpTestAppDockerfile(appDir, tee);
+                appDockerRepo = (tee) ? graminizeDockerRepo('ixcdv/test') : 'ixcdv/test';
+                appName = `${appDockerRepo}:${appDockerTag}`;
+            }
+
+            assert(appDockerfile);
+            assert(appName);
+
+            // dataset not yet supported in tee mode
+            let datasetFile;
+            if (!tee) {
+                if (!isNullishOrEmptyString(options.datasetFile)) {
+                    if (path.isAbsolute(options.datasetFile)) {
+                        datasetFile = options.datasetFile;
+                    } else {
+                        datasetFile = path.join(process.cwd(), options.datasetFile);
+                    }
+                } else {
+                    // Generate temporary test dataset
+                    datasetFile = path.join(getTmpDir(), "/test/dataset/hello.txt");
+                    await generateTmpHelloDataset(datasetFile);
+                }
             }
 
             // hubAlias = <chainid>.<deployConfigName>
@@ -78,17 +108,16 @@ export default class TestCmd extends Cmd {
             // Start 1 worker + all the default chain
             await StartCmd.exec(inventory, 'worker', { count: 1, machine: options.workersMachine, hub: hubAlias });
 
-            let inputFiles = [
-                "https://gist.githubusercontent.com/0xalexbel/e45c442a044d5c56669936e33f344a79/raw/18b97677eea153671e7f81a33155a4a233a749db/helloworld.txt"
-            ];
+            let inputFiles = [];
+            // let inputFiles = [
+            //     "https://gist.githubusercontent.com/0xalexbel/e45c442a044d5c56669936e33f344a79/raw/18b97677eea153671e7f81a33155a4a233a749db/helloworld.txt"
+            // ];
             // let inputFiles = [
             //     "https://gist.githubusercontent.com/0xalexbel/e45c442a044d5c56669936e33f344a79/raw/?ok=true"
             // ];
             if (options.inputFile) {
                 if (Array.isArray(options.inputFile)) {
                     inputFiles = options.inputFile;
-                } else {
-                    inputFiles = [];
                 }
             }
 
@@ -98,27 +127,17 @@ export default class TestCmd extends Cmd {
             /*                                                                */
             /* -------------------------------------------------------------- */
 
-            
-            /** @type {cTypes.MREnclave=} */
-            const appMREnclave = undefined;
-            // const appMREnclave = {
-            //     provider: "GRAMINE",
-            //     //framework: "GRAMINE",
-            //     entrypoint: "python /app/app.py",
-            //     version: "v5",
-            //     heapSize: 1073741824,
-            //     //./graphene-sgx-get-token --sig ../../entrypoint.sig
-            //     fingerprint: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-            // };
-
             const outRun = await runIexecApp(inventory, {
                 hub: hubAlias,
+                tee,
                 trust: 1,
                 args: "'do stuff' do stuff \"do stuff\"",
                 inputFiles,
                 appDir,
                 appName,
-                appMREnclave,
+                appDockerfile,
+                appDockerTag,
+                appDockerRepo,
                 datasetName: options.datasetName,
                 datasetFile,
             });
@@ -201,10 +220,33 @@ export default class TestCmd extends Cmd {
 }
 
 /**
- * Generates `test.sh` + `Dockerfile`
  * @param {string} testDir 
  */
-async function generateTmpTestApp(testDir) {
+async function generateTmpJsTestAppPackage(testDir) {
+
+    mkDirP(path.join(testDir, 'src'), { strict: true });
+
+    const templatesDir = getTemplatesDir();
+
+    copyFileSync(
+        path.join(templatesDir, 'nodejs-hello.js.template'),
+        path.join(testDir, 'src', 'app.js'));
+    copyFileSync(
+        path.join(templatesDir, 'nodejs-hello-package.json.template'),
+        path.join(testDir, 'package.json'));
+
+    await replaceInFile(
+        ["{{ app-entry }}", "{{ node-major-version }}"], 
+        ["./src/app.js", "19"], 
+        path.join(testDir, 'package.json'));
+}
+
+/**
+* Generates `test.sh` + `Dockerfile`
+* @param {string} testDir 
+* @param {boolean} tee 
+*/
+async function generateTmpTestAppDockerfile(testDir, tee) {
 
     mkDirP(testDir, { strict: true });
 
@@ -262,6 +304,8 @@ ENTRYPOINT ["sh", "test.sh"]
 `;
 
     saveToFileSync(dockerfileSrc, testDir, 'Dockerfile');
+
+    return path.join(testDir, 'Dockerfile');
 }
 
 /**
@@ -304,7 +348,7 @@ function testProgress({ count, total, value }) {
     const state = value.status;
 
     if (Cmd.JsonProgress) {
-        console.log(JSON.stringify({ count, total, value:{ id:name, status:state } }));
+        console.log(JSON.stringify({ count, total, value: { id: name, status: state } }));
         return;
     }
 

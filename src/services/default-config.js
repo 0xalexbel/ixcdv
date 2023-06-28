@@ -1,5 +1,6 @@
 import { PROD_NAME } from "../common/consts.js";
 import * as types from '../common/common-types.js';
+import { masterEtcHostname, toEtcHostname } from "../common/machine.js";
 
 export const DEFAULT_MNEMONIC = "tackle clump have cool idea ripple rally jump airport shed raven song";
 const STANDARD = 'standard';
@@ -110,10 +111,10 @@ function addGanache(shared, mnemonic, chainId) {
 }
 
 /**
- * @param {*} machines 
+ * @param {*} config 
  * @param {string} name 
  */
-function addQemuMachine(machines, name) {
+function addQemuMachine(config, name) {
     /** @type {types.QemuMachineArgs} */
     const args = {
         name,
@@ -133,13 +134,18 @@ function addQemuMachine(machines, name) {
         gatewayIp: '10.0.2.2',
         ixcdvWorkspaceDirectory: './workspace',
     };
-    machines[name] = {
+    config.machines[name] = {
         type: "qemu",
         ...args
+    }
+    config.vars = {
+        ...config.vars,
+        "node1": toEtcHostname("node1")
     }
 }
 
 export const DEFAULT_CONFIG = (
+    /** @type {boolean} */ addQemuNode1,
     /** @type {number} */ firstChainId,
     /** @type {number} */ countChains,
     mnemonics = [DEFAULT_MNEMONIC, DEFAULT_MNEMONIC]
@@ -180,9 +186,25 @@ export const DEFAULT_CONFIG = (
     addMarket(c.shared, STANDARD, firstChainId, countChains);
     addMarket(c.shared, ENTERPRISE, firstChainId, countChains);
     addMarket(c.shared, NATIVE, firstChainId, countChains);
-    addQemuMachine(c.machines, 'node1');
-    //@ts-ignore
-    c.vars['node1'] = '127.0.0.1';
+
+    // use ipv4 by default 
+    // - the current qemu setup does not support ipv6
+    // - using 'localhost' instead of '127.0.0.1' leads to
+    //   worlds of troubles with the qemu node1
+    c.vars = {
+        "defaultHostname": "${master}",
+        "localHostname": "${master}",
+        "master": "127.0.0.1" // default (without Qemu node)
+    };
+    if (addQemuNode1) {
+        // In the case of a Qemu node, must use a hostname stored in
+        // both master and slave '/etc/hosts' files
+        // @ts-ignore
+        c.vars["master"] = masterEtcHostname();
+        addQemuMachine(c, 'node1');
+    } else {
+
+    }
 
     c.default = computeChainName(firstChainId + 0, STANDARD);
 

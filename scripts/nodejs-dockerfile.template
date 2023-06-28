@@ -1,0 +1,10 @@
+FROM node:{{ node-major-version }}-alpine
+
+RUN mkdir /app
+
+COPY . /workplace/app
+
+WORKDIR /workplace/app
+RUN npm install
+
+ENTRYPOINT [ "node", "/workplace/app/{{ app-entry }}"]

@@ -25,7 +25,7 @@ import { toPackage } from '../pkgmgr/pkg.js';
 import { deepCopyPackage } from '../pkgmgr/pkgmgr-deepcopy.js';
 import { getGitHubRepo, getLatestVersion } from '../git/git-api.js';
 import { NULL_ADDRESS, toChecksumAddress } from '../common/ethers.js';
-import { AbstractMachine } from '../common/machine.js';
+import { AbstractMachine, masterEtcHostname, toEtcHostname } from '../common/machine.js';
 import { inventoryToMachineConfigJSON } from './ConfigFile.js';
 import { etchostsIndexOf, parseEtchostsFile } from '../common/utils.js';
 
@@ -833,22 +833,30 @@ export class InventoryDB {
     async masterToAllSlavesUploadIxcdvConfigJSON() {
         if (this.isLocalMaster()) {
             const masterEtchosts = parseEtchostsFile();
-            const masterIndex = etchostsIndexOf(masterEtchosts, 'ixcdv-master');
+            const masterHostname = masterEtcHostname();
+            const masterIndex = etchostsIndexOf(masterEtchosts, masterHostname);
             if (masterIndex < 0) {
-                throw new CodeError("Master : Missing line '127.0.0.1 ixcdv-master' in /etc/hosts.");
+                throw new CodeError(`Master : Missing line '127.0.0.1 ${masterHostname}' in /etc/hosts.`);
             }
-            const allMachines = this.allMachinesArray;
-            for (let i = 0; i < allMachines.length; ++i) {
-                const machineConfigJSON = await inventoryToMachineConfigJSON(this, allMachines[i]);
-                const slaveIndex = etchostsIndexOf(masterEtchosts, `ixcdv-${allMachines[i].name}`);
+            const allSlaves = this.allMachinesArray;
+            for (let i = 0; i < allSlaves.length; ++i) {
+                const slaveConfigJSON = await inventoryToMachineConfigJSON(this, allSlaves[i]);
+
+                // 1. Verify that the slave hostname is listed in the master /etc/hosts file
+                const slaveHostname = toEtcHostname(allSlaves[i].name);
+                // is 'ixcdv-node1' listed in master '/etc/hosts' file ?
+                const slaveIndex = etchostsIndexOf(masterEtchosts, slaveHostname);
                 if (slaveIndex < 0) {
-                    let ip = allMachines[i].sshConfig.host;
+                    let ip = allSlaves[i].sshConfig.host;
                     if (ip === 'localhost') {
                         ip = '127.0.0.1';
                     }
-                    throw new CodeError(`Master : Missing line '${ip} ixcdv-${allMachines[i].name}' in /etc/hosts.`);
+                    throw new CodeError(`Missing line '${ip} ${slaveHostname}' in master machine '/etc/hosts' file.`);
                 }
-                await allMachines[i].uploadIxcdvConfigJSON(machineConfigJSON);
+
+                // 2. Upload the slave version of the 'ixcdv-config.json' master config file
+                // allMachines[i] is a slave machine
+                await allSlaves[i].slaveUploadIxcdvConfigJSON(slaveConfigJSON);
             }
         }
     }

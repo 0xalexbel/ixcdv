@@ -214,10 +214,10 @@ PoCo/contracts/libs/IexecLibOrders_v5.sol
 /** 
 @typedef MREnclave
 @type {object}
-    @property {string} provider
+    @property {('SCONE' | 'GRAMINE')} framework
     @property {string} version
-    @property {string} entrypoint
-    @property {types.positiveInteger} heapSize
+    @property {string=} entrypoint
+    @property {types.positiveInteger=} heapSize
     @property {string} fingerprint
  */
 

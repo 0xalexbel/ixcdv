@@ -6,7 +6,7 @@ import { CodeError } from "../../common/error.js";
 import { chmodUXSync, generateTmpPathname, mkDirP, replaceInFile, rmrf, saveToFileSync } from "../../common/fs.js";
 import { fileURLToPath } from 'url';
 import { copyFile } from 'fs/promises';
-import { QemuMachine } from '../../common/machine.js';
+import { QemuMachine, masterEtcHostname, toEtcHostname } from '../../common/machine.js';
 import * as ssh from '../../common/ssh.js';
 import { hostnamePortToString } from '../../common/string.js';
 
@@ -185,6 +185,9 @@ ssh ${machine.sshConfig.username}@${machine.sshConfig.host} -p ${machine.sshConf
 
                 assert(machine.sshConfig.username);
 
+                const slaveHostname = toEtcHostname(machine.name);
+                const masterHostname = masterEtcHostname();
+                
                 await replaceInFile(
                     [
                         "{{ user }}", 
@@ -201,14 +204,14 @@ ssh ${machine.sshConfig.username}@${machine.sshConfig.host} -p ${machine.sshConf
                     ],
                     [
                         machine.sshConfig.username, // user
-                        `ixcdv-${machine.name}`, //salve hostname
-                        "127.0.0.1", //salve ip
-                        "ixcdv-master", //master hostname
+                        slaveHostname, //slave hostname
+                        "127.0.0.1", //slave ip
+                        masterHostname, //master hostname
                         machine.gatewayIp, //master ip
                         "7.4.2", //gradle version
                         "19", //node version
                         "11", //jdk
-                        `${dockerHost}`, //docker registry
+                        dockerHost, //docker registry
                         "https://github.com/0xalexbel/ixcdv.git", 
                         "develop"
                     ],
@@ -251,7 +254,7 @@ ssh ${machine.sshConfig.username}@${machine.sshConfig.host} -p ${machine.sshConf
             const configJSON = await inventory.toMachineConfigJSON(machine);
 
             if (options.upload) {
-                await machine.uploadIxcdvConfigJSON(configJSON);
+                await machine.slaveUploadIxcdvConfigJSON(configJSON);
             } else {
                 process.stdout.write(JSON.stringify(configJSON, null, 2));
             }

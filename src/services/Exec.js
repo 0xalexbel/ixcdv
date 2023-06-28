@@ -19,6 +19,7 @@ import { Deal } from '../contracts/Deal.js';
 /** 
     @typedef {{ 
         hub: string | PoCoHubRef | types.PoCoHubRefLike
+        tee?: boolean,
         trust?: number,
         args?: string,
         inputFiles?: string[],
@@ -27,9 +28,12 @@ import { Deal } from '../contracts/Deal.js';
         appDir: string,
         appName: string,
         appOrderSalt?: string,
-        appMREnclave?: cTypes.MREnclave,
+        appDockerfile: string,
+        appDockerRepo?: string,
+        appDockerTag?: string,
         datasetWallet?: Wallet,
         datasetFile?: string,
+        datasetKey?: string,
         datasetName?: string,
         datasetOrderSalt?: string,
         workerpoolWallet?: Wallet,
@@ -48,16 +52,23 @@ export async function runIexecApp(inventory, args) {
     const { chainid, deployConfigName } = DevContractRef.fromHubAlias(hubAlias);
     assert(deployConfigName);
 
+    const tee = (args.tee === true);
     const requestTrust = args.trust ?? 1;
 
     const workerpoolTrust = args.trust ?? 1;
 
     const appDir = args.appDir;
     const appName = args.appName;
+    const appDockerRepo = args.appDockerRepo;
+    const appDockerTag = args.appDockerTag;
+    const appDockerfile = args.appDockerfile;
     const appRebuildImage = true;
     const appSalt = args.appOrderSalt ?? salt1;
-    const appMREnclave = args.appMREnclave;
 
+    assert(appDockerRepo);
+    assert(appDockerTag);
+    assert(appDockerfile);
+    
     const datasetFile = args.datasetFile;
     const datasetSalt = (args.datasetFile) ? (args.datasetOrderSalt ?? salt1) : null;
     const datasetName = args.datasetName;
@@ -130,6 +141,7 @@ export async function runIexecApp(inventory, args) {
         throw new CodeError('Missing Ipfs service');
     }
 
+    //iexec dataset push-secret [datasetAddress]
     const sms = await inventory.newInstanceFromHub('sms', hubAlias);
     if (!sms) {
         throw new CodeError('Missing Sms service');
@@ -152,13 +164,15 @@ export async function runIexecApp(inventory, args) {
     const hubContract = Hub.sharedReadOnly(hubRef, g.contractsMinDir, providerOpts);
 
     const appRegistry = await hubContract.appRegistry();
+    // Will compute the MREnclave if needed
     const newApp = await appRegistry.newEntryFromDockerfile(
         {
-            dockerFileLocation: appDir,
-            dockerRepository: appName,
-            dockerTag: '1.0.0',
+            tee,
+            name: appName,
+            dockerfile: appDockerfile,
+            dockerRepo: appDockerRepo,
+            dockerTag: appDockerTag,
             dockerUrl,
-            mrenclave: appMREnclave,
             rebuildDockerImage: appRebuildImage
         },
         appWallet);
@@ -167,10 +181,8 @@ export async function runIexecApp(inventory, args) {
         throw new CodeError(`Failed to add app to hub's app registry. (${appDir})`);
     }
 
-    const isTee = (appMREnclave) ? true : false;
-
     /** @type {cTypes.tag} */
-    const tag = (isTee) ? ["tee"] : [];
+    const tag = (tee) ? ["tee"] : [];
 
     // Create an infinite appOrder
     const appOrder = await hubContract.newAppOrder({
@@ -198,9 +210,13 @@ export async function runIexecApp(inventory, args) {
             throw new CodeError(`Failed to add dataset to hub's dataset registry. (${datasetFile})`);
         }
 
-        if (isTee) {
+        if (tee) {
             // In Tee mode only
-            const datasetEncryptionKey = "0x123456789";
+            if (isNullishOrEmptyString(args.datasetKey)) {
+                throw new CodeError("Missing --dataset-key option");
+            }
+            assert(args.datasetKey);
+            const datasetEncryptionKey = args.datasetKey;
             assert(newDataset.address);
             const ok = await sms.checkDatasetSecret(newDataset.address);
             if (!ok) {

@@ -3,7 +3,8 @@
 import * as types from '../common/types.js';
 import * as docker from './docker.js';
 import assert from 'assert';
-import { dockerProgress } from './docker-internal.js';
+import path from 'path';
+import { dockerGet, dockerProgress } from './docker-internal.js';
 import { dirExists, fileExists } from '../common/fs.js';
 import { repeatCallUntil } from '../common/repeat-call-until.js';
 import { isNullishOrEmptyString, removeSuffix, stringToPositiveInteger, throwIfNullishOrEmptyString } from '../common/string.js';
@@ -455,19 +456,18 @@ export async function dockerGetImageID(imageName) {
 
 /**
  * @param {string} imgTag 
- * @param {string} dockerfileDir 
+ * @param {string} dockerfile 
  * @param {string[]} buildArgs 
  */
-export async function dockerImageBuild(imgTag, dockerfileDir, buildArgs) {
-    assert(dirExists(dockerfileDir));
-    assert(fileExists(dockerfileDir + '/Dockerfile'));
+export async function dockerImageBuild(imgTag, dockerfile, buildArgs) {
+    assert(fileExists(dockerfile));
 
     const args = [
         "image",
         "build",
         "-t",
         imgTag,
-        "-f", dockerfileDir + '/Dockerfile',
+        "-f", dockerfile,
     ];
     if (buildArgs && buildArgs.length > 0) {
         for (let i = 0; i < buildArgs.length; ++i) {
@@ -479,13 +479,46 @@ export async function dockerImageBuild(imgTag, dockerfileDir, buildArgs) {
 
     console.log("===============================================");
     console.log("BUILD DOCKER IMAGE:");
-    console.log("cwd: " + dockerfileDir);
+    console.log("dockerfile: " + dockerfile);
     console.log("docker " + args.join(' '));
     console.log("===============================================");
 
-    const out = await dockerProgress(dockerfileDir, args, {});
+    const out = await dockerProgress(path.dirname(dockerfile), args, {});
 
     return out.ok;
+}
+
+/**
+ * Executes:
+ * - docker run --rm --security-opt seccomp=<seccomp> --entrypoint <entrypoint> <imgTag> <args>
+ * @param {string} imgTag 
+ * @param {string | undefined} entrypoint 
+ * @param {string | undefined} seccomp 
+ * @param {string[]} args
+ */
+export async function dockerImageRun(imgTag, entrypoint, seccomp, args) {
+    assert(imgTag);
+    const _args = [
+        "run",
+        "--rm"
+    ];
+    if (entrypoint !== undefined) {
+        _args.push("--entrypoint");
+        _args.push(entrypoint);
+    }
+    if (seccomp !== undefined) {
+        _args.push("--security-opt");
+        _args.push(`seccomp=${seccomp}`);
+    }
+    _args.push(imgTag);
+    _args.push(...args);
+
+    const out = await dockerGet(process.cwd(), _args, {});
+    if (out.ok) {
+        return out.result;
+    }
+
+    throw out.error;
 }
 
 /**

@@ -23,8 +23,3 @@ const PROD_ENV_VAR_PREFIX = 'IXCDV';
 export function envVarName(s) {
     return PROD_ENV_VAR_PREFIX + '_' + s.toUpperCase();
 }
-
-/** @param {string} imgName */
-export function dockerAppName(imgName) {
-    return `${PROD_DOCKERNAME}/${imgName}`;
-}

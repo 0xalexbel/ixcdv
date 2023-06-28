@@ -4,13 +4,11 @@ import path from 'path';
 import { Cmd } from "../../Cmd.js";
 import { CodeError } from '../../../common/error.js';
 import { Inventory } from '../../../services/Inventory.js';
-import { dirExists, errorDirDoesNotExist, errorFileDoesNotExist, fileExists, mkDirP, readObjectFromJSONFile, resolveAbsolutePath, saveToFile } from '../../../common/fs.js';
-import { stringIsPOSIXPortable } from '../../../common/string.js';
-import { computeDockerChecksumAndMultiaddr } from '../../../contracts/app-generator.js';
+import { dirExists, errorDirDoesNotExist, fileExists, fileExistsInDir, getTemplatesDir, mkDirP, pathIsPOSIXPortable, readObjectFromJSONFile, replaceInFile, resolveAbsolutePath, saveToFile, throwIfFileDoesNotExist } from '../../../common/fs.js';
+import { computeIExecAppEntry } from '../../../contracts/app-generator.js';
 import { isDeepStrictEqual } from 'util';
 import { PoCoContractRef, PoCoHubRef } from '../../../common/contractref.js';
 import { Hub } from '../../../contracts/Hub.js';
-import { dockerAppName } from '../../../common/consts.js';
 
 export default class AppInitCmd extends Cmd {
 
@@ -23,6 +21,12 @@ export default class AppInitCmd extends Cmd {
      */
     async cliExec(cliDir, directory, options) {
         try {
+            if (!directory) {
+                directory = cliDir;
+            }
+            if (options.dockerRepo && options.dockerRepoDir) {
+                throw new CodeError('Options --docker-repo and --docker-repo-dir are mutually exclusive.')
+            }
             const configDir = this.resolveConfigDir(cliDir);
             this.exitIfNoConfig(configDir);
 
@@ -49,53 +53,25 @@ export default class AppInitCmd extends Cmd {
                 description: workerpool.description,
             }
 
-            const appWallet = g.walletKeysAtIndex(inventory.getDefaultWalletIndex('app'));
-
             if (!dirExists(directory)) {
                 throw errorDirDoesNotExist(directory);
             }
             directory = resolveAbsolutePath(directory);
 
-            const outDir = options.out ?? process.cwd();
+            const outDir = options.out ?? cliDir;
             if (!dirExists(outDir)) {
                 if (options.force !== true) {
                     throw errorDirDoesNotExist(outDir);
                 }
             }
 
-            const dockerfilePath = path.join(directory, 'Dockerfile');
-            if (!fileExists(dockerfilePath)) {
-                throw errorFileDoesNotExist(dockerfilePath);
-            }
+            const appWallet = g.walletKeysAtIndex(inventory.getDefaultWalletIndex('app'));
 
-            if (!stringIsPOSIXPortable(options.name)) {
-                throw new CodeError(`Invalid app name '${options.name}'`);
-            }
-
-            const dockerImageName = options.name;
-            const dockerUrl = inventory._inv.getDockerUrl();
-            const appDockerRepo = dockerAppName(dockerImageName);
-            const rebuildDockerImage = true;
-
-            // compute app multiaddr & checksum
-            const appMC = await computeDockerChecksumAndMultiaddr(
-                directory, /* app dockerfile dir */
-                appDockerRepo, /* app docker repo */
-                '1.0.0', /* app docker tag */
-                dockerUrl, /* docker registry url */
-                [], /* buildArgs */
-                rebuildDockerImage ?? false /* rebuild docker image */
-            );
-
-            /** @type {cTypes.App} */
-            const iExecAppEntry = {
-                owner: appWallet.address,
-                name: appDockerRepo,
-                type: "DOCKER",
-                checksum: appMC.checksum,
-                multiaddr: appMC.multiaddr,
-                //mrenclave:undefined
-            }
+            let iExecAppEntry = await computeIExecAppEntry(
+                directory, /* app directory */
+                appWallet.address, /* app owner */
+                { ...options, dockerUrl: inventory._inv.getDockerUrl() },
+                true /* rebuildDockerImage */);
 
             const chainName = inventory._inv.hubAliasToChainName(hubAlias);
 

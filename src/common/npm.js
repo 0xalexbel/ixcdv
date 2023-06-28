@@ -1,7 +1,23 @@
+import path from 'path';
 import { CodeError } from './error.js';
-import { dirExists } from './fs.js';
+import { dirExists, fileExistsInDir, readObjectFromJSONFile } from './fs.js';
 import { childProcessSpawn } from './process.js';
 import * as types from './common-types.js';
+import { isNullishOrEmptyString } from './string.js';
+
+/**
+ * @param {*} directory 
+ */
+export async function autoDetectNPMPackage(directory) {
+    if (isNullishOrEmptyString(directory)) {
+        return undefined;
+    }
+    if (!fileExistsInDir(directory, 'package.json')) {
+        return undefined;
+    }
+    const pkg = await readObjectFromJSONFile(path.join(directory, 'package.json'));
+    return pkg;
+}
 
 /**
  * Executes npm install

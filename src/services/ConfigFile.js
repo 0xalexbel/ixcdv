@@ -142,11 +142,7 @@ export class ConfigFile {
             throw new CodeError(errorMissingProperty('shared', configFile));
         }
         if (!configJson.vars) {
-            configJson.vars = {
-                "defaultHostname": "${master}",
-                "localHostname": "${master}",
-                "master": "localhost"
-            }
+            throw new CodeError(errorMissingProperty('vars', configFile));
         }
         if (typeof configJson.vars !== 'object') {
             throw new CodeError(errorInvalidProperty('vars', configFile));
@@ -159,11 +155,12 @@ export class ConfigFile {
     }
 
     /**
+     * @param {boolean} addQemuNode1
      * @param {number} firstChainId
      * @param {number} countChainIds 
      * @param {(string | string[])=} mnemonics 
      */
-    static default(firstChainId, countChainIds, mnemonics) {
+    static default(addQemuNode1, firstChainId, countChainIds, mnemonics) {
         throwIfNotStrictlyPositiveInteger(firstChainId);
         throwIfNotStrictlyPositiveInteger(countChainIds);
         mnemonics = mnemonics ?? [];
@@ -192,7 +189,7 @@ export class ConfigFile {
         }
 
         assert(_mnemonics.length >= countChainIds || _mnemonics.length === 0);
-        return DEFAULT_CONFIG(firstChainId, countChainIds, _mnemonics);
+        return DEFAULT_CONFIG(addQemuNode1, firstChainId, countChainIds, _mnemonics);
     }
 
     static basename() {
@@ -239,7 +236,8 @@ export class ConfigFile {
         if (!has_defaultHostname &&
             !has_localHostname) {
             if (!has_master) {
-                placeholders["${master}"] = 'localhost';
+                //placeholders["${master}"] = 'localhost';
+                throw new CodeError(`Missing vars.master property in file '${ConfigFile.basename()}'`);
             }
             placeholders["${defaultHostname}"] = "${master}";
             placeholders["${localHostname}"] = "${master}";

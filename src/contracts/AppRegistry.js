@@ -10,10 +10,12 @@ import { SharedReadonlyContracts } from '../common/contracts/SharedReadonlyContr
 import { ContractBase } from '../common/contracts/ContractBase.js';
 import { MultiaddrEx } from './MultiaddrEx.js';
 import { AppRegistryEntry } from './AppRegistryEntry.js';
-import { computeDockerChecksumAndMultiaddr } from './app-generator.js';
+import { computeDockerChecksumAndMultiaddr, computeMREnclave } from './app-generator.js';
 import { ContractRef, newContract } from '../common/contractref.js';
 import { ERC721TokenIdToAddress, NULL_ADDRESS, toChecksumAddress, toTxArgs } from '../common/ethers.js';
 import { CodeError } from '../common/error.js';
+import { throwIfNullishOrEmptyString } from "../common/string.js";
+import { throwIfFileDoesNotExist } from "../common/fs.js";
 
 export const AppRegistryConstructorGuard = { value: false };
 
@@ -77,8 +79,8 @@ export class AppRegistry extends Registry {
 
         if (baseContract.isSharedReadOnly) {
             return AppRegistry.sharedReadOnly(
-                contractRef, 
-                baseContract.contractDir, 
+                contractRef,
+                baseContract.contractDir,
                 baseContract.network);
         }
 
@@ -115,8 +117,12 @@ export class AppRegistry extends Registry {
      * @param {?cTypes.MREnclave=} mrenclaveObj 
      */
     static MREnclaveToUtf8Buffer(mrenclaveObj) {
+        console.error("*********************************************");
+        console.error("* TODO: check how MREnclave is encoded !!!! *");
+        console.error("*********************************************");
         const mre = (mrenclaveObj) ? {
-            provider: mrenclaveObj.provider, // key order is important
+            //provider: mrenclaveObj.provider, // key order is important
+            framework: mrenclaveObj.framework, // key order is important
             version: mrenclaveObj.version, // key order is important
             entrypoint: mrenclaveObj.entrypoint, // key order is important
             heapSize: mrenclaveObj.heapSize, // key order is important
@@ -281,36 +287,51 @@ export class AppRegistry extends Registry {
 
     /**
      * @param {{
-     *     dockerFileLocation: string
-     *     dockerRepository: string
-     *     dockerTag?: string
+     *     tee?: boolean,
+     *     name: string
+     *     dockerfile: string
+     *     dockerRepo: string
+     *     dockerTag: string
      *     dockerUrl: string
-     *     mrenclave?: cTypes.MREnclave
      *     rebuildDockerImage?: boolean
      * }} args 
      * @param {types.TxArgsOrWallet} txArgsOrWallet 
      */
     async newEntryFromDockerfile(args, txArgsOrWallet) {
+        throwIfNullishOrEmptyString(args.name);
+        throwIfFileDoesNotExist(args.dockerfile);
+
+        const tee = (args.tee === true);
         const txArgs = toTxArgs(txArgsOrWallet);
+
+        const appDockerfile = args.dockerfile;
+        assert(appDockerfile);
+        const appName = args.name;
+        assert(appName);
 
         // compute app multiaddr & checksum
         const appMC = await computeDockerChecksumAndMultiaddr(
-            args.dockerFileLocation, /* app dockerfile dir */
-            args.dockerRepository, /* app docker repo */
-            args.dockerTag ?? '1.0.0', /* app docker tag */
+            args.dockerfile, /* app dockerfile dir */
+            args.dockerRepo, /* app docker repo */
+            args.dockerTag, /* app docker tag */
             args.dockerUrl, /* docker registry url */
             [], /* buildArgs */
             args.rebuildDockerImage ?? false /* rebuild docker image */
         );
-        
+
+        const mrenclave = (tee) ? await computeMREnclave(
+            args,
+            args.rebuildDockerImage ?? false /* rebuild docker image */
+        ) : undefined;
+
         /** @type {cTypes.App} */
         const app = {
             owner: txArgs.wallet.address,
-            name: args.dockerRepository,
+            name: appName,
             type: "DOCKER",
             checksum: appMC.checksum,
             multiaddr: appMC.multiaddr,
-            mrenclave: args.mrenclave
+            mrenclave
         }
 
         return this.newEntry(app, txArgs);

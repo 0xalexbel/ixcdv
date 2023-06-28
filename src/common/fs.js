@@ -13,6 +13,7 @@ import { PROD_FILE_EXT, PROD_TMP_DIR } from './consts.js';
 
 import * as nodeUtil from 'util';
 import { exec as childProcessExec } from 'child_process';
+import { fileURLToPath } from 'url';
 const exec_promise = nodeUtil.promisify(childProcessExec);
 
 const { moveSync: fsextmoveSync, move: fsextmove } = fsext;
@@ -990,7 +991,7 @@ export async function replaceInFile(strArr, replaceArr, file) {
         const str = strArr[i];
         const replace = replaceArr[i];
         if (fileStr.indexOf(str) < 0) {
-            return true;
+            continue;
         }
         try {
             fileStrReplaced = fileStrReplaced.replaceAll(str, replace);
@@ -1101,6 +1102,15 @@ export async function lns(sourceFile, linkName) {
 
 export function getTmpDir() {
     return PROD_TMP_DIR;
+}
+
+export function getTemplatesDir() {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = pathlib.dirname(__filename);
+
+    const dir = pathlib.join(__dirname, "../../scripts");
+    assert(dirExists(dir));
+    return dir;
 }
 
 /**

@@ -13,7 +13,7 @@ import { isNullishOrEmptyString, stringToPositiveInteger } from '../common/strin
 import { resolveAbsolutePath, saveToFile, throwIfDirDoesNotExist, throwIfFileAlreadyExists } from '../common/fs.js';
 import { AbstractService } from '../common/service.js';
 import { getDockerDesktopPids } from '../docker/docker-api.js';
-import { AbstractMachine } from '../common/machine.js';
+import { AbstractMachine, masterEtcHostname } from '../common/machine.js';
 
 export const InventoryConstructorGuard = { value: false };
 
@@ -114,6 +114,7 @@ export class Inventory {
     /**
      * @param {string} dir 
      * @param {{
+     *      useQemuSlave?: boolean
      *      firstChainId?: string
      *      countChainIds?: string
      *      mnemonic?: string | string[]
@@ -121,6 +122,7 @@ export class Inventory {
      * @param {{[varname:string]: string}} vars
      */
     static newDefault(dir, options, vars) {
+        const addQemuNode1 = (options?.useQemuSlave === true);
         const firstChainId = stringToPositiveInteger(options?.firstChainId ?? "1337", { strict: true });
         const countChainIds = stringToPositiveInteger(options?.countChainIds ?? "2", { strict: true });
 
@@ -128,7 +130,7 @@ export class Inventory {
         assert(countChainIds);
 
         // starts with a basic empty config containing the minimal PoCo configs
-        const defaultJSON = ConfigFile.default(firstChainId, countChainIds, options?.mnemonic);
+        const defaultJSON = ConfigFile.default(addQemuNode1, firstChainId, countChainIds, options?.mnemonic);
 
         // Generates the corresponding inventory
         // All the folder absolute paths are resolved as well as all the service ports.
@@ -150,8 +152,13 @@ export class Inventory {
     async toMachineConfigJSON(machine) {
         const configJSON = await inventoryToConfigFile(this._inv, this._inv.rootDir);
         assert(configJSON.vars);
-        assert(configJSON.vars["master"] === 'ixcdv-master');
-        configJSON.vars["master"] = "ixcdv-master" //machine.gatewayIp;
+        assert(configJSON.vars["master"] === masterEtcHostname());
+        // the master hostname is a constant within the whole ixcdv network
+        configJSON.vars["master"] = masterEtcHostname();
+        // Ex: vars.localHostname === '${node1}'
+        // If machine === node1 then:
+        // vars.localHostname === '${node1}'
+        // Which means : when ixcdv is RUNNING ON 'node1', the variable ${localHostname} should be resolved as 'node1'
         configJSON.vars["localHostname"] = '${' + machine.name + '}';
         return configJSON;
     }

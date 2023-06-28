@@ -4,7 +4,7 @@ import { Cmd } from "../../Cmd.js";
 import cliProgress from 'cli-progress';
 import { CodeError } from '../../../common/error.js';
 import { Inventory } from '../../../services/Inventory.js';
-import { dirExists, errorDirDoesNotExist, errorFileDoesNotExist, fileExists, getTmpDir, mkDirP, readFile, resolveAbsolutePath, rmrfDir } from '../../../common/fs.js';
+import { dirExists, errorDirDoesNotExist, errorFileDoesNotExist, fileExists, getTmpDir, mkDirP, readFile, readFileSync, resolveAbsolutePath, rmrfDir, throwIfFileDoesNotExist } from '../../../common/fs.js';
 import ResetAllCmd from '../resetAll.js';
 import StopAllCmd from '../stopAll.js';
 import StartCmd from '../start.js';
@@ -12,7 +12,7 @@ import { runIexecApp, waitUntilTaskCompleted } from '../../../services/Exec.js';
 import { Task } from '../../../contracts/Task.js';
 import { downloadAndUnzipZipFile } from '../../../common/zip.js';
 import { isNullishOrEmptyString, stringIsPOSIXPortable } from '../../../common/string.js';
-import { dockerAppName } from '../../../common/consts.js';
+import { computeAppDockerInfo } from '../../../contracts/app-generator.js';
 
 export default class AppRunCmd extends Cmd {
 
@@ -43,28 +43,33 @@ export default class AppRunCmd extends Cmd {
             }
             directory = resolveAbsolutePath(directory);
 
-            const dockerfilePath = path.join(directory, 'Dockerfile');
-            if (!fileExists(dockerfilePath)) {
-                throw errorFileDoesNotExist(dockerfilePath);
+            if (isNullishOrEmptyString(options.dockerRepo) &&
+                isNullishOrEmptyString(options.dockerRepoDir)) {
+                throw new CodeError("Missing option '--docker-repo' or '--docker-repo-dir'.")
             }
 
-            if (!stringIsPOSIXPortable(options.name)) {
-                throw new CodeError(`Invalid app name '${options.name}'`);
-            }
-
+            const tee = (options.tee === true);
             const numWorkers = 1;
             const trust = 1;
 
-            const imageName = options.name;
-            const appName = dockerAppName(imageName);
-            const appDir = directory;
-
             /** @type {string=} */
             let datasetFile = undefined;
+            /** @type {string=} */
+            let datasetKey = undefined;
             if (options.dataset) {
                 datasetFile = resolveAbsolutePath(options.dataset);
                 if (!fileExists(datasetFile)) {
                     throw errorFileDoesNotExist(datasetFile);
+                }
+                if (tee) {
+                    if (isNullishOrEmptyString(options.datasetKey)) {
+                        throw new CodeError("Missing --dataset-key option");
+                    }
+                    throwIfFileDoesNotExist(options.datasetKey);
+                    datasetKey = readFileSync(options.datasetKey, { strict: true }) ?? undefined;
+                    if (datasetKey) {
+                        datasetKey = datasetKey.trim();
+                    }
                 }
             }
 
@@ -80,6 +85,8 @@ export default class AppRunCmd extends Cmd {
 
             // Load inventory from config json file
             const inventory = await Inventory.fromConfigFile(configDir, vars);
+
+            const dockerUrl = inventory._inv.getDockerUrl();
 
             // The hubAlias = <chainid>.<deployConfigName>
             const hubAlias = inventory._inv.guessHubAlias(options);
@@ -104,8 +111,52 @@ export default class AppRunCmd extends Cmd {
             /*                                                                */
             /* -------------------------------------------------------------- */
 
+            const appDir = directory;
+            const appDockerInfo = await computeAppDockerInfo(
+                appDir, /* app directory */
+                { ...options, dockerUrl });
+
+            // select the right dockerfile 
+            const appDockerfile = (tee)
+                ? appDockerInfo.dockerfileGramine
+                : appDockerInfo.dockerfile;
+            if (isNullishOrEmptyString(appDockerfile)) {
+                throw new CodeError('Unable to determine app dockerfile');
+            }
+            assert(appDockerfile);
+
+            // select the right app name:
+            // - <name>
+            // - <name>-gramine 
+            const appName = (tee)
+                ? appDockerInfo.nameGramine
+                : appDockerInfo.name;
+            if (isNullishOrEmptyString(appName)) {
+                throw new CodeError('Unable to determine app name');
+            }
+            assert(appName);
+
+            // select the right app docker repo:
+            // - <repo>
+            // - <repo>-gramine 
+            const appDockerRepo = (tee)
+                ? appDockerInfo.dockerRepoGramine
+                : appDockerInfo.dockerRepo;
+            if (isNullishOrEmptyString(appDockerRepo)) {
+                throw new CodeError('Unable to determine app docker repository');
+            }
+            assert(appDockerRepo);
+
+            // select the right app docker tag:
+            const appDockerTag = appDockerInfo.dockerTag;
+            if (isNullishOrEmptyString(appDockerTag)) {
+                throw new CodeError('Unable to determine app docker tag');
+            }
+            assert(appDockerTag);
+
             const outRun = await runIexecApp(inventory, {
                 hub: hubAlias,
+                tee,
                 trust,
                 args,
                 // inputFiles: [
@@ -113,6 +164,9 @@ export default class AppRunCmd extends Cmd {
                 // ],
                 appDir,
                 appName,
+                appDockerRepo,
+                appDockerTag,
+                appDockerfile,
                 datasetFile
             });
 
@@ -146,7 +200,7 @@ export default class AppRunCmd extends Cmd {
             const ipfs = await inventory._inv.newIpfsInstance();
             assert(ipfs);
 
-            const resultsTmpDir = path.join(getTmpDir(), `/${imageName}/results`);
+            const resultsTmpDir = path.join(getTmpDir(), `/${appDockerRepo}/results`);
             const zipURL = new URL(task.results.location, ipfs.urlString);
 
             // Throws an error if 'resultsDir' parent directory does not exist
@@ -201,7 +255,7 @@ function testProgress({ count, total, value }) {
     const state = value.status;
 
     if (Cmd.JsonProgress) {
-        console.log(JSON.stringify({ count, total, value:{ id:name, status:state } }));
+        console.log(JSON.stringify({ count, total, value: { id: name, status: state } }));
         return;
     }
 

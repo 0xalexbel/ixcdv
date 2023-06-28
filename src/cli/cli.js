@@ -103,6 +103,7 @@ If a single mnemonic is specified (or a new random one using the 'new' keyword),
 Otherwise, the command is expecting one mnemonic per chainId.
 Use the 'new' keyword to specify a random mnemonic.
 By default all the chainids are sharing the same following mnemonic: "${DEFAULT_MNEMONIC}"`)
+    .option('--use-qemu-slave', `(Beta) Add a qemu slave machine.`)
     .action((directory, options) => {
         execCmd('init', directory, options);
     });
@@ -184,6 +185,7 @@ testCmd.description('Runs a test app on the specified chain.')
     .option('--workers-machine <machine>', "Machine where the workers are running.")
     .option('--restart', "Restart all services before launching the test.")
     .option('--reset', "Reset before launching the test.")
+    .option('--tee', "Run the test in tee mode.")
     .option('--dataset-file <file>', "Run the test using a custom dataset file.")
     .option('--dataset-name <name>', "Run the test using a custom dataset name.")
     .option('--input-file <urls...>', "Specify custom input file request parameter. (Variadic option)")
@@ -295,7 +297,12 @@ cmd.description(`Runs an app within the ${PROD_NAME} 'local' microservices archi
     .summary(`Runs an app within the ${PROD_NAME} 'local' microservices architecture.`)
     .argument('<directory>', "The folder containing the app's Dockerfile to execute.")
     .requiredOption('--name <app name>', "The app name (required).")
+    .option('--tee', 'Run app in tee mode')
+    .option('--docker-repo-dir <dirname>', "The app docker repository dirname.")
+    .option('--docker-repo <name>', "The app docker repository.")
+    .option('--docker-tag <tag>', "The app docker repository tag.")
     .option('--dataset <datasetFile>', 'A dataset file.')
+    .option('--dataset-key <datasetKeyfile>', 'The dataset key file (if the dataset file is encrypted).')
     .option('--args <args>', 'App arguments.')
     .action((directory, options) => {
         execCmd('app/run', directory, options);
@@ -310,8 +317,13 @@ cmd.description(`Given a <directory> containing an app's 'Dockerfile' as input, 
 The command will also generate the corresponding 'chain.json' file.
 Both files are required to execute any command using the official 'iexec' sdk cli.`)
     .summary("Generates/updates the 'app' entry in an 'iexec.json' file.")
-    .argument('<directory>', "The folder where the app's 'Dockerfile' is located.")
-    .requiredOption('--name <app name>', "The app name (required).")
+    .argument('[directory]', "The folder where the app's 'Dockerfile' is located.")
+    .option('--name <appName>', "The iexec app name (default=<dockerRepo/dockerTag>).")
+    .option('--docker-repo-dir <dirname>', "The app docker repository dirname.")
+    .option('--docker-repo <name>', "The app docker repository.")
+    .option('--docker-tag <tag>', "The app docker repository tag.")
+    .option('--docker-file <filename>', "The Dockerfile filename (default=Dockerfile).")
+    .option('--tee', "Init app in tee mode (default=false).")
     .option('--out <directory>', "The folder where both 'iexec.json' and 'chain.json' files will be generated or updated.\n(default: current working directory)")
     .option('--force', "- Creates missing directories\n- If 'iexec.json' file already exists, overrides any existing 'app' entry.")
     .action((directory, options) => {

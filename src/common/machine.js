@@ -6,9 +6,19 @@ import { qemuSystemI386, qemuSystemI386IsRunning } from '../qemu/qemu-system-i38
 import { fileExists, readFileSync, toAbsolutePath, toRelativePath } from './fs.js';
 import { isNullishOrEmptyString } from './string.js';
 import * as ssh from './ssh.js';
-import { PROD_CONFIG_BASENAME } from './consts.js';
+import { PROD_CONFIG_BASENAME, PROD_VAR_PREFIX } from './consts.js';
 import { assertIsStrictlyPositiveInteger } from './number.js';
 import { addToEtcHostsStr } from './utils.js';
+
+/**
+ * @param {string} name 
+ */
+export function toEtcHostname(name) {
+    return `${PROD_VAR_PREFIX}-${name}`;
+}
+export function masterEtcHostname() {
+    return toEtcHostname('master');
+}
 
 /* ----------------------- AbstractMachine Class -------------------------- */
 
@@ -292,9 +302,14 @@ export class AbstractMachine {
     }
 
     /**
+     * - Method must be called by the 'master' node
+     * - The target (ie 'this') must be a 'slave' node
+     * - this === 'slave'
+     * - Also setup slave '/etc/hosts'
      * @param {object} ixcdvConfigJSON 
      */
-    async uploadIxcdvConfigJSON(ixcdvConfigJSON) {
+    async slaveUploadIxcdvConfigJSON(ixcdvConfigJSON) {
+        // this === 'target machine' === 'slave'
         if (this.isMaster) {
             // cannot target master ??
             throw new CodeError('Cannot perform any ssh command targeting the master machine');
@@ -310,9 +325,13 @@ export class AbstractMachine {
 
         // Update /etc/hosts
         // =================
-        // add :
+        // For example, add :
         // 10.0.2.2 ixcdv-master
         // 127.0.0.1 ixcdv-node1
+
+        // Which means:
+        // - whithin QEMU node1, hostname 'ixcdv-master' should be translated as '10.0.2.2' (the gateway ip)
+        // - whithin QEMU node1, hostname 'ixcdv-node1' should be translated as '127.0.0.1' (because 'ixcdv-node1' === the QEMU node1)
 
         const etchosts = await ssh.cat(sshConf, "/etc/hosts");
         if (!etchosts || etchosts.length === 0) {
@@ -322,17 +341,22 @@ export class AbstractMachine {
         assert(ixcdvConfigJSON.vars);
         assert(this.#name !== 'master'); // prevent future collision ?
 
+        const masterHostname = masterEtcHostname();
         const masterIp = this.gatewayIp;
-        const myIp = "127.0.0.1"; //keep ipv4 for QEMU
+
+        const slaveHostname = toEtcHostname(this.#name);
+        // slaveIp === ip of slave within slave
+        const slaveIp = "127.0.0.1"; //keep ipv4 for QEMU
 
         assert(masterIp);
 
-        const new_etchosts = addToEtcHostsStr(["ixcdv-master", `ixcdv-${this.#name}`], [masterIp, myIp], etchosts);
+        const new_etchosts = addToEtcHostsStr([masterHostname, slaveHostname], [masterIp, slaveIp], etchosts);
         if (new_etchosts !== etchosts) {
             await ssh.scpString(sshConf, new_etchosts, "/tmp/ixcdv-etc-hosts");
             await ssh.exec(sshConf, "sudo cp /tmp/ixcdv-etc-hosts /etc/hosts ; rm -rf /tmp/ixcdv-etc-hosts");
         }
 
+        // Update slave 'ixcdv-config.json'
         const ok = await ssh.mkDirP(sshConf, this.#ixcdvWorkspaceDirectory);
         await ssh.scpString(
             sshConf,
