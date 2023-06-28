@@ -249,6 +249,9 @@ export class InventoryInstall {
             toRelativePath(conf.repository.directory, path.dirname(appAllJar)),
             path.basename(appAllJar));
 
+        const dockerfile = path.join(conf.repository.directory, "Dockerfile");
+        throwIfFileDoesNotExist(dockerfile);
+
         const imgName = conf.repository.gitHubRepoName;
         assert(imgName);
         assert(conf.repository.commitish);
@@ -256,7 +259,7 @@ export class InventoryInstall {
         const imgVersion = removeSuffix('v', conf.repository.commitish);
         // Ex: multiaddr = localhost:5008/tee-worker-pre-compute:v8.0.0
         const res = await computeDockerChecksumAndMultiaddr(
-            conf.repository.directory,
+            dockerfile,
             imgName,
             imgVersion,
             this._inv.getDockerUrl(),
@@ -285,6 +288,9 @@ export class InventoryInstall {
             toRelativePath(conf.repository.directory, path.dirname(appAllJar)),
             path.basename(appAllJar));
 
+        const dockerfile = path.join(conf.repository.directory, "Dockerfile");
+        throwIfFileDoesNotExist(dockerfile);
+
         const imgName = conf.repository.gitHubRepoName;
         assert(imgName);
         assert(conf.repository.commitish);
@@ -292,7 +298,7 @@ export class InventoryInstall {
         const imgVersion = removeSuffix('v', conf.repository.commitish);
         // Ex: multiaddr = localhost:5008/tee-worker-post-compute:v8.0.0
         const res = await computeDockerChecksumAndMultiaddr(
-            conf.repository.directory,
+            dockerfile,
             imgName,
             imgVersion,
             this._inv.getDockerUrl(),
